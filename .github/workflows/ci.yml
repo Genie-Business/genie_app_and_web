@@ -41,28 +41,24 @@ jobs:
       - run: |
           flutter create --org co.genieapps --project-name genie --platforms=android,ios . || true
       - run: flutter pub get
-      # Non-blocking until the Dart toolchain is verified locally against this
-      # code. Each issue is emitted as a GitHub annotation + echoed to the run
-      # summary so it can be seen and fixed.
       - name: flutter analyze
         run: |
           set +e
-          flutter analyze --no-fatal-infos > analyze.txt 2>&1
+          flutter analyze > analyze.txt 2>&1; code=$?
           cat analyze.txt
           awk -F' • ' '
             /^[[:space:]]*(error|warning|info)[[:space:]]*•/ {
               sev=$1; gsub(/[[:space:]]/,"",sev);
-              split($3, loc, ":"); file=loc[1]; line=loc[2];
+              split($3, loc, ":");
               lvl=(sev=="error")?"error":"warning";
-              printf "::%s file=apps/mobile/%s,line=%s::%s [%s]\n", lvl, file, line, $2, $4;
+              printf "::%s file=apps/mobile/%s,line=%s::%s [%s]\n", lvl, loc[1], loc[2], $2, $4;
             }' analyze.txt
           { echo '## flutter analyze'; echo '```'; cat analyze.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          exit 0
+          exit $code
       - name: flutter test
         run: |
           set +e
-          flutter test --reporter expanded > test.txt 2>&1
+          flutter test --reporter expanded > test.txt 2>&1; code=$?
           cat test.txt
-          grep -E ':[0-9]+:[0-9]+' test.txt | grep -iE 'error|exception|failed' | while read -r l; do echo "::warning::flutter test: $l"; done
           { echo '## flutter test'; echo '```'; cat test.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          exit 0
+          exit $code

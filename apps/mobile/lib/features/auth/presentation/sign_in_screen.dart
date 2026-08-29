@@ -96,7 +96,7 @@ class _State extends ConsumerState<SignInScreen> {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => context.go('/auth/role'),
-                child: const Text("New to genie? Create an account"),
+                child: const Text('New to genie? Create an account'),
               ),
             ],
           ),

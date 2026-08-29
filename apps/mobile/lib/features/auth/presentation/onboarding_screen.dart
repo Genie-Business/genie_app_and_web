@@ -21,7 +21,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     (
       'Gifts, made easy',
-      "Friends pick from your list and pay in seconds — openly or anonymously.",
+      'Friends pick from your list and pay in seconds — openly or anonymously.',
     ),
     (
       'A little bit of magic',

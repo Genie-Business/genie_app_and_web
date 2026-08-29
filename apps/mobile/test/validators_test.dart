@@ -7,7 +7,7 @@ void main() {
       expect(Validators.password('Abcdef1!'), isNull);
     });
     test('flags each missing character class', () {
-      expect(Validators.password('short1!A'), contains('8'));
+      expect(Validators.password('Shrt1!a'), contains('8')); // 7 chars → too short
       expect(Validators.password('abcdefg1!'), contains('upper'));
       expect(Validators.password('ABCDEFG1!'), contains('lower'));
       expect(Validators.password('Abcdefgh!'), contains('number'));
