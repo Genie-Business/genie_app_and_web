@@ -12,33 +12,11 @@ type Stub = [Method, string, string, string];
  * the shapes today.
  */
 const STUBS: Stub[] = [
-  // Events (E003)
-  ['post', '/v1/events', 'Events', 'Create an event (US0014)'],
-  ['get', '/v1/events', 'Events', 'List my events + dashboard totals (US0008/US0009)'],
-  ['get', '/v1/events/{id}', 'Events', 'Get an event'],
-  ['patch', '/v1/events/{id}', 'Events', 'Edit an event'],
-  ['delete', '/v1/events/{id}', 'Events', 'Delete an event (kept in history)'],
-  // Wishlists (E004)
-  ['post', '/v1/wishlists', 'Wishlists', 'Create a wishlist for an event'],
-  ['get', '/v1/wishlists/{id}', 'Wishlists', 'Get a wishlist with its items'],
-  ['post', '/v1/wishlists/{id}/items', 'Wishlists', 'Add/update a product on a wishlist'],
-  ['delete', '/v1/wishlists/{id}/items/{itemId}', 'Wishlists', 'Remove an item from a wishlist'],
-  ['get', '/v1/wishlists/{id}/share', 'Wishlists', 'Get a shareable link for a wishlist'],
   // Carts (E013)
   ['get', '/v1/cart', 'Cart', 'Get my open cart'],
   ['post', '/v1/cart/items', 'Cart', 'Add/update a product in the cart'],
   ['delete', '/v1/cart/items/{itemId}', 'Cart', 'Remove a product from the cart'],
-  // Catalog (E013)
-  ['get', '/v1/categories', 'Catalog', 'List product categories'],
-  ['post', '/v1/categories/requests', 'Catalog', 'Request a new category (merchant)'],
-  ['get', '/v1/products', 'Catalog', 'Browse products'],
-  ['get', '/v1/products/{id}', 'Catalog', 'Get a product'],
-  // Merchant (E006 / E014)
-  ['post', '/v1/merchant/products', 'Merchant', 'Add a product/service (US0013)'],
-  ['patch', '/v1/merchant/products/{id}', 'Merchant', 'Edit a product/service'],
-  ['delete', '/v1/merchant/products/{id}', 'Merchant', 'Delete a product/service'],
-  ['get', '/v1/merchant/products', 'Merchant', 'List my products/services'],
-  ['put', '/v1/merchant/products/{id}/inventory', 'Merchant', 'Update inventory / available stock'],
+  // Merchant orders / fees (E006 / E008 / E014)
   ['get', '/v1/merchant/orders', 'Merchant', 'List orders for my products (US Vendor Orders)'],
   ['patch', '/v1/merchant/orders/{id}/delivery', 'Merchant', 'Update delivery status'],
   ['get', '/v1/merchant/fees', 'Merchant', 'See applicable fees & commission (E008)'],

@@ -28,7 +28,7 @@ export const productDto = z.object({
   availableStock: z.number().int().nullable(),
 });
 
-// Merchant-authored (scaffold in M1)
+// Merchant-authored (E013)
 export const createProductBody = z.object({
   categoryId: z.string(),
   name: z.string().trim().min(1).max(160),
@@ -39,7 +39,12 @@ export const createProductBody = z.object({
   quantity: z.number().int().min(0).default(0),
   imageUrls: z.array(z.string().url()).max(8).default([]),
 });
+export type CreateProductBody = z.infer<typeof createProductBody>;
+
 export const updateProductBody = createProductBody.partial();
+export type UpdateProductBody = z.infer<typeof updateProductBody>;
+
+export const setInventoryBody = z.object({ availableStock: z.number().int().min(0) });
 
 export const requestCategoryBody = z.object({
   name: z.string().trim().min(1).max(80),

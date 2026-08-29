@@ -24,6 +24,8 @@ const schema = z.object({
   ANCHOR_KEY: z.string().optional().default(''),
   ANCHOR_WEBHOOK_SECRET: z.string().optional().default(''),
 
+  /** Consumer web app base — used to build wishlist share links. */
+  APP_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
   CORS_ORIGINS: z.string().default('*'),
 });
 

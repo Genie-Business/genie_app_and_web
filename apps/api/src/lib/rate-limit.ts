@@ -11,6 +11,11 @@ const buckets = new Map<string, Bucket>();
 
 export type RateLimitRule = { limit: number; windowMs: number };
 
+/** Test helper — clear all rate-limit buckets between tests. */
+export function __resetRateLimits(): void {
+  buckets.clear();
+}
+
 export function rateLimit(key: string, rule: RateLimitRule): void {
   const now = Date.now();
   const existing = buckets.get(key);

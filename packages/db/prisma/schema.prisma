@@ -474,9 +474,11 @@ model Event {
   wishlists Wishlist[]
   orders    Order[]
 
-  @@unique([userId, name])
+  // "Repeated Event Name" is enforced in the service among non-DELETED events
+  // (a DB-level unique would block reusing the name of a deleted event).
   @@index([userId])
   @@index([status])
+  @@index([userId, name])
 }
 
 model Wishlist {

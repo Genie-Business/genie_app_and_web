@@ -11,6 +11,11 @@ import authRoutes from './modules/auth/auth.routes';
 import meRoutes from './modules/me/me.routes';
 import paymentsRoutes from './modules/payments/payments.routes';
 import waitlistRoutes from './modules/waitlist/waitlist.routes';
+import catalogRoutes from './modules/catalog/catalog.routes';
+import merchantRoutes from './modules/merchant/merchant.routes';
+import eventsRoutes from './modules/events/events.routes';
+import wishlistsRoutes from './modules/wishlists/wishlists.routes';
+import publicRoutes from './modules/public/public.routes';
 import { mountStubs } from './modules/stubs';
 
 export function createApp() {
@@ -71,6 +76,11 @@ export function createApp() {
   app.route('/v1/me', meRoutes);
   app.route('/v1/payments', paymentsRoutes);
   app.route('/v1/waitlist', waitlistRoutes);
+  app.route('/v1', catalogRoutes); // /v1/categories, /v1/products
+  app.route('/v1/merchant', merchantRoutes);
+  app.route('/v1/events', eventsRoutes);
+  app.route('/v1/wishlists', wishlistsRoutes);
+  app.route('/v1/public', publicRoutes);
 
   // ── Planned endpoints (501 + documented) ─────────────────────────────
   mountStubs(app);
@@ -86,9 +96,9 @@ export function createApp() {
     openapi: '3.1.0',
     info: {
       title: 'genie API',
-      version: '0.1.0',
+      version: '0.2.0',
       description:
-        'API for the genie social-gifting platform. Milestone 1: authentication is fully implemented; other endpoints are documented but return 501.',
+        'API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock). Other endpoints are documented but return 501.',
     },
     servers: [{ url: '/', description: 'current host' }],
   });

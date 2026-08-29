@@ -5,7 +5,11 @@ export default defineConfig({
     environment: 'node',
     include: ['test/**/*.test.ts'],
     setupFiles: ['test/setup.ts'],
-    testTimeout: 20_000,
-    hookTimeout: 30_000,
+    testTimeout: 30_000,
+    hookTimeout: 40_000,
+    // Integration suites share one database and TRUNCATE between tests — they
+    // must not run concurrently.
+    fileParallelism: false,
+    sequence: { concurrent: false },
   },
 });

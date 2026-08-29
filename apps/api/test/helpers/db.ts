@@ -20,12 +20,17 @@ export async function hasDb(): Promise<boolean> {
     probed = false;
     return probed;
   }
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    probed = true;
-  } catch {
-    probed = false;
+  // Retry — a suspended serverless database (Neon) may need a moment to wake.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      probed = true;
+      return probed;
+    } catch {
+      await new Promise((r) => setTimeout(r, 2500));
+    }
   }
+  probed = false;
   return probed;
 }
 

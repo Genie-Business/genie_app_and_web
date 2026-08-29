@@ -25,6 +25,13 @@ loadEnv([
   resolve(__dirname, '../../../.env'),
 ]);
 
+import { beforeEach } from 'vitest';
+import { __resetRateLimits } from '../src/lib/rate-limit';
+
+// The in-memory rate limiter is a module singleton — reset it per test so
+// earlier tests don't exhaust a bucket a later test depends on.
+beforeEach(() => __resetRateLimits());
+
 process.env.NODE_ENV = 'test';
 process.env.APP_ENV ??= 'test';
 process.env.PAYMENTS_PROVIDER ??= 'mock';
