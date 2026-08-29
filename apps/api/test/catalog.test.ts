@@ -11,7 +11,10 @@ d('catalog + merchant products (E013)', () => {
   const app = createApp();
 
   beforeEach(async () => resetDb());
-  afterAll(async () => prisma.$disconnect());
+  afterAll(async () => {
+    await resetDb().catch(() => {});
+    await prisma.$disconnect();
+  });
 
   it('merchant creates → edits stock → deletes a product; catalog reflects it', async () => {
     const merchant = await makeMerchant();

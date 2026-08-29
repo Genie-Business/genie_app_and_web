@@ -22,7 +22,10 @@ d('wishlists (E004)', () => {
   const app = createApp();
 
   beforeEach(async () => resetDb());
-  afterAll(async () => prisma.$disconnect());
+  afterAll(async () => {
+    await resetDb().catch(() => {});
+    await prisma.$disconnect();
+  });
 
   it('adds, updates (upsert) and removes items; totals + shareability track', async () => {
     const merchant = await makeMerchant();

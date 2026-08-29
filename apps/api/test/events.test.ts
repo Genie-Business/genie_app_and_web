@@ -13,7 +13,10 @@ d('events (E003)', () => {
   const app = createApp();
 
   beforeEach(async () => resetDb());
-  afterAll(async () => prisma.$disconnect());
+  afterAll(async () => {
+    await resetDb().catch(() => {});
+    await prisma.$disconnect();
+  });
 
   it('creates an event with an inline wishlist and lists it', async () => {
     const { auth } = await makeCelebrant();
