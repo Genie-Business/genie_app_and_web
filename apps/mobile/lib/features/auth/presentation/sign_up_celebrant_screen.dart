@@ -56,7 +56,7 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
         context.go('/auth/verify?email=${Uri.encodeComponent(_email.text.trim())}');
       }
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

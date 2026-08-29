@@ -37,7 +37,7 @@ class _State extends ConsumerState<ForgotPasswordScreen> {
         context.push('/auth/reset?email=${Uri.encodeComponent(_email.text.trim())}');
       }
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

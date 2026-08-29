@@ -36,7 +36,7 @@ class _State extends ConsumerState<VerifyOtpScreen> {
       await ref.read(authControllerProvider.notifier).verifyEmail(email: widget.email, code: code);
       // Router redirects to home on authenticated state.
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -48,7 +48,7 @@ class _State extends ConsumerState<VerifyOtpScreen> {
       setState(() => _cooldown = 30);
       _tick();
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     }
   }
 

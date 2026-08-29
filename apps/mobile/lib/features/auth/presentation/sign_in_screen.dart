@@ -39,7 +39,7 @@ class _State extends ConsumerState<SignInScreen> {
           .login(identifier: _identifier.text.trim(), password: _password.text);
       // Router redirects on auth state change.
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
