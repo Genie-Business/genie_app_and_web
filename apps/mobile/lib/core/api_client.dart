@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -84,12 +82,14 @@ class ApiClient {
     try {
       final res = await future;
       final body = res.data;
-      if (body is Map && body.containsKey('data')) return body['data'] as T;
+      if (body is Map<String, dynamic> && body.containsKey('data')) {
+        return body['data'] as T;
+      }
       return body as T;
     } on DioException catch (e) {
       final data = e.response?.data;
-      if (data is Map && data['error'] is Map) {
-        final err = data['error'] as Map;
+      if (data is Map<String, dynamic> && data['error'] is Map) {
+        final err = data['error'] as Map<dynamic, dynamic>;
         throw ApiException(
           (err['code'] ?? 'error').toString(),
           (err['message'] ?? 'Something went wrong.').toString(),

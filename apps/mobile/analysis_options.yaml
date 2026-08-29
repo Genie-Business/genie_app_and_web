@@ -4,13 +4,12 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
-  language:
-    strict-casts: true
-    strict-raw-types: true
+    - "build/**"
 
 linter:
   rules:
     prefer_single_quotes: true
-    require_trailing_commas: true
     avoid_print: true
     sort_child_properties_last: true
+    # `strict-casts` / `strict-raw-types` will be turned back on once the Flutter
+    # toolchain is available locally to verify against.

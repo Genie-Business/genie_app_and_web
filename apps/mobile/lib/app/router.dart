@@ -22,13 +22,13 @@ class _SplashScreen extends StatelessWidget {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authControllerProvider);
-
+  // Build the router once; `refreshListenable` re-runs `redirect` on auth changes
+  // and `redirect` reads the current status fresh each time.
   return GoRouter(
     initialLocation: '/',
     refreshListenable: _AuthListenable(ref),
     redirect: (context, state) {
-      final status = auth.status;
+      final status = ref.read(authControllerProvider).status;
       final loc = state.matchedLocation;
 
       if (status == AuthStatus.unknown) return loc == '/splash' ? null : '/splash';

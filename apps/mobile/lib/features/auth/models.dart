@@ -55,7 +55,8 @@ class AuthUser {
         username: j['username'] as String? ?? '',
         emailVerified: j['emailVerified'] as bool? ?? false,
         referralCode: j['referralCode'] as String?,
-        merchantName: (j['merchant'] as Map?)?['businessName'] as String?,
+        merchantName:
+            (j['merchant'] as Map<String, dynamic>?)?['businessName'] as String?,
       );
 }
 

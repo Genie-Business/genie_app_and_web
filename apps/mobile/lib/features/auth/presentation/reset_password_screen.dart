@@ -41,9 +41,9 @@ class _State extends ConsumerState<ResetPasswordScreen> {
             code: _code.text.trim(),
             newPassword: _password.text,
           );
-      setState(() => _done = true);
+      if (mounted) setState(() => _done = true);
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

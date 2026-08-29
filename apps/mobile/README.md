@@ -13,8 +13,8 @@ unlock, password reset) wired to `@genie/api`. Home is a placeholder shell.
 
 ```bash
 cd apps/mobile
+flutter create --org co.genieapps --project-name genie .   # generate android/ ios/ (first run only)
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs   # (only if you add generated models)
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8787   # Android emulator
 flutter run --dart-define=API_BASE_URL=http://localhost:8787  # iOS simulator
 ```

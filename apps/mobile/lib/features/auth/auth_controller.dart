@@ -51,7 +51,17 @@ class AuthController extends Notifier<AuthState> {
   }
 
   /// Called on app start. Tries a silent (or biometric-gated) session restore.
+  /// Any failure (no keychain in tests, corrupt token, offline) resolves to
+  /// unauthenticated rather than crashing the app.
   Future<void> bootstrap() async {
+    try {
+      await _bootstrap();
+    } catch (_) {
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    }
+  }
+
+  Future<void> _bootstrap() async {
     final refresh = await _store.refreshToken;
     final canBiometric = await _canUseBiometrics();
     if (refresh == null) {
