@@ -2,6 +2,7 @@ import { prisma } from '@genie/db';
 import { logger } from '../../lib/logger';
 import { getPaymentProvider } from './provider';
 import { settleAddFunds } from './payments.service';
+import { settleGiftTransfer } from '../gifts/gifts.service';
 
 /**
  * Receive, verify and route a provider webhook. Every event is logged to
@@ -68,7 +69,10 @@ async function route(eventType: string, payload: unknown) {
     case 'payment.received': {
       const reference = String(attributes?.reference ?? '');
       const amount = BigInt(Math.round(Number(attributes?.amount ?? 0)));
-      if (reference) await settleAddFunds(reference, amount);
+      if (!reference) return;
+      // A pay-in reference belongs either to a wallet top-up or a gift transfer.
+      const gift = await settleGiftTransfer(reference, amount);
+      if (!gift.handled) await settleAddFunds(reference, amount);
       return;
     }
     // Events genie will consume in later milestones — acknowledged, not yet acted on.

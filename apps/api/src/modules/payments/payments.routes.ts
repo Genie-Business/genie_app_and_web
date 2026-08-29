@@ -1,14 +1,17 @@
 import { createRoute } from '@hono/zod-openapi';
 import { createRouter } from '../../lib/router';
-import { payments as P } from '@genie/contracts';
+import { payments as P, gifts as G } from '@genie/contracts';
 import { badRequest } from '../../lib/errors';
 import { commonErrorResponses, jsonBody, jsonResponse, z } from '../../lib/openapi';
 import { requireAuth, requireVerifiedEmail } from '../../middleware/auth';
+import { serializeBigInts } from '../../lib/bigint';
 import { getBalanceKobo } from './ledger.service';
 import { createAddFundsIntent, getIntent, settleAddFunds } from './payments.service';
 import { getPaymentProvider, MockPaymentProvider } from './provider';
 import { ensureWallet } from './wallet.service';
 import { handleProviderWebhook } from './webhook.service';
+import { addCard, listCards, removeCard } from './cards.service';
+import { withdrawToBank } from '../payouts/payouts.service';
 
 const router = createRouter();
 
@@ -19,6 +22,9 @@ const intentSchema = z.object({ data: z.record(z.unknown()) });
 router.use('/wallet', requireAuth);
 router.use('/add-funds', requireAuth, requireVerifiedEmail);
 router.use('/intents/*', requireAuth);
+router.use('/cards', requireAuth);
+router.use('/cards/*', requireAuth);
+router.use('/withdraw', requireAuth, requireVerifiedEmail);
 
 // ── GET /payments/wallet ─────────────────────────────────────────────────
 router.openapi(
@@ -137,6 +143,74 @@ router.post('/webhooks/anchor', async (c) => {
   // recorded in WebhookEvent for replay.
   return c.json({ received: true, ...result }, result.accepted ? 200 : 202);
 });
+
+// ── Cards (E012, US0019) ──────────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'get',
+    path: '/cards',
+    tags: ['Payments'],
+    summary: 'List my saved cards',
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: jsonResponse('Cards', z.object({ data: z.array(z.record(z.unknown())) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => c.json({ data: await listCards(c.get('user')!.id) }, 200),
+);
+router.openapi(
+  createRoute({
+    method: 'post',
+    path: '/cards',
+    tags: ['Payments'],
+    summary: 'Add a (provider-tokenised) card',
+    description: 'The card is tokenised by the payment provider on the client — genie never receives the PAN, CVV or PIN.',
+    security: [{ bearerAuth: [] }],
+    request: { body: jsonBody(G.addCardBody) },
+    responses: { 201: jsonResponse('Card added', intentSchema), ...commonErrorResponses },
+  }),
+  async (c) => c.json({ data: await addCard(c.get('user')!.id, c.req.valid('json')) }, 201),
+);
+router.openapi(
+  createRoute({
+    method: 'delete',
+    path: '/cards/{id}',
+    tags: ['Payments'],
+    summary: 'Remove a card (permanent)',
+    security: [{ bearerAuth: [] }],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: jsonResponse('Removed', z.object({ data: z.object({ message: z.string() }) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => {
+    await removeCard(c.get('user')!.id, c.req.valid('param').id);
+    return c.json({ data: { message: 'Card removed.' } }, 200);
+  },
+);
+
+// ── POST /payments/withdraw ───────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'post',
+    path: '/withdraw',
+    tags: ['Payments'],
+    summary: 'Withdraw wallet balance to a bank account (NIP transfer)',
+    security: [{ bearerAuth: [] }],
+    request: { body: jsonBody(G.withdrawBody) },
+    responses: {
+      201: jsonResponse('Withdrawal initiated', intentSchema),
+      409: jsonResponse('Insufficient funds', z.object({ error: z.record(z.unknown()) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => {
+    const res = await withdrawToBank(c.get('user')!.id, c.req.valid('json'));
+    return c.json(serializeBigInts({ data: res }), 201);
+  },
+);
 
 // Register the webhook route in the OpenAPI doc without zod validation.
 router.openAPIRegistry.registerPath({

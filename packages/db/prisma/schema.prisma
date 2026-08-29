@@ -286,10 +286,28 @@ model User {
   supportThreads    SupportThread[]
   transactions      Transaction[]
   paymentIntents    PaymentIntent[]
+  savedCards        SavedCard[]
 
   @@index([role])
   @@index([status])
   @@index([referredById])
+}
+
+model SavedCard {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       String   @default("anchor")
+  providerToken  String // tokenised by the provider client-side; genie never sees the PAN
+  last4          String
+  brand          String?
+  expMonth       Int?
+  expYear        Int?
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, providerToken])
+  @@index([userId])
 }
 
 model MerchantProfile {

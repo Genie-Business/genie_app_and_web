@@ -99,3 +99,75 @@ export async function setInventory(merchantId: string, id: string, availableStoc
   });
   return inv;
 }
+
+// ── Orders (E014, "Vendor Orders") ──────────────────────────────────────
+
+export async function listOrders(merchantId: string) {
+  const orders = await prisma.order.findMany({
+    where: { merchantId },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    include: {
+      items: { select: { description: true, quantity: true, lineTotalKobo: true } },
+      delivery: true,
+      gift: { select: { isAnonymous: true, revealedAt: true } },
+    },
+  });
+  return orders.map((o) => ({
+    id: o.id,
+    orderNumber: o.orderNumber,
+    status: o.status,
+    subtotalKobo: o.subtotalKobo,
+    commissionKobo: o.commissionKobo,
+    // what the merchant is credited for this order
+    proceedsKobo: o.subtotalKobo - o.commissionKobo,
+    items: o.items.map((i) => ({ description: i.description, quantity: i.quantity, lineTotalKobo: i.lineTotalKobo })),
+    delivery: o.delivery
+      ? { status: o.delivery.status, courierName: o.delivery.courierName, courierRef: o.delivery.courierRef }
+      : null,
+    isGift: o.gift != null,
+    createdAt: o.createdAt.toISOString(),
+  }));
+}
+
+export async function updateDelivery(
+  merchantId: string,
+  orderId: string,
+  input: { status: 'DISPATCHED' | 'IN_TRANSIT' | 'DELIVERED' | 'FAILED'; courierName?: string; courierRef?: string },
+) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, merchantId },
+    include: { delivery: true, gift: true },
+  });
+  if (!order) throw notFound('Order not found.');
+
+  const now = new Date();
+  await prisma.delivery.upsert({
+    where: { orderId },
+    create: {
+      orderId,
+      status: input.status,
+      courierName: input.courierName,
+      courierRef: input.courierRef,
+      dispatchedAt: input.status === 'DISPATCHED' ? now : undefined,
+      deliveredAt: input.status === 'DELIVERED' ? now : undefined,
+    },
+    update: {
+      status: input.status,
+      courierName: input.courierName,
+      courierRef: input.courierRef,
+      dispatchedAt: input.status === 'DISPATCHED' ? now : order.delivery?.dispatchedAt ?? undefined,
+      deliveredAt: input.status === 'DELIVERED' ? now : order.delivery?.deliveredAt ?? undefined,
+    },
+  });
+
+  if (input.status === 'DELIVERED') {
+    await prisma.order.update({ where: { id: orderId }, data: { status: 'DELIVERED' } });
+    if (order.gift) {
+      await prisma.gift.update({ where: { id: order.gift.id }, data: { status: 'DELIVERED' } });
+    }
+  } else if (order.status === 'PAID') {
+    await prisma.order.update({ where: { id: orderId }, data: { status: 'FULFILLING' } });
+  }
+  return { orderId, deliveryStatus: input.status };
+}

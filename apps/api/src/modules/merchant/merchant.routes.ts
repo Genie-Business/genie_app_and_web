@@ -1,5 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
-import { catalog as C } from '@genie/contracts';
+import { catalog as C, orders as O } from '@genie/contracts';
 import { createRouter } from '../../lib/router';
 import { commonErrorResponses, jsonBody, jsonResponse, z } from '../../lib/openapi';
 import { serializeBigInts } from '../../lib/bigint';
@@ -113,6 +113,44 @@ router.openapi(
     const { id } = c.req.valid('param');
     const inv = await service.setInventory(user.id, id, c.req.valid('json').availableStock);
     return c.json({ data: { productId: id, availableStock: inv.availableStock } }, 200);
+  },
+);
+
+// ── GET /merchant/orders (E014) ──────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'get',
+    path: '/orders',
+    tags: ['Merchant'],
+    summary: 'Orders placed for my products (US Vendor Orders)',
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: jsonResponse('Orders', z.object({ data: z.array(z.record(z.unknown())) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) =>
+    c.json(serializeBigInts({ data: await service.listOrders(c.get('user')!.id) }), 200),
+);
+
+// ── PATCH /merchant/orders/{id}/delivery ────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'patch',
+    path: '/orders/{id}/delivery',
+    tags: ['Merchant'],
+    summary: 'Update the delivery status of an order (E014)',
+    security: [{ bearerAuth: [] }],
+    request: { params: z.object({ id: z.string() }), body: jsonBody(O.deliveryUpdateBody) },
+    responses: {
+      200: jsonResponse('Delivery updated', z.object({ data: z.record(z.unknown()) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const res = await service.updateDelivery(c.get('user')!.id, id, c.req.valid('json'));
+    return c.json({ data: res }, 200);
   },
 );
 

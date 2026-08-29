@@ -143,6 +143,44 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="msg" id="wlMsg"></div>
   </section>
 
+  <!-- GIFTING -->
+  <section class="card" id="giftCard">
+    <h2>Gifting</h2>
+    <p class="muted" style="font-size:12px;margin:0 0 6px">Sign in as a second account, paste a wishlist item ID (shown on each item in the Wishlist card), and send a gift. You can't gift your own list.</p>
+    <label>Wishlist item ID</label><input id="g_item" placeholder="clxxxx…"/>
+    <div class="row">
+      <div><label>Qty</label><input id="g_qty" type="number" value="1" min="1"/></div>
+      <div><label>Method</label><select id="g_method"><option value="WALLET">Wallet</option><option value="BANK_TRANSFER">Bank transfer</option></select></div>
+      <div><label>Anonymous</label><select id="g_anon"><option value="no">No</option><option value="yes">Yes</option></select></div>
+    </div>
+    <label>Message (optional)</label><input id="g_msg" placeholder="Happy birthday!"/>
+    <div style="margin-top:10px"><button id="g_quote" class="ghost">Quote</button> <button id="g_pay">Send gift</button></div>
+    <div class="msg" id="giftMsg"></div>
+    <div class="tabs" style="margin-top:12px">
+      <button data-gtab="recv" class="on">Received</button>
+      <button data-gtab="given">Given</button>
+      <button data-gtab="orders">My orders</button>
+    </div>
+    <div class="list" id="g_recv" data-gpane="recv"></div>
+    <div class="list hide" id="g_given" data-gpane="given"></div>
+    <div class="list hide" id="g_orders" data-gpane="orders"></div>
+  </section>
+
+  <!-- MERCHANT ORDERS & PAYOUT -->
+  <section class="card hide" id="moCard">
+    <h2>Orders &amp; settlement (merchant)</h2>
+    <div class="kv"><span>Wallet balance</span><b id="mo_bal">—</b></div>
+    <div class="row">
+      <div><label>Settlement bank</label><input id="po_bank" value="GTBank"/></div>
+      <div><label>Account no.</label><input id="po_acct" value="0123456789"/></div>
+    </div>
+    <label>Account name</label><input id="po_name" value="Ada Cakes Ltd"/>
+    <div style="margin-top:8px"><button class="ghost sm" id="po_save">Save account</button>
+      <button class="sm" id="po_wd">Withdraw ₦<span id="po_wdamt">all</span></button></div>
+    <div class="msg" id="moMsg"></div>
+    <div class="list" id="mo_list" style="margin-top:12px"></div>
+  </section>
+
   <!-- CATALOG -->
   <section class="card full" id="catCard">
     <h2>Catalogue <span class="muted" style="font-size:12px;text-transform:none">— click a product to add it to the selected wishlist</span></h2>
@@ -223,12 +261,14 @@ function renderSession(){
     $('#who').innerHTML = 'signed in as <b>'+ME.username+'</b> · '+ME.role.toLowerCase()+(ME.emailVerified?' ✓':' (unverified)');
     $('#authCard').classList.add('hide');
     $('#merchCard').classList.toggle('hide', ME.role!=='MERCHANT');
+    $('#moCard').classList.toggle('hide', ME.role!=='MERCHANT');
     $('#walletCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#eventsCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#wlCard').classList.toggle('hide', ME.role==='MERCHANT');
+    $('#giftCard').classList.remove('hide');
   } else {
     $('#who').textContent='not signed in'; $('#authCard').classList.remove('hide');
-    ['merchCard'].forEach(x=>$('#'+x).classList.add('hide'));
+    ['merchCard','moCard','giftCard'].forEach(x=>$('#'+x).classList.add('hide'));
   }
 }
 $('#logout').onclick = () => { TOKEN=''; ME=null; localStorage.removeItem('genie.token'); renderSession(); };
@@ -378,12 +418,19 @@ function renderWishlist(){
   if(!w){ $('#wl_items').innerHTML='<p class="muted">No wishlist selected.</p>'; $('#wl_count').textContent='0'; $('#wl_total').textContent='—'; return; }
   $('#wl_items').innerHTML = w.items.map(i =>
     '<div class="item"><div class="t">'+i.productName+' ×'+i.quantityWanted+'</div>'+
-    '<div class="s">'+naira(i.unitPriceKobo)+' · filled '+i.quantityFulfilled+' '+
-    '<button class="sm ghost" data-rm="'+i.id+'">remove</button></div></div>').join('') || '<p class="muted">Empty — add products from the catalogue.</p>';
+    '<div class="s">'+naira(i.unitPriceKobo)+' · filled '+i.quantityFulfilled+'/'+i.quantityWanted+' '+
+    '<button class="sm ghost" data-rm="'+i.id+'">remove</button></div>'+
+    '<div class="s" style="font-family:ui-monospace,monospace;font-size:11px">item id: '+i.id+
+    ' <button class="sm ghost" data-gift="'+i.id+'">gift this</button></div></div>').join('') || '<p class="muted">Empty — add products from the catalogue.</p>';
   $('#wl_count').textContent = w.itemCount + (w.isShareable?' (shareable)':' (need '+(2-w.itemCount)+' more to share)');
   $('#wl_total').textContent = naira(w.totalValueKobo);
   $$('#wl_items [data-rm]').forEach(b => b.onclick = async () => {
     WISHLIST = await api('/v1/wishlists/'+w.id+'/items/'+b.dataset.rm, {method:'DELETE'}); renderWishlist();
+  });
+  $$('#wl_items [data-gift]').forEach(b => b.onclick = () => {
+    $('#g_item').value = b.dataset.gift;
+    $('#giftCard').scrollIntoView({behavior:'smooth'});
+    msg('#giftMsg','Item ID copied into the gifting form. Sign in as another account to send it.', true);
   });
 }
 $('#wl_share').onclick = async () => {
@@ -442,10 +489,121 @@ $('#mp_go').onclick = async () => {
   }catch(e){ msg('#merchMsg', e.message, false); }
 };
 
+// ---- gifting ----
+$$('.tabs button[data-gtab]').forEach(b => b.onclick = () => {
+  $$('.tabs button[data-gtab]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  $$('[data-gpane]').forEach(p=>p.classList.toggle('hide', p.dataset.gpane!==b.dataset.gtab));
+});
+function giftBody(){
+  return {
+    wishlistItemId: $('#g_item').value.trim(),
+    quantity: Number($('#g_qty').value)||1,
+    isAnonymous: $('#g_anon').value==='yes',
+    message: $('#g_msg').value || undefined,
+    method: $('#g_method').value,
+  };
+}
+$('#g_quote').onclick = async () => {
+  try{
+    msg('#giftMsg','',true);
+    const b = giftBody();
+    const q = await api('/v1/gifts/quote', {method:'POST', body:{wishlistItemId:b.wishlistItemId, quantity:b.quantity}});
+    msg('#giftMsg', q.productName+' ×'+q.quantity+'  —  subtotal '+naira(q.subtotalKobo)+
+      ' + txn fee '+naira(q.transactionFeeKobo)+' + logistics '+naira(q.logisticsFeeKobo)+
+      '  =  you pay '+naira(q.gifterPaysKobo)+'   (merchant gets '+naira(q.merchantReceivesKobo)+
+      ', genie keeps '+naira(q.genieRetainsKobo)+')', true);
+  }catch(e){ msg('#giftMsg', e.message, false); }
+};
+$('#g_pay').onclick = async () => {
+  try{
+    msg('#giftMsg','',true);
+    const res = await api('/v1/gifts', {method:'POST', body:giftBody()});
+    if(res.status==='PENDING'){
+      await api('/v1/payments/_mock/settle', {auth:false, method:'POST', body:{reference:res.reference}});
+      msg('#giftMsg','Bank transfer of '+naira(res.charge.gifterPaysKobo)+' mock-settled — gift is paid.', true);
+    } else {
+      msg('#giftMsg','Gift paid from wallet · order '+res.orderNumber, true);
+    }
+    $('#g_item').value=''; $('#g_msg').value='';
+    await refreshAll();
+  }catch(e){ msg('#giftMsg', e.message, false); }
+};
+async function loadGifts(){
+  if(!ME) return;
+  try{
+    const recv = await api('/v1/gifts/received');
+    $('#g_recv').innerHTML = recv.map(g =>
+      '<div class="item"><div class="t">'+g.productName+' <span class="pill">'+g.status+'</span></div>'+
+      '<div class="s">'+g.eventName+' · '+naira(g.amountKobo)+' · from '+(g.from||'🎁 hidden')+
+      (g.message?(' · “'+g.message+'”'):'')+' '+
+      (g.canReveal?'<button class="sm" data-reveal="'+g.id+'">reveal</button>':'')+'</div></div>').join('')
+      || '<p class="muted">No gifts received yet.</p>';
+    $$('#g_recv [data-reveal]').forEach(b => b.onclick = async () => {
+      try{ const r = await api('/v1/gifts/'+b.dataset.reveal+'/reveal', {method:'POST'});
+        msg('#giftMsg','Revealed: '+r.from+(r.message?(' — “'+r.message+'”'):''), true); loadGifts();
+      }catch(e){ msg('#giftMsg', e.message, false); }
+    });
+    const given = await api('/v1/gifts');
+    $('#g_given').innerHTML = given.map(g =>
+      '<div class="item"><div class="t">'+g.productName+' <span class="pill">'+g.status+'</span></div>'+
+      '<div class="s">'+g.eventName+' · '+naira(g.amountKobo)+(g.isAnonymous?' · anonymous':'')+' · '+(g.orderStatus||'')+'</div></div>').join('')
+      || '<p class="muted">No gifts sent yet.</p>';
+    const orders = await api('/v1/orders');
+    $('#g_orders').innerHTML = orders.map(o =>
+      '<div class="item"><div class="t">'+o.orderNumber+' <span class="pill">'+o.status+'</span></div>'+
+      '<div class="s">'+o.merchantName+' · '+naira(o.totalKobo)+' · delivery '+(o.deliveryStatus||'—')+'</div></div>').join('')
+      || '<p class="muted">No orders.</p>';
+  }catch(e){}
+}
+
+// ---- merchant orders & settlement ----
+$('#po_save').onclick = async () => {
+  try{
+    await api('/v1/payouts/account', {method:'PUT', body:{
+      bankName:$('#po_bank').value, accountNumber:$('#po_acct').value, accountName:$('#po_name').value,
+    }});
+    msg('#moMsg','Settlement account saved.', true);
+  }catch(e){ msg('#moMsg', e.message, false); }
+};
+$('#po_wd').onclick = async () => {
+  try{
+    const w = await api('/v1/payments/wallet');
+    const amountKobo = Number(w.balanceKobo);
+    if(amountKobo < 10000){ msg('#moMsg','Balance below the ₦100 minimum withdrawal.', false); return; }
+    const res = await api('/v1/payments/withdraw', {method:'POST', body:{
+      amountKobo, bankName:$('#po_bank').value, accountNumber:$('#po_acct').value, accountName:$('#po_name').value,
+    }});
+    msg('#moMsg','Withdrawal '+res.status+' · '+naira(res.netAmountKobo), true);
+    loadMerchantOrders();
+  }catch(e){ msg('#moMsg', e.message, false); }
+};
+async function loadMerchantOrders(){
+  if(!ME || ME.role!=='MERCHANT') return;
+  try{
+    const w = await api('/v1/payments/wallet');
+    $('#mo_bal').textContent = naira(w.balanceKobo);
+    $('#po_wdamt').textContent = (Number(w.balanceKobo)/100).toLocaleString();
+    const orders = await api('/v1/merchant/orders');
+    $('#mo_list').innerHTML = orders.map(o => {
+      const d = o.delivery ? o.delivery.status : 'PENDING';
+      const next = d==='PENDING' ? 'DISPATCHED' : (d==='DISPATCHED'||d==='IN_TRANSIT' ? 'DELIVERED' : null);
+      return '<div class="item"><div class="t">'+o.orderNumber+' <span class="pill">'+o.status+'</span>'+(o.isGift?' <span class="pill">gift</span>':'')+'</div>'+
+        '<div class="s">'+o.items.map(i=>i.description+' ×'+i.quantity).join(', ')+' · proceeds '+naira(o.proceedsKobo)+' · delivery '+d+' '+
+        (next?'<button class="sm" data-adv="'+o.id+'" data-to="'+next+'">mark '+next.toLowerCase()+'</button>':'')+'</div></div>';
+    }).join('') || '<p class="muted">No orders yet.</p>';
+    $$('#mo_list [data-adv]').forEach(b => b.onclick = async () => {
+      try{
+        await api('/v1/merchant/orders/'+b.dataset.adv+'/delivery', {method:'PATCH', body:{status:b.dataset.to, courierName:'GIG Logistics'}});
+        msg('#moMsg','Delivery → '+b.dataset.to, true); loadMerchantOrders();
+      }catch(e){ msg('#moMsg', e.message, false); }
+    });
+  }catch(e){}
+}
+
 async function refreshAll(){
   renderSession();
   if(!ME) return;
-  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts()]);
+  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders()]);
 }
 
 // boot

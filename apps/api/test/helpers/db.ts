@@ -46,7 +46,7 @@ export async function resetDb(): Promise<void> {
   // AllowedCountry, AppSetting, AdminUser) is left alone.
   const tables = [
     'LedgerEntry', 'Transaction', 'PaymentIntent', 'WebhookEvent', 'Payout', 'PayoutAccount',
-    'WalletAccount', 'Gift', 'OrderItem', 'Delivery', 'Order', 'CartItem', 'Cart',
+    'SavedCard', 'WalletAccount', 'Gift', 'OrderItem', 'Delivery', 'Order', 'CartItem', 'Cart',
     'WishlistItem', 'Wishlist', 'Event', 'ProductImage', 'Inventory', 'Product', 'Category',
     'Referral', 'Friendship', 'ContactImport', 'Notification', 'SupportMessage',
     'SupportThread', 'ActivityLog', 'DeviceToken', 'RefreshToken', 'OtpToken',

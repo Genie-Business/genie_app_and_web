@@ -16,26 +16,6 @@ const STUBS: Stub[] = [
   ['get', '/v1/cart', 'Cart', 'Get my open cart'],
   ['post', '/v1/cart/items', 'Cart', 'Add/update a product in the cart'],
   ['delete', '/v1/cart/items/{itemId}', 'Cart', 'Remove a product from the cart'],
-  // Merchant orders / fees (E006 / E008 / E014)
-  ['get', '/v1/merchant/orders', 'Merchant', 'List orders for my products (US Vendor Orders)'],
-  ['patch', '/v1/merchant/orders/{id}/delivery', 'Merchant', 'Update delivery status'],
-  ['get', '/v1/merchant/fees', 'Merchant', 'See applicable fees & commission (E008)'],
-  // Gifting (E005)
-  ['post', '/v1/gifts', 'Gifts', 'Add an anonymous / named gift to a wishlist item (US0016)'],
-  ['get', '/v1/gifts/received', 'Gifts', 'Gifts received for my events'],
-  ['post', '/v1/gifts/{id}/reveal', 'Gifts', 'Reveal an anonymous gift on physical receipt'],
-  // Orders (E012)
-  ['get', '/v1/orders', 'Orders', 'My orders as a buyer'],
-  ['get', '/v1/orders/{id}', 'Orders', 'Order detail'],
-  // Payments — pay for a gift (E012)
-  ['post', '/v1/payments/pay-for-gift', 'Payments', 'Pay for a wishlist gift (US0019)'],
-  ['get', '/v1/payments/cards', 'Payments', 'List saved cards'],
-  ['post', '/v1/payments/cards', 'Payments', 'Add a (tokenised) card'],
-  ['delete', '/v1/payments/cards/{id}', 'Payments', 'Remove a card'],
-  ['post', '/v1/payments/withdraw', 'Payments', 'Withdraw wallet balance to a bank account'],
-  // Payouts (merchant settlement)
-  ['get', '/v1/payouts', 'Payouts', 'My payout history (merchant)'],
-  ['put', '/v1/payouts/account', 'Payouts', 'Set/verify my settlement bank account'],
   // Friends & social (E007)
   ['get', '/v1/friends', 'Friends', 'My friends list'],
   ['post', '/v1/friends/requests', 'Friends', 'Send a friend request'],
