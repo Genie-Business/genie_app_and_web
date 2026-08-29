@@ -1,0 +1,3256 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "genie API",
+    "version": "0.1.0",
+    "description": "API for the genie social-gifting platform. Milestone 1: authentication is fully implemented; other endpoints are documented but return 501."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "current host"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "bad_request"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "message"
+                  ]
+                }
+              },
+              "requestId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Liveness + database connectivity",
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok"
+                          ]
+                        },
+                        "env": {
+                          "type": "string"
+                        },
+                        "db": {
+                          "type": "string",
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
+                        },
+                        "time": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "env",
+                        "db",
+                        "time"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a celebrant account (US0001)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  },
+                  "username": {
+                    "type": "string",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)[A-Za-z0-9._]{3,20}(?<!\\.)$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "pattern": "[A-Z]"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "pattern": "^\\+?[0-9]{7,15}$"
+                  },
+                  "stateOfResidence": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "country": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 2,
+                    "default": "NG"
+                  },
+                  "referralCode": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 24
+                  }
+                },
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "username",
+                  "password",
+                  "phone",
+                  "stateOfResidence"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created; an email verification code has been sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "emailVerificationRequired": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "email",
+                        "emailVerificationRequired",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email or username already taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register/merchant": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a merchant account (US0004)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "businessName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 140
+                  },
+                  "confirmationCode": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 40
+                  },
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  },
+                  "username": {
+                    "type": "string",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)[A-Za-z0-9._]{3,20}(?<!\\.)$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "pattern": "[A-Z]"
+                  },
+                  "businessPhone": {
+                    "type": "string",
+                    "pattern": "^\\+?[0-9]{7,15}$"
+                  },
+                  "businessState": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "country": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 2,
+                    "default": "NG"
+                  },
+                  "bankName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "bankAccountNumber": {
+                    "type": "string",
+                    "pattern": "^\\d{10}$"
+                  },
+                  "bankAccountName": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "businessName",
+                  "confirmationCode",
+                  "email",
+                  "username",
+                  "password",
+                  "businessPhone",
+                  "businessState",
+                  "bankName",
+                  "bankAccountNumber"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Merchant account created; verification code sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "emailVerificationRequired": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "email",
+                        "emailVerificationRequired",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/verify-email": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify email with the OTP and receive tokens",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "deviceName": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "email",
+                  "code",
+                  "deviceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified; session issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            },
+                            "accessTokenExpiresIn": {
+                              "type": "number"
+                            },
+                            "tokenType": {
+                              "type": "string",
+                              "enum": [
+                                "Bearer"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "accessToken",
+                            "refreshToken",
+                            "accessTokenExpiresIn",
+                            "tokenType"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "user",
+                        "tokens"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/resend-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Resend an email verification / password reset code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "EMAIL_VERIFY",
+                      "PASSWORD_RESET"
+                    ],
+                    "default": "EMAIL_VERIFY"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "If the account exists, a code was sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log in with email/username + password (US0002)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "deviceName": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "identifier",
+                  "password",
+                  "deviceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            },
+                            "accessTokenExpiresIn": {
+                              "type": "number"
+                            },
+                            "tokenType": {
+                              "type": "string",
+                              "enum": [
+                                "Bearer"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "accessToken",
+                            "refreshToken",
+                            "accessTokenExpiresIn",
+                            "tokenType"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "user",
+                        "tokens"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Rotate the refresh token (also powers biometric unlock)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "deviceName": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "refreshToken",
+                  "deviceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New token pair",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            },
+                            "accessTokenExpiresIn": {
+                              "type": "number"
+                            },
+                            "tokenType": {
+                              "type": "string",
+                              "enum": [
+                                "Bearer"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "accessToken",
+                            "refreshToken",
+                            "accessTokenExpiresIn",
+                            "tokenType"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "user",
+                        "tokens"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Revoke the current device refresh token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password/forgot": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request a password reset code (US0003)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "If the account exists, a code was sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password/reset": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reset the password with an OTP (US0003)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "pattern": "[A-Z]"
+                  }
+                },
+                "required": [
+                  "email",
+                  "code",
+                  "newPassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password/change": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change password while signed in (US0023)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "pattern": "[A-Z]"
+                  }
+                },
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed; other sessions revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Current user, profile and verification status",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The signed-in user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/username": {
+      "patch": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Change username (the only editable profile field)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)[A-Za-z0-9._]{3,20}(?<!\\.)$"
+                  }
+                },
+                "required": [
+                  "username"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Username taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/wallet": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get the current wallet balance",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/add-funds": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create a wallet top-up intent (dynamic virtual account)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amountKobo": {
+                    "type": "integer",
+                    "minimum": 10000
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "BANK_TRANSFER",
+                      "CARD",
+                      "WALLET"
+                    ],
+                    "default": "BANK_TRANSFER"
+                  }
+                },
+                "required": [
+                  "amountKobo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment intent with a virtual account to pay into",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/intents/{reference}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Poll a payment intent status",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "reference",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment intent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/_mock/settle": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "DEV ONLY — simulate an inbound bank transfer for a reference",
+        "description": "Only available when PAYMENTS_PROVIDER=mock. Drives the same code path as a real `payin.received` webhook so the add-funds flow can be tested end-to-end without Anchor.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reference": {
+                    "type": "string"
+                  },
+                  "amountKobo": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "reference"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settlement applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/payments/webhooks/anchor": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Anchor webhook receiver (signature-verified)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "attributes": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "attributes"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event accepted"
+          },
+          "202": {
+            "description": "Event rejected but recorded"
+          }
+        }
+      }
+    },
+    "/v1/waitlist": {
+      "post": {
+        "tags": [
+          "Waitlist"
+        ],
+        "summary": "Join the genie waitlist (landing page)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "referrer": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Already on the list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Signed up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Create an event (US0014)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "List my events + dashboard totals (US0008/US0009)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{id}": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get an event",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Edit an event",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Delete an event (kept in history)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists": {
+      "post": {
+        "tags": [
+          "Wishlists"
+        ],
+        "summary": "Create a wishlist for an event",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}": {
+      "get": {
+        "tags": [
+          "Wishlists"
+        ],
+        "summary": "Get a wishlist with its items",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}/items": {
+      "post": {
+        "tags": [
+          "Wishlists"
+        ],
+        "summary": "Add/update a product on a wishlist",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}/items/{itemId}": {
+      "delete": {
+        "tags": [
+          "Wishlists"
+        ],
+        "summary": "Remove an item from a wishlist",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wishlists/{id}/share": {
+      "get": {
+        "tags": [
+          "Wishlists"
+        ],
+        "summary": "Get a shareable link for a wishlist",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart": {
+      "get": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Get my open cart",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart/items": {
+      "post": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Add/update a product in the cart",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart/items/{itemId}": {
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Remove a product from the cart",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "List product categories",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories/requests": {
+      "post": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Request a new category (merchant)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/products": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Browse products",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/products/{id}": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Get a product",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchant/products": {
+      "post": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "Add a product/service (US0013)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "List my products/services",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchant/products/{id}": {
+      "patch": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "Edit a product/service",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "Delete a product/service",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchant/products/{id}/inventory": {
+      "put": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "Update inventory / available stock",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchant/orders": {
+      "get": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "List orders for my products (US Vendor Orders)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchant/orders/{id}/delivery": {
+      "patch": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "Update delivery status",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/merchant/fees": {
+      "get": {
+        "tags": [
+          "Merchant"
+        ],
+        "summary": "See applicable fees & commission (E008)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/gifts": {
+      "post": {
+        "tags": [
+          "Gifts"
+        ],
+        "summary": "Add an anonymous / named gift to a wishlist item (US0016)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/gifts/received": {
+      "get": {
+        "tags": [
+          "Gifts"
+        ],
+        "summary": "Gifts received for my events",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/gifts/{id}/reveal": {
+      "post": {
+        "tags": [
+          "Gifts"
+        ],
+        "summary": "Reveal an anonymous gift on physical receipt",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "My orders as a buyer",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Order detail",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/pay-for-gift": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Pay for a wishlist gift (US0019)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/cards": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "List saved cards",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Add a (tokenised) card",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/cards/{id}": {
+      "delete": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Remove a card",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/withdraw": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Withdraw wallet balance to a bank account",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payouts": {
+      "get": {
+        "tags": [
+          "Payouts"
+        ],
+        "summary": "My payout history (merchant)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payouts/account": {
+      "put": {
+        "tags": [
+          "Payouts"
+        ],
+        "summary": "Set/verify my settlement bank account",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/friends": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "My friends list",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/friends/requests": {
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Send a friend request",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/friends/import-contacts": {
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Import contacts & match genie users",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages/threads": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Instant messaging threads",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/referrals": {
+      "get": {
+        "tags": [
+          "Referrals"
+        ],
+        "summary": "My referral code + who I referred",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "My notifications",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark notifications read",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Register a device push token",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices/{token}": {
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Remove a device push token",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/activities": {
+      "get": {
+        "tags": [
+          "Activities"
+        ],
+        "summary": "My activity feed (filter by date/type/txn)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/delete/request": {
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Request account deletion (sends OTP)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/delete/confirm": {
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Confirm account deletion with OTP",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/settings/allowed-countries": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Countries/states available on genie",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/support/threads": {
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Start a \"Talk to us\" support thread",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "My support threads",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/kyc/level-1": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Submit Level 1 verification (selfie + ID doc)",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/kyc": {
+      "get": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "My verification status",
+        "description": "Planned for a later milestone — currently returns 501.",
+        "x-genie-status": "planned",
+        "responses": {
+          "501": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

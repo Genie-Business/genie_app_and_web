@@ -1,0 +1,969 @@
+// genie platform — data model
+//
+// Covers every epic in the "User Story" requirements doc. Milestone 1 only
+// exercises the identity/auth tables + the waitlist; the rest are modelled now
+// so migrations stay stable while feature work lands incrementally.
+//
+// Money: every *Kobo field is an integer number of kobo (1 NGN = 100 kobo),
+// typed BigInt. The API installs a BigInt JSON serialiser at boot.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = []
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CELEBRANT
+  MERCHANT
+}
+
+enum AccountStatus {
+  ACTIVE
+  DELETED
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  ACCOUNT_DELETE
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+enum KybStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum KycLevel {
+  LEVEL_1
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DeliveryOption {
+  PICKUP
+  DELIVERY
+  BOTH
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  DELETED
+}
+
+enum EventStatus {
+  ACTIVE
+  EXPIRED
+  COMPLETED
+  DELETED
+}
+
+enum CartStatus {
+  OPEN
+  CHECKED_OUT
+  ABANDONED
+}
+
+enum GiftStatus {
+  PENDING_PAYMENT
+  PAID
+  DELIVERED
+  REVEALED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  FULFILLING
+  DELIVERED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum LedgerReason {
+  FUNDING
+  GIFT_SENT
+  GIFT_RECEIVED
+  FEE
+  COMMISSION
+  PAYOUT
+  WITHDRAWAL
+  REVERSAL
+  ADJUSTMENT
+}
+
+enum PaymentPurpose {
+  ADD_FUNDS
+  GIFT
+  ORDER
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum TransactionType {
+  FUNDING
+  GIFT
+  ORDER_PAYMENT
+  PAYOUT
+  WITHDRAWAL
+  FEE
+  REFUND
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum FeeKey {
+  TRANSACTION_FEE
+  PRODUCT_FEE
+  LOGISTICS_FEE
+}
+
+enum FeeType {
+  PERCENT
+  FLAT
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum ReferralStatus {
+  PENDING
+  SIGNED_UP
+  REWARDED
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  IN_APP
+}
+
+enum SupportStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum SupportSenderType {
+  USER
+  AGENT
+}
+
+enum ActivityCategory {
+  APP
+  EVENT
+  TRANSACTION
+  ACCOUNT
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  SUPPORT
+  FINANCE
+}
+
+// ──────────────────────────────────────────────────────────────
+// Identity & auth
+// ──────────────────────────────────────────────────────────────
+
+model User {
+  id               String        @id @default(cuid())
+  role             UserRole
+  firstName        String
+  lastName         String
+  email            String        @unique
+  username         String        @unique
+  referralCode     String        @unique
+  phone            String?
+  passwordHash     String
+  stateOfResidence String?
+  country          String        @default("NG")
+  dateOfBirth      DateTime?
+  addressLine      String?
+  lga              String?
+  city             String?
+  emailVerifiedAt  DateTime?
+  status           AccountStatus @default(ACTIVE)
+  deletionReason   String?
+  deletedAt        DateTime?
+  // On deletion the email/username are tombstoned (deleted+<id>@…) so the real
+  // values can be reused by a new account; originalEmail keeps the audit trail.
+  originalEmail    String?
+  referredById     String?
+  referredBy       User?         @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals        User[]        @relation("UserReferrals")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  merchantProfile   MerchantProfile?
+  kycVerifications  KycVerification[]
+  refreshTokens     RefreshToken[]
+  deviceTokens      DeviceToken[]
+  wallet            WalletAccount?
+  events            Event[]
+  carts             Cart[]
+  giftsGiven        Gift[]           @relation("GiftGifter")
+  ordersAsBuyer     Order[]          @relation("OrderBuyer")
+  productsAsMerchant Product[]       @relation("ProductMerchant")
+  ordersAsMerchant  Order[]          @relation("OrderMerchant")
+  payoutAccount     PayoutAccount?
+  payouts           Payout[]
+  notifications     Notification[]
+  activityLogs      ActivityLog[]
+  friendshipsSent     Friendship[]   @relation("FriendshipRequester")
+  friendshipsReceived Friendship[]   @relation("FriendshipAddressee")
+  referralRecords   Referral[]       @relation("ReferralReferrer")
+  referralAsReferee Referral?        @relation("ReferralReferee")
+  contactImports    ContactImport[]
+  supportThreads    SupportThread[]
+  transactions      Transaction[]
+  paymentIntents    PaymentIntent[]
+
+  @@index([role])
+  @@index([status])
+  @@index([referredById])
+}
+
+model MerchantProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName      String
+  businessPhone     String?
+  businessState     String?
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+  inviteCodeId      String?   @unique
+  inviteCode        MerchantInviteCode? @relation(fields: [inviteCodeId], references: [id])
+  kybStatus         KybStatus @default(PENDING)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model MerchantInviteCode {
+  id             String           @id @default(cuid())
+  code           String           @unique
+  singleUse      Boolean          @default(true)
+  usedByUserId   String?
+  usedAt         DateTime?
+  expiresAt      DateTime?
+  createdByAdminId String?
+  createdAt      DateTime         @default(now())
+  merchantProfile MerchantProfile?
+}
+
+model OtpToken {
+  id           String     @id @default(cuid())
+  userId       String?
+  email        String
+  purpose      OtpPurpose
+  codeHash     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([email, purpose])
+  @@index([userId])
+}
+
+model RefreshToken {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash          String    @unique
+  deviceId           String
+  deviceName         String?
+  userAgent          String?
+  ipAddress          String?
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  replacedByTokenHash String?
+  lastUsedAt         DateTime?
+  createdAt          DateTime  @default(now())
+
+  @@index([userId, deviceId])
+}
+
+model DeviceToken {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fcmToken   String         @unique
+  platform   DevicePlatform
+  lastSeenAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([userId])
+}
+
+model KycVerification {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level             KycLevel  @default(LEVEL_1)
+  status            KycStatus @default(PENDING)
+  selfieBlobUrl     String?
+  idDocType         String?
+  idDocBlobUrl      String?
+  bvnLast4          String?
+  bvnStatus         String?
+  providerRef       String?
+  rejectionReason   String?
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([userId, level])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Catalog & merchants
+// ──────────────────────────────────────────────────────────────
+
+model Category {
+  id               String    @id @default(cuid())
+  name             String    @unique
+  slug             String    @unique
+  description      String?
+  imageBlobUrl     String?
+  isActive         Boolean   @default(true)
+  createdByAdminId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  products          Product[]
+  commissionConfigs CommissionConfig[]
+}
+
+model Product {
+  id             String         @id @default(cuid())
+  merchantId     String
+  merchant       User           @relation("ProductMerchant", fields: [merchantId], references: [id])
+  categoryId     String
+  category       Category       @relation(fields: [categoryId], references: [id])
+  name           String
+  description    String
+  priceKobo      BigInt
+  currency       String         @default("NGN")
+  location       String?
+  deliveryOption DeliveryOption @default(BOTH)
+  status         ProductStatus  @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  images        ProductImage[]
+  inventory     Inventory?
+  wishlistItems WishlistItem[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+
+  @@index([merchantId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  blobUrl   String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model Inventory {
+  id             String   @id @default(cuid())
+  productId      String   @unique
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  availableStock Int      @default(0)
+  reservedStock  Int      @default(0)
+  updatedAt      DateTime @updatedAt
+}
+
+// ──────────────────────────────────────────────────────────────
+// Events & wishlists
+// ──────────────────────────────────────────────────────────────
+
+model Event {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String
+  name            String
+  deliveryAddress String?
+  eventDate       DateTime
+  expiresAt       DateTime
+  status          EventStatus @default(ACTIVE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  wishlists Wishlist[]
+  orders    Order[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([status])
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items WishlistItem[]
+
+  @@index([eventId])
+}
+
+model WishlistItem {
+  id               String   @id @default(cuid())
+  wishlistId       String
+  wishlist         Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id])
+  quantityWanted   Int      @default(1)
+  quantityFulfilled Int     @default(0)
+  isAnonymousGift  Boolean  @default(false)
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  gifts Gift[]
+
+  @@unique([wishlistId, productId])
+  @@index([wishlistId])
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    CartStatus @default(OPEN)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  items CartItem[]
+
+  @@index([userId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Gifting & orders
+// ──────────────────────────────────────────────────────────────
+
+model Gift {
+  id              String     @id @default(cuid())
+  wishlistItemId  String
+  wishlistItem    WishlistItem @relation(fields: [wishlistItemId], references: [id])
+  gifterUserId    String?
+  gifter          User?      @relation("GiftGifter", fields: [gifterUserId], references: [id])
+  isAnonymous     Boolean    @default(false)
+  amountKobo      BigInt
+  message         String?
+  status          GiftStatus @default(PENDING_PAYMENT)
+  paymentIntentId String?    @unique
+  orderId         String?    @unique
+  revealedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id])
+  order         Order?         @relation(fields: [orderId], references: [id])
+  transaction   Transaction?
+
+  @@index([wishlistItemId])
+  @@index([gifterUserId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  merchantId      String
+  merchant        User        @relation("OrderMerchant", fields: [merchantId], references: [id])
+  buyerUserId     String?
+  buyer           User?       @relation("OrderBuyer", fields: [buyerUserId], references: [id])
+  eventId         String?
+  event           Event?      @relation(fields: [eventId], references: [id])
+  status          OrderStatus @default(PENDING_PAYMENT)
+  subtotalKobo    BigInt      @default(0)
+  feeKobo         BigInt      @default(0)
+  commissionKobo  BigInt      @default(0)
+  totalKobo       BigInt      @default(0)
+  deliveryAddress String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  items       OrderItem[]
+  delivery    Delivery?
+  gift        Gift?
+  transaction Transaction?
+
+  @@index([merchantId])
+  @@index([buyerUserId])
+  @@index([status])
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  description  String
+  unitPriceKobo BigInt
+  quantity     Int     @default(1)
+  lineTotalKobo BigInt
+
+  @@index([orderId])
+}
+
+model Delivery {
+  id           String         @id @default(cuid())
+  orderId      String         @unique
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status       DeliveryStatus @default(PENDING)
+  address      String?
+  courierName  String?
+  courierRef   String?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  updatedAt    DateTime       @updatedAt
+}
+
+// ──────────────────────────────────────────────────────────────
+// Payments & ledger
+// ──────────────────────────────────────────────────────────────
+
+model WalletAccount {
+  id                  String       @id @default(cuid())
+  userId              String       @unique
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider            String       @default("mock")
+  providerCustomerId  String?
+  providerAccountId   String?
+  providerVirtualNuban String?
+  currency            String       @default("NGN")
+  balanceKobo         BigInt       @default(0)
+  status              WalletStatus @default(ACTIVE)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  ledgerEntries LedgerEntry[]
+  transactions  Transaction[]
+}
+
+model LedgerEntry {
+  id               String          @id @default(cuid())
+  walletId         String
+  wallet           WalletAccount   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  direction        LedgerDirection
+  amountKobo       BigInt
+  balanceAfterKobo BigInt
+  reason           LedgerReason
+  refType          String?
+  refId            String?
+  idempotencyKey   String?         @unique
+  narration        String?
+  createdAt        DateTime        @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+model PaymentIntent {
+  id                 String         @id @default(cuid())
+  reference          String         @unique
+  userId             String
+  user               User           @relation(fields: [userId], references: [id])
+  purpose            PaymentPurpose
+  amountKobo         BigInt
+  currency           String         @default("NGN")
+  provider           String
+  providerRef        String?
+  method             PaymentMethod  @default(BANK_TRANSFER)
+  status             PaymentStatus  @default(PENDING)
+  dynamicVirtualNuban Json?
+  metadata           Json?
+  expiresAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  gift        Gift?
+  transaction Transaction?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  reference       String          @unique
+  userId          String?
+  user            User?           @relation(fields: [userId], references: [id])
+  walletId        String?
+  wallet          WalletAccount?  @relation(fields: [walletId], references: [id])
+  type            TransactionType
+  amountKobo      BigInt
+  feeKobo         BigInt          @default(0)
+  status          PaymentStatus   @default(PENDING)
+  paymentIntentId String?         @unique
+  paymentIntent   PaymentIntent?  @relation(fields: [paymentIntentId], references: [id])
+  orderId         String?         @unique
+  order           Order?          @relation(fields: [orderId], references: [id])
+  giftId          String?         @unique
+  gift            Gift?           @relation(fields: [giftId], references: [id])
+  payoutId        String?         @unique
+  payout          Payout?         @relation(fields: [payoutId], references: [id])
+  providerRef     String?
+  narration       String?
+  createdAt       DateTime        @default(now())
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([type])
+}
+
+model PayoutAccount {
+  id                 String   @id @default(cuid())
+  merchantId         String   @unique
+  merchant           User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  bankName           String
+  bankCode           String?
+  accountNumber      String
+  accountName        String
+  isVerified         Boolean  @default(false)
+  providerRecipientId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Payout {
+  id               String       @id @default(cuid())
+  reference        String       @unique
+  merchantId       String
+  merchant         User         @relation(fields: [merchantId], references: [id])
+  amountKobo       BigInt
+  feeKobo          BigInt       @default(0)
+  netAmountKobo    BigInt
+  status           PayoutStatus @default(PENDING)
+  providerTransferRef String?
+  failureReason    String?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  transaction Transaction?
+
+  @@index([merchantId])
+  @@index([status])
+}
+
+model FeeConfig {
+  id                String   @id @default(cuid())
+  key               FeeKey   @unique
+  type              FeeType
+  value             Decimal  @db.Decimal(12, 4)
+  minKobo           BigInt?
+  capKobo           BigInt?
+  updatedByAdminId  String?
+  updatedAt         DateTime @updatedAt
+}
+
+model CommissionConfig {
+  id               String    @id @default(cuid())
+  scope            String    @default("GLOBAL")
+  categoryId       String?
+  category         Category?  @relation(fields: [categoryId], references: [id])
+  type             FeeType   @default(PERCENT)
+  value            Decimal   @db.Decimal(12, 4)
+  updatedByAdminId String?
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([scope, categoryId])
+}
+
+model WebhookEvent {
+  id            String        @id @default(cuid())
+  provider      String
+  eventType     String
+  externalId    String?       @unique
+  payload       Json
+  signatureValid Boolean      @default(false)
+  status        WebhookStatus @default(RECEIVED)
+  error         String?
+  receivedAt    DateTime      @default(now())
+  processedAt   DateTime?
+
+  @@index([provider, eventType])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Social & engagement
+// ──────────────────────────────────────────────────────────────
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  requester   User             @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String
+  addressee   User             @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
+}
+
+model ContactImport {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneHash     String
+  displayName   String?
+  matchedUserId String?
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, phoneHash])
+}
+
+model Referral {
+  id         String         @id @default(cuid())
+  referrerId String
+  referrer   User           @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId  String?        @unique
+  referee    User?          @relation("ReferralReferee", fields: [refereeId], references: [id])
+  code       String
+  status     ReferralStatus @default(PENDING)
+  rewardKobo BigInt         @default(0)
+  rewardedAt DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@index([referrerId])
+  @@index([code])
+}
+
+model Notification {
+  id      String              @id @default(cuid())
+  userId  String
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel NotificationChannel
+  type    String
+  title   String
+  body    String
+  payload Json?
+  readAt  DateTime?
+  sentAt  DateTime?
+  createdAt DateTime          @default(now())
+
+  @@index([userId, readAt])
+}
+
+model SupportThread {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String?
+  status    SupportStatus @default(OPEN)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  messages SupportMessage[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SupportMessage {
+  id            String            @id @default(cuid())
+  threadId      String
+  thread        SupportThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderType    SupportSenderType
+  senderUserId  String?
+  senderAdminId String?
+  body          String
+  attachments   Json?
+  createdAt     DateTime          @default(now())
+
+  @@index([threadId])
+}
+
+model ActivityLog {
+  id         String           @id @default(cuid())
+  userId     String?
+  user       User?            @relation(fields: [userId], references: [id])
+  category   ActivityCategory
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([category])
+}
+
+model WaitlistSignup {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  source    String?
+  referrer  String?
+  createdAt DateTime @default(now())
+}
+
+// ──────────────────────────────────────────────────────────────
+// Admin & configuration
+// ──────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String
+  passwordHash       String
+  role               AdminRole @default(ADMIN)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  sessions AdminSession[]
+}
+
+model AdminSession {
+  id        String    @id @default(cuid())
+  adminId   String
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([adminId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([adminId])
+}
+
+model AppSetting {
+  id               String   @id @default(cuid())
+  key              String   @unique
+  value            Json
+  category         String?
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
+}
+
+model AllowedCountry {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  callingCode String?
+  states      String[]
+  isActive    Boolean  @default(true)
+}

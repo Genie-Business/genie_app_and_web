@@ -1,0 +1,4 @@
+{
+  "extends": "@genie/config/tsconfig/node.json",
+  "include": ["src", "test"]
+}

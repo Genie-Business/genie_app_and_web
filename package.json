@@ -1,0 +1,37 @@
+{
+  "name": "genie-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "genie — mobile-first social gifting & wishlist platform (monorepo).",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "packageManager": "npm@12.0.2",
+  "workspaces": [
+    "packages/*",
+    "apps/api",
+    "apps/landing",
+    "apps/admin"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "db:generate": "npm run generate --workspace @genie/db",
+    "db:migrate": "npm run migrate --workspace @genie/db",
+    "db:seed": "npm run seed --workspace @genie/db",
+    "db:studio": "npm run studio --workspace @genie/db",
+    "openapi": "npm run openapi --workspace @genie/api"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.4",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
+  }
+}
