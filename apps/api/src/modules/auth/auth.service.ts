@@ -29,8 +29,22 @@ export type TokenBundle = {
 
 // ── OTP helpers ──────────────────────────────────────────────────────────
 
-/** Test-only: the most recent plaintext OTP per `${purpose}:${email}`. */
+/**
+ * The most recent plaintext OTP per `${purpose}:${email}`. Populated only in
+ * tests and when APP_ENV=local (never in preview/production) so the test console
+ * can read back a code instead of scraping the server log.
+ */
 export const __lastOtp = new Map<string, string>();
+
+function otpIsPeekable(env: ReturnType<typeof getEnv>): boolean {
+  return process.env.NODE_ENV === 'test' || env.APP_ENV === 'local';
+}
+
+/** Dev/test only: last code for an email + purpose, or null. */
+export function peekOtp(email: string, purpose: OtpPurpose = 'EMAIL_VERIFY'): string | null {
+  if (!otpIsPeekable(getEnv())) return null;
+  return __lastOtp.get(`${purpose}:${normalizeEmail(email)}`) ?? null;
+}
 
 async function issueOtp(email: string, purpose: OtpPurpose, userId?: string): Promise<string> {
   const env = getEnv();
@@ -46,7 +60,7 @@ async function issueOtp(email: string, purpose: OtpPurpose, userId?: string): Pr
       expiresAt: new Date(Date.now() + env.OTP_TTL * 1000),
     },
   });
-  if (process.env.NODE_ENV === 'test') __lastOtp.set(`${purpose}:${email}`, code);
+  if (otpIsPeekable(env)) __lastOtp.set(`${purpose}:${email}`, code);
   return code;
 }
 

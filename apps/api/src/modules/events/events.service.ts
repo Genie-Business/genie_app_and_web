@@ -7,7 +7,10 @@ type CreateEvent = E.CreateEventBody;
 type UpdateEvent = E.UpdateEventBody;
 
 const EVENT_INCLUDE = {
-  wishlists: { include: { items: { select: { quantityWanted: true, quantityFulfilled: true } } } },
+  wishlists: {
+    orderBy: { createdAt: 'asc' },
+    include: { items: { select: { quantityWanted: true, quantityFulfilled: true } } },
+  },
 } satisfies Prisma.EventInclude;
 
 type EventWithProgress = Prisma.EventGetPayload<{ include: typeof EVENT_INCLUDE }>;
@@ -28,6 +31,11 @@ function summarize(e: EventWithProgress) {
     itemCount: items.length,
     fulfilmentPct: wanted === 0 ? 0 : Math.round((filled / wanted) * 100),
     createdAt: e.createdAt.toISOString(),
+    wishlists: e.wishlists.map((w) => ({
+      id: w.id,
+      name: w.name,
+      itemCount: w.items.length,
+    })),
   };
 }
 

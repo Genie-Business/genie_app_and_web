@@ -4,6 +4,7 @@ import { auth as C } from '@genie/contracts';
 import { commonErrorResponses, jsonBody, jsonResponse, z } from '../../lib/openapi';
 import { rateLimit, RULES } from '../../lib/rate-limit';
 import { requireAuth } from '../../middleware/auth';
+import { notFound } from '../../lib/errors';
 import { toMeResponse } from '../me/me.mapper';
 import * as service from './auth.service';
 
@@ -263,5 +264,18 @@ router.openapi(
     return c.json({ data: { message: 'Password updated. Please sign in again on your other devices.' } }, 200);
   },
 );
+
+// ── GET /auth/_dev/otp/{email}  (APP_ENV=local only) ───────────────────
+// Lets the test console read back a code instead of scraping the server log.
+router.get('/_dev/otp/:email', (c) => {
+  const email = decodeURIComponent(c.req.param('email'));
+  const purpose = (c.req.query('purpose') ?? 'EMAIL_VERIFY') as
+    | 'EMAIL_VERIFY'
+    | 'PASSWORD_RESET'
+    | 'ACCOUNT_DELETE';
+  const code = service.peekOtp(email, purpose);
+  if (code == null) throw notFound('No peekable code (APP_ENV must be "local").');
+  return c.json({ data: { email, purpose, code } }, 200);
+});
 
 export default router;

@@ -60,6 +60,9 @@ export const eventSummaryDto = z.object({
   /** 0–100, weighted by quantityFulfilled / quantityWanted across all items. */
   fulfilmentPct: z.number().int(),
   createdAt: z.string(),
+  wishlists: z.array(
+    z.object({ id: z.string(), name: z.string(), itemCount: z.number().int() }),
+  ),
 });
 
 export const dashboardDto = z.object({

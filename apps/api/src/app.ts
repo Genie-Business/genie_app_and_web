@@ -7,6 +7,7 @@ import { handleError, handleNotFound } from './middleware/error-handler';
 import { requestContext } from './middleware/request-context';
 import { jsonResponse, z } from './lib/openapi';
 import { createRouter } from './lib/router';
+import { CONSOLE_HTML } from './console/console-html';
 import authRoutes from './modules/auth/auth.routes';
 import meRoutes from './modules/me/me.routes';
 import paymentsRoutes from './modules/payments/payments.routes';
@@ -103,7 +104,11 @@ export function createApp() {
     servers: [{ url: '/', description: 'current host' }],
   });
 
-  app.get('/', (c) => c.redirect('/v1/health'));
+  // ── Test console (dev aid) ──────────────────────────────────────────
+  app.get('/console', (c) =>
+    c.html(CONSOLE_HTML, 200, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' }),
+  );
+  app.get('/', (c) => c.redirect(env.APP_ENV === 'production' ? '/v1/health' : '/console'));
 
   return app;
 }
