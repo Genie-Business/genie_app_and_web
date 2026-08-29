@@ -42,10 +42,12 @@ export async function resetDb(): Promise<void> {
         'Point it at a Neon branch named "test" or set ALLOW_DB_RESET=1.',
     );
   }
+  // App data wiped between tests. Global config (FeeConfig, CommissionConfig,
+  // AllowedCountry, AppSetting, AdminUser) is left alone.
   const tables = [
     'LedgerEntry', 'Transaction', 'PaymentIntent', 'WebhookEvent', 'Payout', 'PayoutAccount',
     'WalletAccount', 'Gift', 'OrderItem', 'Delivery', 'Order', 'CartItem', 'Cart',
-    'WishlistItem', 'Wishlist', 'Event', 'ProductImage', 'Inventory', 'Product',
+    'WishlistItem', 'Wishlist', 'Event', 'ProductImage', 'Inventory', 'Product', 'Category',
     'Referral', 'Friendship', 'ContactImport', 'Notification', 'SupportMessage',
     'SupportThread', 'ActivityLog', 'DeviceToken', 'RefreshToken', 'OtpToken',
     'KycVerification', 'MerchantProfile', 'MerchantInviteCode', 'User',
