@@ -9,4 +9,6 @@ export * as gifts from './gifts';
 export * as orders from './orders';
 export * as friends from './friends';
 export * as notifications from './notifications';
+export * as referrals from './referrals';
+export * as activities from './activities';
 export * as misc from './misc';

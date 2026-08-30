@@ -129,6 +129,7 @@ enum LedgerReason {
   WITHDRAWAL
   REVERSAL
   ADJUSTMENT
+  REFERRAL
 }
 
 enum PaymentPurpose {
@@ -159,6 +160,7 @@ enum TransactionType {
   WITHDRAWAL
   FEE
   REFUND
+  REFERRAL
 }
 
 enum PayoutStatus {

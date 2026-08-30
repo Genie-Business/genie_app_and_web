@@ -15,6 +15,7 @@ import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '.
 import { hashRefreshToken, signAccessToken } from '../../lib/jwt';
 import { otpEmail, sendMail } from '../../lib/mailer';
 import { logger } from '../../lib/logger';
+import { recordActivity } from '../activities/activities.service';
 
 type RegisterCelebrant = authContracts.RegisterCelebrantBody;
 type RegisterMerchant = authContracts.RegisterMerchantBody;
@@ -182,6 +183,7 @@ export async function registerCelebrant(input: RegisterCelebrant) {
     });
   }
 
+  await recordActivity({ userId: user.id, category: 'ACCOUNT', action: 'account.registered', metadata: { role: 'CELEBRANT' } });
   const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
   await sendMail({ ...otpEmail(code, 'verify'), to: email });
   logger.info({ userId: user.id }, 'celebrant registered');
@@ -236,6 +238,7 @@ export async function registerMerchant(input: RegisterMerchant) {
     return created;
   });
 
+  await recordActivity({ userId: user.id, category: 'ACCOUNT', action: 'account.registered', metadata: { role: 'MERCHANT' } });
   const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
   await sendMail({ ...otpEmail(code, 'verify'), to: email });
   logger.info({ userId: user.id }, 'merchant registered');
@@ -252,6 +255,7 @@ export async function verifyEmail(rawEmail: string, code: string, device: Device
 
   if (!user.emailVerifiedAt) {
     await prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+    await recordActivity({ userId: user.id, category: 'ACCOUNT', action: 'account.verified' });
   }
   const tokens = await issueTokens(user, device);
   return { tokens, user };

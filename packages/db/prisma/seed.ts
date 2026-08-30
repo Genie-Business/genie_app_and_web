@@ -130,6 +130,18 @@ async function main() {
     },
   });
 
+  // --- App settings: referral reward -------------------------------------
+  await prisma.appSetting.upsert({
+    where: { key: 'referral.reward' },
+    update: {},
+    create: {
+      key: 'referral.reward',
+      category: 'referrals',
+      // referrer earns ₦500 when a referee makes their first paid gift.
+      value: { enabled: true, referrerKobo: 50000, refereeKobo: 0 },
+    },
+  });
+
   console.log('Done.');
 }
 

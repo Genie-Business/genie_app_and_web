@@ -7,6 +7,7 @@ import { notFound } from '../../lib/errors';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { serializeBigInts } from '../../lib/bigint';
 import { toCategoryDto, toProductDto } from './catalog.mapper';
+import { recordActivity } from '../activities/activities.service';
 
 const router = createRouter();
 
@@ -52,13 +53,11 @@ router.openapi(
   async (c) => {
     const user = c.get('user')!;
     const body = c.req.valid('json');
-    await prisma.activityLog.create({
-      data: {
-        userId: user.id,
-        category: 'APP',
-        action: 'category.requested',
-        metadata: { name: body.name, note: body.note ?? null },
-      },
+    await recordActivity({
+      userId: user.id,
+      category: 'APP',
+      action: 'category.requested',
+      metadata: { name: body.name, note: body.note ?? null },
     });
     return c.json({ data: { message: 'Thanks — we’ll review this category request.' } }, 202);
   },

@@ -18,10 +18,6 @@ const STUBS: Stub[] = [
   ['delete', '/v1/cart/items/{itemId}', 'Cart', 'Remove a product from the cart'],
   // Instant messaging (E007) — needs its own schema; later milestone
   ['get', '/v1/messages/threads', 'Friends', 'Instant messaging threads'],
-  // Referrals (E011)
-  ['get', '/v1/referrals', 'Referrals', 'My referral code + who I referred'],
-  // Activities (E009)
-  ['get', '/v1/activities', 'Activities', 'My activity feed (filter by date/type/txn)'],
   // Settings (E011)
   ['post', '/v1/me/delete/request', 'Me', 'Request account deletion (sends OTP)'],
   ['post', '/v1/me/delete/confirm', 'Me', 'Confirm account deletion with OTP'],

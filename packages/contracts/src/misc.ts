@@ -17,11 +17,5 @@ export const supportMessageBody = z.object({
   message: z.string().trim().min(1).max(4000),
 });
 
-export const referralInfoDto = z.object({
-  code: z.string(),
-  totalReferred: z.number().int(),
-  rewardedCount: z.number().int(),
-  pendingRewardKobo: z.string(),
-});
-
 // Notifications & contact-import contracts moved to ./notifications and ./friends.
+// Referral & activity contracts live in ./referrals and ./activities.

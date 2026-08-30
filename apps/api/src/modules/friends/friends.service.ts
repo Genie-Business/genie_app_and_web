@@ -4,6 +4,7 @@ import type { friends as F } from '@genie/contracts';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { otpPepper } from '../../env';
+import { recordActivity } from '../activities/activities.service';
 import { notify } from '../notifications/notify.service';
 
 const CARD = { id: true, firstName: true, lastName: true, username: true } as const;
@@ -92,14 +93,33 @@ export async function respondToRequest(meId: string, requestId: string, accept: 
 }
 
 async function notifyAccepted(accepterId: string, requesterId: string) {
-  const accepter = await prisma.user.findUnique({ where: { id: accepterId }, select: CARD });
-  if (!accepter) return;
+  const [accepter, requester] = await Promise.all([
+    prisma.user.findUnique({ where: { id: accepterId }, select: CARD }),
+    prisma.user.findUnique({ where: { id: requesterId }, select: CARD }),
+  ]);
+  if (!accepter || !requester) return;
   await notify({
     userId: requesterId,
     type: 'friend.accepted',
     title: 'Friend request accepted',
     body: `${accepter.firstName} ${accepter.lastName} (@${accepter.username}) is now your friend.`,
     payload: { userId: accepterId },
+  });
+  await recordActivity({
+    userId: accepterId,
+    category: 'APP',
+    action: 'friend.added',
+    entityType: 'User',
+    entityId: requesterId,
+    metadata: { username: requester.username },
+  });
+  await recordActivity({
+    userId: requesterId,
+    category: 'APP',
+    action: 'friend.added',
+    entityType: 'User',
+    entityId: accepterId,
+    metadata: { username: accepter.username },
   });
 }
 

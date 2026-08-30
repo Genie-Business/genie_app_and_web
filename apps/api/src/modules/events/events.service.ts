@@ -2,6 +2,7 @@ import { prisma, type Prisma } from '@genie/db';
 import type { events as E } from '@genie/contracts';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { recordActivity } from '../activities/activities.service';
 
 type CreateEvent = E.CreateEventBody;
 type UpdateEvent = E.UpdateEventBody;
@@ -82,8 +83,13 @@ export async function createEvent(userId: string, input: CreateEvent) {
     },
     include: EVENT_INCLUDE,
   });
-  await prisma.activityLog.create({
-    data: { userId, category: 'EVENT', action: 'event.created', entityType: 'Event', entityId: event.id },
+  await recordActivity({
+    userId,
+    category: 'EVENT',
+    action: 'event.created',
+    entityType: 'Event',
+    entityId: event.id,
+    metadata: { name: event.name },
   });
   logger.info({ userId, eventId: event.id }, 'event created');
   return summarize(event);
@@ -158,7 +164,5 @@ export async function deleteEvent(userId: string, id: string) {
   // Soft delete — the event drops off the user's list but stays in history
   // (orders, gifts and transactions against it are preserved).
   await prisma.event.update({ where: { id }, data: { status: 'DELETED' } });
-  await prisma.activityLog.create({
-    data: { userId, category: 'EVENT', action: 'event.deleted', entityType: 'Event', entityId: id },
-  });
+  await recordActivity({ userId, category: 'EVENT', action: 'event.deleted', entityType: 'Event', entityId: id });
 }

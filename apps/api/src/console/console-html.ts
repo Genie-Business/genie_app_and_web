@@ -217,6 +217,26 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="list" id="n_list" style="margin-top:10px"></div>
   </section>
 
+  <!-- REFERRALS -->
+  <section class="card hide" id="refCard">
+    <h2>Referrals</h2>
+    <div class="kv"><span>Your code</span><b id="rf_code">—</b></div>
+    <label>Share link</label>
+    <div class="row"><input id="rf_link" readonly/><button class="sm ghost" style="flex:0 0 auto" id="rf_copy">copy</button></div>
+    <div class="kv"><span>Referred / signed up / rewarded</span><b id="rf_counts">—</b></div>
+    <div class="kv"><span>Earned</span><b id="rf_earned">—</b></div>
+    <div class="list" id="rf_list"></div>
+    <p class="muted" style="font-size:12px;margin-top:8px">To test: copy your code, sign up a new celebrant with it in the "Referral code" field, then have that account fund a wallet and send a gift.</p>
+  </section>
+
+  <!-- ACTIVITY -->
+  <section class="card hide" id="actCard">
+    <h2>Activity <select id="ac_cat" style="width:auto;float:right;font-size:12px;padding:3px 6px">
+      <option value="">all</option><option>ACCOUNT</option><option>EVENT</option><option>TRANSACTION</option><option>APP</option>
+    </select></h2>
+    <div class="list" id="ac_list"></div>
+  </section>
+
   <!-- CATALOG -->
   <section class="card full" id="catCard">
     <h2>Catalogue <span class="muted" style="font-size:12px;text-transform:none">— click a product to add it to the selected wishlist</span></h2>
@@ -304,9 +324,11 @@ function renderSession(){
     $('#giftCard').classList.remove('hide');
     $('#friendsCard').classList.remove('hide');
     $('#notifCard').classList.remove('hide');
+    $('#refCard').classList.toggle('hide', ME.role==='MERCHANT');
+    $('#actCard').classList.remove('hide');
   } else {
     $('#who').textContent='not signed in'; $('#authCard').classList.remove('hide');
-    ['merchCard','moCard','giftCard','friendsCard','notifCard'].forEach(x=>$('#'+x).classList.add('hide'));
+    ['merchCard','moCard','giftCard','friendsCard','notifCard','refCard','actCard'].forEach(x=>$('#'+x).classList.add('hide'));
   }
 }
 $('#logout').onclick = () => { TOKEN=''; ME=null; localStorage.removeItem('genie.token'); renderSession(); };
@@ -724,10 +746,40 @@ async function loadNotifs(){
   }catch(e){}
 }
 
+// ---- referrals ----
+$('#rf_copy').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('#rf_link').value); msg('#friendsMsg','Referral link copied.', true); };
+async function loadReferrals(){
+  if(!ME || ME.role==='MERCHANT') return;
+  try{
+    const r = await api('/v1/referrals');
+    $('#rf_code').textContent = r.code;
+    $('#rf_link').value = r.link;
+    $('#rf_counts').textContent = r.totalReferred+' / '+r.signedUp+' / '+r.rewarded;
+    $('#rf_earned').textContent = naira(r.totalEarnedKobo)+' (pending '+naira(r.pendingRewardKobo)+')';
+    $('#rf_list').innerHTML = r.referees.map(f =>
+      '<div class="item"><div class="t">'+f.firstName+' <span class="pill">@'+f.username+'</span></div>'+
+      '<div class="s">'+f.status+(f.status==='REWARDED'?(' · '+naira(f.rewardKobo)):'')+' · joined '+new Date(f.joinedAt).toLocaleDateString()+'</div></div>').join('')
+      || '<p class="muted">No referrals yet.</p>';
+  }catch(e){}
+}
+
+// ---- activity ----
+$('#ac_cat').onchange = loadActivity;
+async function loadActivity(){
+  if(!ME) return;
+  try{
+    const cat = $('#ac_cat').value;
+    const rows = await api('/v1/activities?pageSize=25'+(cat?'&category='+cat:''));
+    $('#ac_list').innerHTML = rows.map(a =>
+      '<div class="item"><div class="t">'+a.title+' <span class="pill">'+a.category+'</span></div>'+
+      '<div class="s">'+a.action+' · '+new Date(a.createdAt).toLocaleString()+'</div></div>').join('') || '<p class="muted">No activity yet.</p>';
+  }catch(e){}
+}
+
 async function refreshAll(){
   renderSession();
   if(!ME) return;
-  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs()]);
+  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity()]);
 }
 
 // boot

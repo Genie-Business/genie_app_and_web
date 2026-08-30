@@ -2,6 +2,8 @@ import { paymentReference, transactionReference } from '@genie/core';
 import { prisma } from '@genie/db';
 import { badRequest, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { recordActivity } from '../activities/activities.service';
+import { notify } from '../notifications/notify.service';
 import { postEntry } from './ledger.service';
 import { getPaymentProvider } from './provider';
 import { ensureWallet } from './wallet.service';
@@ -123,6 +125,22 @@ export async function settleAddFunds(reference: string, paidAmountKobo: bigint) 
         narration: `Wallet top-up ${reference}`,
       },
     });
+  });
+
+  await recordActivity({
+    userId: intent.userId,
+    category: 'TRANSACTION',
+    action: 'wallet.funded',
+    entityType: 'PaymentIntent',
+    entityId: intent.id,
+    metadata: { amountKobo: amount.toString() },
+  });
+  await notify({
+    userId: intent.userId,
+    type: 'wallet.funded',
+    title: 'Wallet topped up',
+    body: `₦${(Number(amount) / 100).toLocaleString()} was added to your wallet.`,
+    payload: { reference },
   });
 
   logger.info({ reference, amount: amount.toString() }, 'add-funds settled');

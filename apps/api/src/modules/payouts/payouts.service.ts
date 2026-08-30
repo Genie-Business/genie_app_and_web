@@ -3,6 +3,8 @@ import { prisma } from '@genie/db';
 import type { gifts as G } from '@genie/contracts';
 import { badRequest, conflict } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { recordActivity } from '../activities/activities.service';
+import { notify } from '../notifications/notify.service';
 import { getBalanceKobo, postEntry } from '../payments/ledger.service';
 import { getPaymentProvider } from '../payments/provider';
 import { ensureWallet } from '../payments/wallet.service';
@@ -122,6 +124,21 @@ export async function withdrawToBank(userId: string, input: Withdraw) {
         data: { status: result.status === 'PAID' ? 'COMPLETED' : 'PROCESSING', providerRef: result.providerRef },
       }),
     ]);
+    await recordActivity({
+      userId,
+      category: 'TRANSACTION',
+      action: 'withdrawal.completed',
+      entityType: 'Payout',
+      entityId: payout.id,
+      metadata: { amountKobo: amount.toString(), bank: input.bankName, status: result.status },
+    });
+    await notify({
+      userId,
+      type: 'withdrawal.completed',
+      title: 'Withdrawal sent',
+      body: `₦${(Number(amount) / 100).toLocaleString()} is on its way to ${input.bankName} ****${input.accountNumber.slice(-4)}.`,
+      payload: { reference },
+    });
     logger.info({ reference, status: result.status }, 'withdrawal sent');
     return { reference, status: result.status, netAmountKobo: amount };
   } catch (err) {

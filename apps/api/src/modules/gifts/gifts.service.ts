@@ -2,8 +2,10 @@ import { orderNumber, paymentReference, transactionReference } from '@genie/core
 import { prisma, type Prisma } from '@genie/db';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { recordActivity } from '../activities/activities.service';
 import { computeGiftCharge, type GiftCharge } from '../fees/fees.service';
 import { notify } from '../notifications/notify.service';
+import { maybeRewardReferral } from '../referrals/referrals.service';
 import { getBalanceKobo, postEntry } from '../payments/ledger.service';
 import { getPaymentProvider } from '../payments/provider';
 import { ensureWallet } from '../payments/wallet.service';
@@ -219,16 +221,24 @@ async function finalizeGift(opts: {
       body: `${item.product.name} ×${input.quantity} — ${order.orderNumber}`,
       payload: { orderId: order.id },
     });
-    await prisma.activityLog.create({
-      data: {
-        userId: gifterUserId,
-        category: 'TRANSACTION',
-        action: 'gift.paid',
-        entityType: 'Gift',
-        entityId: gift.id,
-        metadata: { amountKobo: charge.gifterPaysKobo.toString(), anonymous: input.isAnonymous },
-      },
+    await recordActivity({
+      userId: gifterUserId,
+      category: 'TRANSACTION',
+      action: 'gift.paid',
+      entityType: 'Gift',
+      entityId: gift.id,
+      metadata: { amountKobo: charge.gifterPaysKobo.toString(), anonymous: input.isAnonymous },
     });
+    await recordActivity({
+      userId: celebrantId,
+      category: 'TRANSACTION',
+      action: 'gift.received',
+      entityType: 'Gift',
+      entityId: gift.id,
+      metadata: { productName: item.product.name },
+    });
+    // A referred user's first paid gift converts their referral.
+    await maybeRewardReferral(gifterUserId);
   } catch (err) {
     logger.error({ err, giftId: gift.id }, 'gift post-commit side effects failed');
   }
@@ -434,6 +444,13 @@ export async function reveal(userId: string, giftId: string) {
   await prisma.gift.update({
     where: { id: giftId },
     data: { revealedAt: new Date(), status: 'REVEALED' },
+  });
+  await recordActivity({
+    userId,
+    category: 'APP',
+    action: 'gift.revealed',
+    entityType: 'Gift',
+    entityId: giftId,
   });
   return {
     giftId,

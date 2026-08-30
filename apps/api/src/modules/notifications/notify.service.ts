@@ -22,6 +22,7 @@ export function categoryForType(type: string): NotificationCategory {
     case 'payout':
     case 'withdrawal':
     case 'wallet':
+    case 'referral':
       return 'PAYMENT';
     default:
       return 'SYSTEM';

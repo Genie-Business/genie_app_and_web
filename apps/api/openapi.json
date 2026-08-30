@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "genie API",
-    "version": "0.4.0",
-    "description": "API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals, friends & contact matching, notifications & push device tokens. Other endpoints are documented but return 501."
+    "version": "0.5.0",
+    "description": "API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals, friends & contact matching, notifications & push device tokens, referrals & rewards, activity feed. Other endpoints are documented but return 501."
   },
   "servers": [
     {
@@ -7530,6 +7530,226 @@
         }
       }
     },
+    "/v1/referrals": {
+      "get": {
+        "tags": [
+          "Referrals"
+        ],
+        "summary": "My referral code, share link, and who I have referred",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Referral summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/activities": {
+      "get": {
+        "tags": [
+          "Activities"
+        ],
+        "summary": "My activity feed (filter by category / action / date range)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "APP",
+                "EVENT",
+                "TRANSACTION",
+                "ACCOUNT"
+              ]
+            },
+            "required": false,
+            "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "required": false,
+            "name": "action",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity feed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/public/wishlists/{id}": {
       "get": {
         "tags": [
@@ -7700,50 +7920,6 @@
           "Friends"
         ],
         "summary": "Instant messaging threads",
-        "description": "Planned for a later milestone — currently returns 501.",
-        "x-genie-status": "planned",
-        "responses": {
-          "501": {
-            "description": "Not implemented yet",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/referrals": {
-      "get": {
-        "tags": [
-          "Referrals"
-        ],
-        "summary": "My referral code + who I referred",
-        "description": "Planned for a later milestone — currently returns 501.",
-        "x-genie-status": "planned",
-        "responses": {
-          "501": {
-            "description": "Not implemented yet",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/activities": {
-      "get": {
-        "tags": [
-          "Activities"
-        ],
-        "summary": "My activity feed (filter by date/type/txn)",
         "description": "Planned for a later milestone — currently returns 501.",
         "x-genie-status": "planned",
         "responses": {
