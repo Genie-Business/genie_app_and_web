@@ -28,6 +28,8 @@ import activitiesRoutes from './modules/activities/activities.routes';
 import kycRoutes from './modules/kyc/kyc.routes';
 import settingsRoutes from './modules/settings/settings.routes';
 import supportRoutes from './modules/support/support.routes';
+import cartRoutes from './modules/cart/cart.routes';
+import messagesRoutes from './modules/messages/messages.routes';
 import { mountStubs } from './modules/stubs';
 
 export function createApp() {
@@ -105,9 +107,11 @@ export function createApp() {
   app.route('/v1/activities', activitiesRoutes);
   app.route('/v1/kyc', kycRoutes);
   app.route('/v1/support', supportRoutes);
+  app.route('/v1/cart', cartRoutes);
+  app.route('/v1/messages', messagesRoutes);
   app.route('/v1/public', publicRoutes);
 
-  // ── Planned endpoints (501 + documented) ─────────────────────────────
+  // ── Planned endpoints (501 + documented) — none left; every epic is live.
   mountStubs(app);
 
   // ── OpenAPI document + security scheme ───────────────────────────────
@@ -121,9 +125,9 @@ export function createApp() {
     openapi: '3.1.0',
     info: {
       title: 'genie API',
-      version: '0.6.0',
+      version: '0.7.0',
       description:
-        'API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals, friends & contact matching, notifications & push device tokens, referrals & rewards, activity feed, KYC Level 1 (mock bureau), profile & session management, account deletion, support threads. Other endpoints are documented but return 501.',
+        'API for the genie social-gifting platform. All 14 epics are implemented: auth & onboarding, KYC Level 1 (mock bureau), events, wishlists, gifting (wallet + bank transfer) with anonymous gifts, merchants & catalog, friends & contact matching, fees & commission, activity feed, notifications & push, settings (profile, sessions, account deletion) & support, payments (wallet, cards, payouts, withdrawals), the gift cart, order management & delivery, and 1:1 instant messaging between friends. Payments run through a mock provider until Anchor keys are set.',
     },
     servers: [{ url: '/', description: 'current host' }],
   });

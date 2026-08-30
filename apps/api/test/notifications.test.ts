@@ -97,10 +97,10 @@ d('notifications (E010)', () => {
     expect((await body(await app.request('/v1/notifications', { headers: u.auth }))).data).toHaveLength(3);
   });
 
-  it('returns the five preference defaults and round-trips updates', async () => {
+  it('returns the preference defaults and round-trips updates', async () => {
     const u = await makeCelebrant();
     const initial = (await body(await app.request('/v1/notifications/preferences', { headers: u.auth }))).data;
-    expect(initial).toHaveLength(5);
+    expect(initial).toHaveLength(6);
     expect(initial.every((p: { push: boolean; email: boolean; inApp: boolean }) => p.push && !p.email && p.inApp)).toBe(true);
 
     await app.request('/v1/notifications/preferences', {

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ── Notifications (E010) ────────────────────────────────────────────────
 
-export const notificationCategory = z.enum(['GIFT', 'EVENT', 'FRIEND', 'PAYMENT', 'SYSTEM']);
+export const notificationCategory = z.enum(['GIFT', 'EVENT', 'FRIEND', 'PAYMENT', 'MESSAGE', 'SYSTEM']);
 export type NotificationCategory = z.infer<typeof notificationCategory>;
 
 export const notificationDto = z.object({
@@ -59,6 +59,6 @@ export const updatePreferencesBody = z.object({
       }),
     )
     .min(1)
-    .max(5),
+    .max(6),
 });
 export type UpdatePreferencesBody = z.infer<typeof updatePreferencesBody>;

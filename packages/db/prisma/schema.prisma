@@ -211,6 +211,7 @@ enum NotificationCategory {
   EVENT
   FRIEND
   PAYMENT
+  MESSAGE
   SYSTEM
 }
 
@@ -294,6 +295,9 @@ model User {
   referralRecords   Referral[]       @relation("ReferralReferrer")
   referralAsReferee Referral?        @relation("ReferralReferee")
   contactImports    ContactImport[]
+  messageThreadsA   MessageThread[]  @relation("ThreadParticipantA")
+  messageThreadsB   MessageThread[]  @relation("ThreadParticipantB")
+  messagesSent      Message[]        @relation("MessageSender")
   supportThreads    SupportThread[]
   transactions      Transaction[]
   paymentIntents    PaymentIntent[]
@@ -455,7 +459,6 @@ model Product {
   images        ProductImage[]
   inventory     Inventory?
   wishlistItems WishlistItem[]
-  cartItems     CartItem[]
   orderItems    OrderItem[]
 
   @@index([merchantId])
@@ -536,7 +539,8 @@ model WishlistItem {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  gifts Gift[]
+  gifts     Gift[]
+  cartItems CartItem[]
 
   @@unique([wishlistId, productId])
   @@index([wishlistId])
@@ -556,16 +560,19 @@ model Cart {
 }
 
 model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  quantity  Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String       @id @default(cuid())
+  cartId         String
+  cart           Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  // The cart is a gift basket: each line targets a wishlist item.
+  wishlistItemId String
+  wishlistItem   WishlistItem @relation(fields: [wishlistItemId], references: [id], onDelete: Cascade)
+  quantity       Int          @default(1)
+  isAnonymous    Boolean      @default(false)
+  message        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  @@unique([cartId, productId])
+  @@unique([cartId, wishlistItemId])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -847,6 +854,38 @@ model ContactImport {
   createdAt     DateTime @default(now())
 
   @@unique([userId, phoneHash])
+}
+
+// ── Instant messaging (E007) ─────────────────────────────────────
+// 1:1 direct messages between friends. Participants are stored ordered
+// (participantAId < participantBId) so a pair maps to exactly one thread.
+
+model MessageThread {
+  id             String   @id @default(cuid())
+  participantAId String
+  participantA   User     @relation("ThreadParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantBId String
+  participantB   User     @relation("ThreadParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  lastMessageAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  messages Message[]
+
+  @@unique([participantAId, participantBId])
+  @@index([participantBId])
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  threadId  String
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User          @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  readAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([threadId, createdAt])
 }
 
 model Referral {

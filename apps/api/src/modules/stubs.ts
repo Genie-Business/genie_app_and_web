@@ -6,19 +6,12 @@ type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
 type Stub = [Method, string, string, string];
 
 /**
- * Endpoints whose contract is fixed for Milestone 1 but whose implementation
- * lands later. They return 501 and appear in the OpenAPI spec marked
- * `x-genie-status: planned`, so the Flutter and admin teams can build against
- * the shapes today.
+ * Endpoints whose contract is fixed but whose implementation lands in a later
+ * milestone. They return 501 and appear in the OpenAPI spec marked
+ * `x-genie-status: planned`. As of Milestone 7 every epic is implemented, so
+ * this list is empty — the mechanism stays for future additions.
  */
-const STUBS: Stub[] = [
-  // Carts (E013)
-  ['get', '/v1/cart', 'Cart', 'Get my open cart'],
-  ['post', '/v1/cart/items', 'Cart', 'Add/update a product in the cart'],
-  ['delete', '/v1/cart/items/{itemId}', 'Cart', 'Remove a product from the cart'],
-  // Instant messaging (E007) — needs its own schema; later milestone
-  ['get', '/v1/messages/threads', 'Friends', 'Instant messaging threads'],
-];
+const STUBS: Stub[] = [];
 
 export function mountStubs(app: OpenAPIHono<AppEnv>) {
   for (const [method, path, tag, summary] of STUBS) {

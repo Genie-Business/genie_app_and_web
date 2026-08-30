@@ -4,7 +4,7 @@ import { sendMail, type Mail } from '../../lib/mailer';
 import { logger } from '../../lib/logger';
 import { getPushSender } from './push';
 
-const CATEGORIES: NotificationCategory[] = ['GIFT', 'EVENT', 'FRIEND', 'PAYMENT', 'SYSTEM'];
+const CATEGORIES: NotificationCategory[] = ['GIFT', 'EVENT', 'FRIEND', 'PAYMENT', 'MESSAGE', 'SYSTEM'];
 
 /** Map a dotted notification `type` to its preference category. */
 export function categoryForType(type: string): NotificationCategory {
@@ -18,6 +18,8 @@ export function categoryForType(type: string): NotificationCategory {
       return 'EVENT';
     case 'friend':
       return 'FRIEND';
+    case 'message':
+      return 'MESSAGE';
     case 'payment':
     case 'payout':
     case 'withdrawal':

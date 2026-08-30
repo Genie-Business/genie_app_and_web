@@ -155,7 +155,8 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
       <div><label>Anonymous</label><select id="g_anon"><option value="no">No</option><option value="yes">Yes</option></select></div>
     </div>
     <label>Message (optional)</label><input id="g_msg" placeholder="Happy birthday!"/>
-    <div style="margin-top:10px"><button id="g_quote" class="ghost">Quote</button> <button id="g_pay">Send gift</button></div>
+    <div style="margin-top:10px"><button id="g_quote" class="ghost">Quote</button> <button id="g_pay">Send gift</button>
+      <button id="g_cart" class="ghost">Add to cart</button></div>
     <div class="msg" id="giftMsg"></div>
     <div class="tabs" style="margin-top:12px">
       <button data-gtab="recv" class="on">Received</button>
@@ -290,6 +291,32 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="msg" id="supMsg"></div>
   </section>
 
+  <!-- CART -->
+  <section class="card hide" id="cartCard">
+    <h2>Gift cart <span class="pill" id="cart_total">₦0.00</span></h2>
+    <p class="muted" style="font-size:12px;margin:0 0 6px">Use "Add to cart" in the Gifting card, then check out here — one payment, many gifts.</p>
+    <div class="list" id="cart_items"></div>
+    <div style="margin-top:10px">
+      <select id="cart_method" style="width:auto"><option value="WALLET">Wallet</option><option value="BANK_TRANSFER">Bank transfer</option></select>
+      <button id="cart_checkout">Check out</button>
+      <button class="ghost sm" id="cart_clear">clear</button>
+    </div>
+    <div class="msg" id="cartMsg"></div>
+  </section>
+
+  <!-- MESSAGES -->
+  <section class="card hide" id="msgCard">
+    <h2>Messages <span class="pill" id="msg_badge" style="display:none">0</span></h2>
+    <div class="row"><input id="msg_to" placeholder="friend username"/><button style="flex:0 0 auto" id="msg_start">Open chat</button></div>
+    <div class="list" id="msg_threads"></div>
+    <div id="msg_open" class="hide" style="margin-top:10px">
+      <div class="s muted" id="msg_with"></div>
+      <div class="list" id="msg_log" style="max-height:200px;overflow:auto"></div>
+      <div class="row" style="margin-top:6px"><input id="msg_text" placeholder="Message…"/><button style="flex:0 0 auto" id="msg_send">Send</button></div>
+    </div>
+    <div class="msg" id="msgMsg"></div>
+  </section>
+
   <!-- CATALOG -->
   <section class="card full" id="catCard">
     <h2>Catalogue <span class="muted" style="font-size:12px;text-transform:none">— click a product to add it to the selected wishlist</span></h2>
@@ -382,9 +409,11 @@ function renderSession(){
     $('#kycCard').classList.remove('hide');
     $('#setCard').classList.remove('hide');
     $('#supCard').classList.remove('hide');
+    $('#cartCard').classList.toggle('hide', ME.role==='MERCHANT');
+    $('#msgCard').classList.remove('hide');
   } else {
     $('#who').textContent='not signed in'; $('#authCard').classList.remove('hide');
-    ['merchCard','moCard','giftCard','friendsCard','notifCard','refCard','actCard','kycCard','setCard','supCard'].forEach(x=>$('#'+x).classList.add('hide'));
+    ['merchCard','moCard','giftCard','friendsCard','notifCard','refCard','actCard','kycCard','setCard','supCard','cartCard','msgCard'].forEach(x=>$('#'+x).classList.add('hide'));
   }
 }
 $('#logout').onclick = () => { TOKEN=''; ME=null; localStorage.removeItem('genie.token'); renderSession(); };
@@ -644,6 +673,83 @@ $('#g_pay').onclick = async () => {
     await refreshAll();
   }catch(e){ msg('#giftMsg', e.message, false); }
 };
+$('#g_cart').onclick = async () => {
+  try{
+    const b = giftBody();
+    await api('/v1/cart/items', {method:'POST', body:{wishlistItemId:b.wishlistItemId, quantity:b.quantity, isAnonymous:b.isAnonymous, message:b.message}});
+    msg('#giftMsg','Added to your gift cart.', true);
+    $('#g_item').value=''; loadCart();
+  }catch(e){ msg('#giftMsg', e.message, false); }
+};
+
+// ---- cart ----
+$('#cart_clear').onclick = async () => { try{ await api('/v1/cart', {method:'DELETE'}); loadCart(); }catch(e){} };
+$('#cart_checkout').onclick = async () => {
+  try{
+    msg('#cartMsg','',true);
+    const res = await api('/v1/cart/checkout', {method:'POST', body:{method:$('#cart_method').value}});
+    if(res.status==='PENDING'){
+      await api('/v1/payments/_mock/settle', {auth:false, method:'POST', body:{reference:res.reference}});
+      msg('#cartMsg','Bank transfer of '+naira(res.totalKobo)+' mock-settled — '+(res.gifts?res.gifts.length:'all')+' gifts paid.', true);
+    } else {
+      msg('#cartMsg','Checked out — '+res.gifts.length+' gifts, '+naira(res.totalKobo)+' from wallet.', true);
+    }
+    await refreshAll();
+  }catch(e){ msg('#cartMsg', e.message, false); }
+};
+async function loadCart(){
+  if(!ME || ME.role==='MERCHANT') return;
+  try{
+    const c = await api('/v1/cart');
+    $('#cart_total').textContent = naira(c.totalKobo);
+    $('#cart_items').innerHTML = c.items.map(i =>
+      '<div class="item" style="'+(i.giftable?'':'opacity:.5')+'"><div class="t">'+i.productName+' ×'+i.quantity+' <span class="pill">for '+i.forWhom+'</span></div>'+
+      '<div class="s">'+naira(i.lineTotalKobo)+(i.isAnonymous?' · anon':'')+(i.reason?(' · '+i.reason):'')+
+      ' <button class="sm ghost" data-cdel="'+i.id+'">remove</button></div></div>').join('') || '<p class="muted">Cart is empty.</p>';
+    $('#cart_checkout').disabled = c.itemCount===0 || !c.allGiftable;
+    $$('#cart_items [data-cdel]').forEach(b => b.onclick = async () => { await api('/v1/cart/items/'+b.dataset.cdel, {method:'DELETE'}); loadCart(); });
+  }catch(e){}
+}
+
+// ---- messages ----
+let MSG_THREAD = null;
+$('#msg_start').onclick = async () => {
+  try{
+    const t = await api('/v1/messages/threads', {method:'POST', body:{username:$('#msg_to').value.trim()}});
+    $('#msg_to').value=''; openThread(t.id, t.withUser.username); loadThreads();
+  }catch(e){ msg('#msgMsg', e.message, false); }
+};
+$('#msg_send').onclick = async () => {
+  if(!MSG_THREAD || !$('#msg_text').value.trim()) return;
+  try{
+    const t = await api('/v1/messages/threads/'+MSG_THREAD+'/messages', {method:'POST', body:{body:$('#msg_text').value}});
+    $('#msg_text').value=''; renderThread(t); loadThreads();
+  }catch(e){ msg('#msgMsg', e.message, false); }
+};
+function renderThread(t){
+  $('#msg_with').textContent = 'with @'+t.withUser.username;
+  $('#msg_log').innerHTML = t.messages.map(m =>
+    '<div class="item" style="'+(m.mine?'background:var(--cyan-soft)':'')+'"><div class="s">'+(m.mine?'you':'@'+t.withUser.username)+' · '+new Date(m.createdAt).toLocaleTimeString()+'</div>'+m.body+'</div>').join('') || '<p class="muted">No messages yet.</p>';
+  $('#msg_log').scrollTop = $('#msg_log').scrollHeight;
+}
+async function openThread(id){
+  MSG_THREAD = id;
+  $('#msg_open').classList.remove('hide');
+  try{ renderThread(await api('/v1/messages/threads/'+id)); loadThreads(); loadNotifs(); }catch(e){}
+}
+async function loadThreads(){
+  if(!ME) return;
+  try{
+    const [res, count] = await Promise.all([api('/v1/messages/threads'), api('/v1/messages/unread-count')]);
+    const n = count.count||0;
+    const badge = $('#msg_badge'); badge.textContent = n; badge.style.display = n>0?'inline-block':'none';
+    $('#msg_threads').innerHTML = (res.data||res).map(t =>
+      '<div class="item"><div class="t">@'+t.withUser.username+(t.unreadCount?' <span class="pill">'+t.unreadCount+' new</span>':'')+'</div>'+
+      '<div class="s">'+(t.lastMessage||'—')+' <button class="sm ghost" data-open="'+t.id+'">open</button></div></div>').join('') || '<p class="muted">No conversations.</p>';
+    $$('#msg_threads [data-open]').forEach(b => b.onclick = () => openThread(b.dataset.open));
+  }catch(e){}
+}
+
 async function loadGifts(){
   if(!ME) return;
   try{
@@ -948,7 +1054,7 @@ async function refreshAll(){
   renderSession();
   if(!ME) return;
   loadSettingsProfile();
-  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity(), loadKyc(), loadSessions(), loadSupport()]);
+  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity(), loadKyc(), loadSessions(), loadSupport(), loadCart(), loadThreads()]);
 }
 
 // boot

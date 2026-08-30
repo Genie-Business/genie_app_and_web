@@ -14,4 +14,6 @@ export * as activities from './activities';
 export * as kyc from './kyc';
 export * as settings from './settings';
 export * as support from './support';
+export * as carts from './carts';
+export * as messages from './messages';
 export * as misc from './misc';

@@ -79,9 +79,13 @@ async function finalizeGift(opts: {
   input: PayInput;
   charge: GiftCharge;
   paidFromWallet: boolean;
+  /** Real PaymentIntent id for the Gift/Transaction FK (1:1). Omit for cart lines. */
   paymentIntentId?: string;
+  /** Scope for the ledger idempotency keys — defaults to paymentIntentId. */
+  idempotencyScope?: string;
 }) {
   const { item, gifterUserId, input, charge } = opts;
+  const ledgerScope = opts.idempotencyScope ?? opts.paymentIntentId;
   const merchantId = item.product.merchantId;
   const eventId = item.wishlist.event.id;
 
@@ -105,8 +109,8 @@ async function finalizeGift(opts: {
             refType: 'WishlistItem',
             refId: item.id,
             narration: `Gift: ${item.product.name}`,
-            idempotencyKey: opts.paymentIntentId
-              ? `gift-debit:${opts.paymentIntentId}`
+            idempotencyKey: ledgerScope
+              ? `gift-debit:${ledgerScope}`
               : `gift-debit:${gifterUserId}:${item.id}:${Date.now()}`,
           },
           tx,
@@ -122,8 +126,8 @@ async function finalizeGift(opts: {
           refType: 'WishlistItem',
           refId: item.id,
           narration: `Sale: ${item.product.name} ×${input.quantity}`,
-          idempotencyKey: opts.paymentIntentId
-            ? `gift-credit:${opts.paymentIntentId}`
+          idempotencyKey: ledgerScope
+            ? `gift-credit:${ledgerScope}`
             : `gift-credit:${merchantId}:${item.id}:${Date.now()}`,
         },
         tx,
@@ -317,13 +321,133 @@ export async function payForGift(gifterUserId: string, input: PayInput) {
   };
 }
 
+// ── Cart checkout (E013) — pay for several wishlist gifts at once ─────────
+
+export type CartLine = { wishlistItemId: string; quantity: number; isAnonymous: boolean; message?: string };
+
+async function priceCart(gifterUserId: string, lines: CartLine[]) {
+  if (lines.length === 0) throw badRequest('Your cart is empty.');
+  const priced = [];
+  let totalKobo = 0n;
+  for (const line of lines) {
+    const item = await loadItem(line.wishlistItemId);
+    assertGiftable(item, gifterUserId, line.quantity);
+    const charge = await computeGiftCharge({
+      unitPriceKobo: item.product.priceKobo,
+      quantity: line.quantity,
+      deliveryOption: item.product.deliveryOption,
+    });
+    priced.push({ item, line, charge });
+    totalKobo += charge.gifterPaysKobo;
+  }
+  return { priced, totalKobo };
+}
+
+export async function payForCart(
+  gifterUserId: string,
+  input: { lines: CartLine[]; method: 'WALLET' | 'BANK_TRANSFER' },
+) {
+  const { priced, totalKobo } = await priceCart(gifterUserId, input.lines);
+
+  if (input.method === 'WALLET') {
+    await ensureWallet(gifterUserId);
+    const balance = await getBalanceKobo(gifterUserId);
+    if (balance < totalKobo) {
+      throw conflict(
+        'insufficient_funds',
+        `Your cart totals ₦${(Number(totalKobo) / 100).toLocaleString()} but your wallet has ₦${(Number(balance) / 100).toLocaleString()}. Add funds first.`,
+      );
+    }
+    const results = [];
+    for (const { item, line, charge } of priced) {
+      const { gift, order } = await finalizeGift({
+        item,
+        gifterUserId,
+        input: { ...line, method: 'WALLET' },
+        charge,
+        paidFromWallet: true,
+      });
+      results.push({ wishlistItemId: line.wishlistItemId, giftId: gift.id, orderNumber: order.orderNumber });
+    }
+    return { status: 'PAID' as const, totalKobo, gifts: results };
+  }
+
+  // BANK_TRANSFER — one virtual account for the whole cart.
+  const provider = getPaymentProvider();
+  const reference = paymentReference();
+  const gifter = await prisma.user.findUniqueOrThrow({ where: { id: gifterUserId } });
+  const dva = await provider.createDynamicVirtualAccount({
+    amountKobo: totalKobo,
+    reference,
+    customerName: `${gifter.firstName} ${gifter.lastName}`.trim(),
+    ttlSeconds: 1800,
+  });
+  const intent = await prisma.paymentIntent.create({
+    data: {
+      reference,
+      userId: gifterUserId,
+      purpose: 'GIFT',
+      amountKobo: totalKobo,
+      provider: provider.name,
+      method: 'BANK_TRANSFER',
+      status: 'PENDING',
+      dynamicVirtualNuban: { accountNumber: dva.accountNumber, bankName: dva.bankName, accountName: dva.accountName },
+      expiresAt: dva.expiresAt ? new Date(dva.expiresAt) : null,
+      metadata: {
+        kind: 'cart',
+        items: input.lines.map((l) => ({
+          wishlistItemId: l.wishlistItemId,
+          quantity: l.quantity,
+          isAnonymous: l.isAnonymous,
+          message: l.message ?? null,
+        })),
+      },
+    },
+  });
+  return { status: 'PENDING' as const, reference: intent.reference, virtualAccount: { ...dva }, totalKobo };
+}
+
 /** Called by the payment webhook when a GIFT-purpose transfer lands. */
 export async function settleGiftTransfer(reference: string, paidAmountKobo: bigint) {
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
   if (!intent || intent.purpose !== 'GIFT') return { handled: false };
   if (intent.status === 'COMPLETED') return { handled: true, duplicate: true };
 
-  const meta = intent.metadata as {
+  const rawMeta = intent.metadata as Record<string, unknown>;
+
+  // Cart checkout: finalise every line, then mark the intent complete.
+  if (rawMeta?.kind === 'cart') {
+    const lines = (rawMeta.items as CartLine[]) ?? [];
+    for (const line of lines) {
+      const item = await loadItem(line.wishlistItemId);
+      const charge = await computeGiftCharge({
+        unitPriceKobo: item.product.priceKobo,
+        quantity: line.quantity,
+        deliveryOption: item.product.deliveryOption,
+      });
+      await finalizeGift({
+        item,
+        gifterUserId: intent.userId,
+        input: {
+          wishlistItemId: line.wishlistItemId,
+          quantity: line.quantity,
+          isAnonymous: line.isAnonymous,
+          message: line.message ?? undefined,
+          method: 'BANK_TRANSFER',
+        },
+        charge,
+        paidFromWallet: false,
+        idempotencyScope: `${intent.id}:${line.wishlistItemId}`,
+      });
+    }
+    await prisma.paymentIntent.update({
+      where: { id: intent.id },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    });
+    return { handled: true, duplicate: false };
+  }
+
+  const meta = rawMeta as unknown as {
     wishlistItemId: string;
     quantity: number;
     isAnonymous: boolean;
