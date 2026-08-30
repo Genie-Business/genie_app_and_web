@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "genie app · deployed API",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=API_BASE_URL=https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app",
+        "--dart-define=APP_ENV=preview"
+      ]
+    },
+    {
+      "name": "genie app · local API (Android emulator)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=API_BASE_URL=http://10.0.2.2:8787",
+        "--dart-define=APP_ENV=local"
+      ]
+    },
+    {
+      "name": "genie app · local API (physical phone on Wi-Fi)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=API_BASE_URL=http://192.168.1.100:8787",
+        "--dart-define=APP_ENV=local"
+      ]
+    },
+    {
+      "name": "genie app · profile mode",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "args": ["--dart-define=API_BASE_URL=https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app"]
+    }
+  ]
+}

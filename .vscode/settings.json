@@ -1,0 +1,28 @@
+{
+  "// dart/flutter": "The Flutter app lives in apps/mobile; point the Dart tooling at it.",
+  "dart.flutterSdkPath": null,
+  "dart.projectSearchDepth": 3,
+  "dart.previewFlutterUiGuides": true,
+  "dart.openDevTools": "flutter",
+  "[dart]": {
+    "editor.formatOnSave": true,
+    "editor.rulers": [100],
+    "editor.selectionHighlight": false,
+    "editor.tabCompletion": "onlySnippets",
+    "editor.wordBasedSuggestions": "off"
+  },
+  "files.watcherExclude": {
+    "**/.dart_tool/**": true,
+    "**/build/**": true,
+    "**/android/.gradle/**": true,
+    "**/node_modules/**": true,
+    "**/.turbo/**": true
+  },
+  "search.exclude": {
+    "**/apps/mobile/android": true,
+    "**/apps/mobile/ios": true,
+    "**/apps/mobile/build": true,
+    "**/.dart_tool": true,
+    "**/openapi.json": true
+  }
+}
