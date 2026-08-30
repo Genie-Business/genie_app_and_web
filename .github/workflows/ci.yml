@@ -69,20 +69,25 @@ jobs:
           exit $code
 
       # ── Installable test APK ──────────────────────────────────────────
-      # Downloadable from the run's Artifacts. `API_BASE_URL` comes from the
-      # repo variable of the same name (Settings → Secrets and variables →
-      # Actions → Variables); set it to the deployed API once it exists.
+      # arm64-only single APK (~17 MB, fits every phone from the last ~6 years).
+      # Downloadable from the run's Artifacts. `API_BASE_URL` comes from the repo
+      # variable of the same name (Settings → Secrets and variables → Actions →
+      # Variables); set it to the deployed API URL.
       - name: build APK
         env:
           API_BASE_URL: ${{ vars.API_BASE_URL || 'http://10.0.2.2:8787' }}
           APP_ENV: ${{ vars.MOBILE_APP_ENV || 'preview' }}
         run: |
-          flutter build apk --release \
+          flutter build apk --release --target-platform android-arm64 \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=APP_ENV="$APP_ENV"
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/genie-${GITHUB_SHA::7}.apk"
-          echo "APK built against API_BASE_URL=$API_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Test APK"
+            echo "- API: \`$API_BASE_URL\`"
+            echo "- size: $(du -h dist/*.apk | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: genie-android-apk
