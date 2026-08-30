@@ -9,9 +9,14 @@ export type Mail = {
 };
 
 /**
- * Send transactional mail via Resend (https://resend.com). If RESEND_API_KEY is
- * unset (local dev), the mail — including any OTP — is logged to the console
- * instead so flows are still testable end-to-end.
+ * Send transactional mail via Resend (https://resend.com).
+ *
+ * Delivery is best-effort: if RESEND_API_KEY is unset, or Resend rejects the
+ * send (e.g. the free tier only delivers to the account owner until a domain is
+ * verified), the mail — including any OTP — is logged instead and the call still
+ * resolves. Callers must not depend on delivery: signup/reset codes are also
+ * persisted and can be re-requested via `resend-otp`. Throwing here would 500 a
+ * registration whose user row is already committed.
  */
 export async function sendMail(mail: Mail): Promise<void> {
   const env = getEnv();
@@ -19,24 +24,34 @@ export async function sendMail(mail: Mail): Promise<void> {
     logger.info({ to: mail.to, subject: mail.subject, body: mail.text ?? mail.html }, '📧 [dev mail]');
     return;
   }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM,
-      to: mail.to,
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-    }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    logger.error({ status: res.status, detail }, 'Resend send failed');
-    throw new Error(`Email delivery failed (${res.status})`);
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM,
+        to: mail.to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      logger.error(
+        { status: res.status, detail, to: mail.to, subject: mail.subject, body: mail.text ?? mail.html },
+        'Resend send failed — mail logged instead',
+      );
+      return;
+    }
+  } catch (err) {
+    logger.error(
+      { err, to: mail.to, subject: mail.subject, body: mail.text ?? mail.html },
+      'Resend request threw — mail logged instead',
+    );
   }
 }
 
