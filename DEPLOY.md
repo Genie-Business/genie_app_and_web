@@ -63,34 +63,61 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 ### 4. Deploy & verify
 
-Push to `main` (or *Redeploy* in the dashboard). Then:
+Push to `main` (or *Redeploy* in the dashboard). Auto-deploys land ~40s
+after a push. Then:
 
 ```bash
-curl https://<your-api>.vercel.app/v1/health
+curl https://genie-app-and-web-api.vercel.app/v1/health
 # {"data":{"status":"ok","env":"preview","db":"up",...}}
 ```
 
-Open `https://<your-api>.vercel.app/console` in a browser to poke the live API.
+Open `https://genie-app-and-web-api.vercel.app/console` to poke the live API.
 
-### 5. Point the app at it
+> **Gotcha:** the Vercel function entry (`apps/api/api/index.ts`) MUST
+> default-export `{ fetch }`, not a bare function. A bare function is called
+> with the Node `(req, res)` signature, the returned `Response` is dropped,
+> and every request hangs to a 60s `FUNCTION_INVOCATION_TIMEOUT`.
 
-- Repo **Settings → Secrets and variables → Actions → Variables**: set
-  `API_BASE_URL` = `https://<your-api>.vercel.app`. The next `main` build's
-  `genie-android-apk` artifact will target it.
-- `.vscode/launch.json`: replace `REPLACE-WITH-YOUR-VERCEL-URL` in the
-  *deployed API* configs.
-- `apps/mobile/lib/core/env.dart`: update the `defaultValue` if you want it
-  baked in without a `--dart-define`.
+### 5. Point the app at it  ✅ done 2026-08-30
+
+- Repo **Settings → Secrets and variables → Actions → Variables**:
+  `API_BASE_URL` = `https://genie-app-and-web-api.vercel.app` (set).
+- `.vscode/launch.json` + `apps/mobile/lib/core/env.dart` default already
+  point there.
 
 ---
 
-## genie-landing / genie-admin
+## genie-landing
 
-Same flow, Root Directory `apps/landing` / `apps/admin`.
+**Root Directory** `apps/landing`. `apps/landing/vercel.json` sets the build
+(`turbo run build --filter=@genie/landing`). No database access — it proxies
+the waitlist POST to the API.
 
-- **landing** needs `NEXT_PUBLIC_API_BASE_URL` = the api URL, and
-  `DATABASE_URL` (it reads `AppSetting` for CRM content + writes
-  `WaitlistSignup`).
-- **admin** needs `DATABASE_URL`, `DIRECT_URL` and `ADMIN_SESSION_SECRET`
-  (generate like the JWT secrets). Log in with the seeded admin
-  (`admin@genieapps.co` — password from the seed run).
+| Name | Value |
+|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | `https://genie-app-and-web-api.vercel.app` |
+| `NEXT_PUBLIC_SITE_URL` | the landing's own URL, e.g. `https://genie-landing.vercel.app` — set after the first deploy, then redeploy (drives `robots.txt`, `sitemap.xml`, OG tags) |
+
+Verify: open the site, submit the waitlist form, confirm a `WaitlistSignup`
+row (`npm run db:studio`). Check `/robots.txt` and `/sitemap.xml`.
+
+## genie-admin
+
+**Root Directory** `apps/admin`. `apps/admin/vercel.json` runs
+`db:generate` then `turbo run build --filter=@genie/admin`. Server-only
+(Prisma via the Neon adapter — no query-engine binary).
+
+| Name | Value |
+|---|---|
+| `DATABASE_URL` | Neon **pooled** URL (same as the API's) |
+| `DIRECT_URL` | Neon **direct** URL |
+| `ADMIN_SESSION_SECRET` | generate: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
+
+`NODE_ENV=production` is automatic. Log in at `/login` with the seeded admin
+`admin@genieapps.co` — the password was printed once by `npm run db:seed`.
+Lost it? Re-run the seed with `SEED_ADMIN_PASSWORD=<something>` set (the seed
+leaves an existing admin's password unchanged, so first delete the row or
+set the password via a one-off script).
+
+Verify: `/` redirects to `/login` when signed out; after login the dashboard
+shell renders.

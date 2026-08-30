@@ -1,10 +1,12 @@
 /**
  * Ad-hoc DB inspector / cleaner. Run from packages/db:
- *   node --env-file=../../.env scripts/dbcheck.mjs                  # show counts
- *   node --env-file=../../.env scripts/dbcheck.mjs --clean-smoke    # remove *.smoke@example.com test data
- *   node --env-file=../../.env scripts/dbcheck.mjs --clean-probes   # remove ad-hoc probe accounts (see PROBE_PREFIXES)
+ *   node --env-file=../../.env scripts/dbcheck.mjs                       # show counts
+ *   node --env-file=../../.env scripts/dbcheck.mjs --clean-smoke         # remove *.smoke@example.com test data
+ *   node --env-file=../../.env scripts/dbcheck.mjs --clean-probes        # remove ad-hoc probe accounts (see PROBE_PREFIXES)
+ *   node --env-file=../../.env scripts/dbcheck.mjs --set-admin-password  # reset admin@genieapps.co (needs NEW_ADMIN_PASSWORD env)
  */
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '@genie/core';
 
 const prisma = new PrismaClient();
 
@@ -44,6 +46,17 @@ if (process.argv.includes('--clean-probes')) {
       select: { id: true, email: true },
     }),
   );
+}
+
+if (process.argv.includes('--set-admin-password')) {
+  const email = process.env.ADMIN_EMAIL ?? 'admin@genieapps.co';
+  const password = process.env.NEW_ADMIN_PASSWORD;
+  if (!password) throw new Error('set NEW_ADMIN_PASSWORD in the environment');
+  await prisma.adminUser.update({
+    where: { email },
+    data: { passwordHash: await hashPassword(password) },
+  });
+  console.log(`password reset for ${email}`);
 }
 
 const c = await Promise.all([
