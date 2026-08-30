@@ -5,7 +5,7 @@ import { signAccessToken } from '../../src/lib/jwt';
 let seq = 0;
 const uid = () => `${Date.now().toString(36)}${(seq += 1)}`;
 
-export async function makeCelebrant(overrides: { emailVerified?: boolean } = {}) {
+export async function makeCelebrant(overrides: { emailVerified?: boolean; phone?: string } = {}) {
   const n = uid();
   const user = await prisma.user.create({
     data: {
@@ -17,6 +17,7 @@ export async function makeCelebrant(overrides: { emailVerified?: boolean } = {})
       referralCode: `CEL${n.toUpperCase()}`.slice(0, 20),
       passwordHash: await hashPassword('Abcdef1!'),
       stateOfResidence: 'Lagos',
+      phone: overrides.phone,
       emailVerifiedAt: overrides.emailVerified === false ? null : new Date(),
     },
   });

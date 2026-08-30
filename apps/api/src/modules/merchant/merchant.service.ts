@@ -2,6 +2,7 @@ import { prisma } from '@genie/db';
 import type { catalog as C } from '@genie/contracts';
 import { badRequest, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { notify } from '../notifications/notify.service';
 
 type CreateProduct = C.CreateProductBody;
 type UpdateProduct = Partial<CreateProduct>;
@@ -168,6 +169,25 @@ export async function updateDelivery(
     }
   } else if (order.status === 'PAID') {
     await prisma.order.update({ where: { id: orderId }, data: { status: 'FULFILLING' } });
+  }
+
+  // Keep the buyer in the loop as the parcel moves.
+  if (order.buyerUserId && (input.status === 'DISPATCHED' || input.status === 'DELIVERED')) {
+    const item = await prisma.orderItem.findFirst({
+      where: { orderId },
+      select: { description: true },
+    });
+    const label = item?.description ?? 'Your order';
+    await notify({
+      userId: order.buyerUserId,
+      type: 'order.delivery',
+      title: input.status === 'DELIVERED' ? 'Gift delivered 🎉' : 'Gift on its way 🚚',
+      body:
+        input.status === 'DELIVERED'
+          ? `${label} has been delivered.`
+          : `${label} has been dispatched${input.courierName ? ` with ${input.courierName}` : ''}.`,
+      payload: { orderId },
+    });
   }
   return { orderId, deliveryStatus: input.status };
 }

@@ -3,6 +3,7 @@ import { prisma, type Prisma } from '@genie/db';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { computeGiftCharge, type GiftCharge } from '../fees/fees.service';
+import { notify } from '../notifications/notify.service';
 import { getBalanceKobo, postEntry } from '../payments/ledger.service';
 import { getPaymentProvider } from '../payments/provider';
 import { ensureWallet } from '../payments/wallet.service';
@@ -202,27 +203,21 @@ async function finalizeGift(opts: {
         .then((u) => u?.firstName)) ?? 'A friend';
 
   try {
-    await prisma.notification.createMany({
-      data: [
-        {
-          userId: celebrantId,
-          channel: 'IN_APP',
-          type: 'gift.received',
-          title: input.isAnonymous ? 'A secret gift appeared 🎁' : `${gifterName} sent you a gift 🎁`,
-          body: input.isAnonymous
-            ? `An anonymous gift was added to "${item.wishlist.name}". It'll be revealed when it arrives.`
-            : `${gifterName} gifted you ${item.product.name}.`,
-          payload: { giftId: gift.id, eventId },
-        },
-        {
-          userId: merchantId,
-          channel: 'IN_APP',
-          type: 'order.new',
-          title: 'New order',
-          body: `${item.product.name} ×${input.quantity} — ${order.orderNumber}`,
-          payload: { orderId: order.id },
-        },
-      ],
+    await notify({
+      userId: celebrantId,
+      type: 'gift.received',
+      title: input.isAnonymous ? 'A secret gift appeared 🎁' : `${gifterName} sent you a gift 🎁`,
+      body: input.isAnonymous
+        ? `An anonymous gift was added to "${item.wishlist.name}". It'll be revealed when it arrives.`
+        : `${gifterName} gifted you ${item.product.name}.`,
+      payload: { giftId: gift.id, eventId },
+    });
+    await notify({
+      userId: merchantId,
+      type: 'order.new',
+      title: 'New order',
+      body: `${item.product.name} ×${input.quantity} — ${order.orderNumber}`,
+      payload: { orderId: order.id },
     });
     await prisma.activityLog.create({
       data: {

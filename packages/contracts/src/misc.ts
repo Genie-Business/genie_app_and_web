@@ -24,18 +24,4 @@ export const referralInfoDto = z.object({
   pendingRewardKobo: z.string(),
 });
 
-export const notificationDto = z.object({
-  id: z.string(),
-  channel: z.enum(['PUSH', 'EMAIL', 'IN_APP']),
-  type: z.string(),
-  title: z.string(),
-  body: z.string(),
-  read: z.boolean(),
-  createdAt: z.string(),
-});
-
-export const importContactsBody = z.object({
-  contacts: z
-    .array(z.object({ name: z.string().max(140).optional(), phone: z.string().min(4).max(20) }))
-    .max(2000),
-});
+// Notifications & contact-import contracts moved to ./notifications and ./friends.

@@ -7,4 +7,6 @@ export * as events from './events';
 export * as payments from './payments';
 export * as gifts from './gifts';
 export * as orders from './orders';
+export * as friends from './friends';
+export * as notifications from './notifications';
 export * as misc from './misc';

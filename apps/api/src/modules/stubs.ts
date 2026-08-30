@@ -16,18 +16,10 @@ const STUBS: Stub[] = [
   ['get', '/v1/cart', 'Cart', 'Get my open cart'],
   ['post', '/v1/cart/items', 'Cart', 'Add/update a product in the cart'],
   ['delete', '/v1/cart/items/{itemId}', 'Cart', 'Remove a product from the cart'],
-  // Friends & social (E007)
-  ['get', '/v1/friends', 'Friends', 'My friends list'],
-  ['post', '/v1/friends/requests', 'Friends', 'Send a friend request'],
-  ['post', '/v1/friends/import-contacts', 'Friends', 'Import contacts & match genie users'],
+  // Instant messaging (E007) — needs its own schema; later milestone
   ['get', '/v1/messages/threads', 'Friends', 'Instant messaging threads'],
   // Referrals (E011)
   ['get', '/v1/referrals', 'Referrals', 'My referral code + who I referred'],
-  // Notifications (E010)
-  ['get', '/v1/notifications', 'Notifications', 'My notifications'],
-  ['post', '/v1/notifications/read', 'Notifications', 'Mark notifications read'],
-  ['post', '/v1/devices', 'Notifications', 'Register a device push token'],
-  ['delete', '/v1/devices/{token}', 'Notifications', 'Remove a device push token'],
   // Activities (E009)
   ['get', '/v1/activities', 'Activities', 'My activity feed (filter by date/type/txn)'],
   // Settings (E011)

@@ -17,6 +17,12 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().default('genie <no-reply@genieapps.co>'),
 
+  /** Push delivery. `log` just writes to the logger (dev / no credentials). */
+  PUSH_PROVIDER: z.enum(['log', 'fcm']).default('log'),
+  FCM_PROJECT_ID: z.string().optional().default(''),
+  FCM_CLIENT_EMAIL: z.string().optional().default(''),
+  FCM_PRIVATE_KEY: z.string().optional().default(''),
+
   BLOB_READ_WRITE_TOKEN: z.string().optional().default(''),
 
   PAYMENTS_PROVIDER: z.enum(['mock', 'anchor']).default('mock'),

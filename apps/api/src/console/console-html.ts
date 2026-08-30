@@ -22,9 +22,9 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
   .brand{font-weight:700;font-size:18px;color:var(--cyan)}
   .who{font-size:13px;color:var(--muted);margin-left:auto}
   .who b{color:var(--ink)}
-  main{max-width:1100px;margin:auto;padding:20px;display:grid;grid-template-columns:1fr;gap:16px}
-  @media(min-width:900px){main{grid-template-columns:1fr 1fr}}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+  main{max-width:1100px;margin:auto;padding:20px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+  @media(min-width:900px){main{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;min-width:0}
   .card h2{margin:0 0 10px;font-size:15px;letter-spacing:.02em;text-transform:uppercase;color:var(--muted)}
   .card.full{grid-column:1/-1}
   label{display:block;font-size:12px;color:var(--ink-2);margin:8px 0 3px}
@@ -47,7 +47,8 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
   .prod .b{padding:8px}
   .msg{margin-top:8px;font-size:13px;padding:8px 10px;border-radius:8px;display:none}
   .msg.ok{display:block;background:#e7f6ef;color:var(--ok)} .msg.err{display:block;background:#fdecea;color:var(--err)}
-  pre{background:#0f2e36;color:#d7ecf1;border-radius:10px;padding:12px;overflow:auto;font-size:12px;max-height:260px;margin:0}
+  pre{background:#0f2e36;color:#d7ecf1;border-radius:10px;padding:12px;overflow:auto;font-size:12px;max-height:260px;margin:0;max-width:100%}
+  .log-row .muted{white-space:pre-wrap;word-break:break-word}
   .log-row{border-bottom:1px solid #1d3a42;padding:4px 0}
   .log-row .m{color:#8fd3e0} .muted{color:var(--muted)}
   .hide{display:none}
@@ -181,6 +182,41 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="list" id="mo_list" style="margin-top:12px"></div>
   </section>
 
+  <!-- FRIENDS -->
+  <section class="card hide" id="friendsCard">
+    <h2>Friends</h2>
+    <label>Add by username</label>
+    <div class="row"><input id="fr_user" placeholder="celebrant_xxxx"/><button style="flex:0 0 auto" id="fr_add">Send request</button></div>
+    <div class="msg" id="friendsMsg"></div>
+    <div class="tabs" style="margin-top:12px">
+      <button data-ftab="list" class="on">Friends</button>
+      <button data-ftab="reqs">Requests</button>
+      <button data-ftab="blocked">Blocked</button>
+      <button data-ftab="contacts">Contacts</button>
+    </div>
+    <div class="list" id="fr_list" data-fpane="list"></div>
+    <div class="list hide" id="fr_reqs" data-fpane="reqs"></div>
+    <div class="list hide" id="fr_blocked" data-fpane="blocked"></div>
+    <div data-fpane="contacts" class="hide">
+      <label>Paste contacts — one per line, <code>Name, +234…</code></label>
+      <textarea id="fr_contacts" rows="4" placeholder="Ada, 08030001111&#10;Tunde, +2348030002222"></textarea>
+      <div style="margin-top:8px"><button class="ghost sm" id="fr_import">Match contacts</button></div>
+      <div class="list" id="fr_matches"></div>
+    </div>
+  </section>
+
+  <!-- NOTIFICATIONS -->
+  <section class="card hide" id="notifCard">
+    <h2>Notifications <span class="pill" id="n_badge" style="display:none">0</span>
+      <button class="sm ghost" id="n_read" style="float:right">mark all read</button></h2>
+    <div class="row" style="align-items:flex-end">
+      <div><label>Register a (fake) push token</label><input id="n_tok" placeholder="tok-console-xxxx"/></div>
+      <button class="sm ghost" style="flex:0 0 auto" id="n_reg">register</button>
+    </div>
+    <div id="n_prefs" style="margin-top:10px;font-size:12px"></div>
+    <div class="list" id="n_list" style="margin-top:10px"></div>
+  </section>
+
   <!-- CATALOG -->
   <section class="card full" id="catCard">
     <h2>Catalogue <span class="muted" style="font-size:12px;text-transform:none">— click a product to add it to the selected wishlist</span></h2>
@@ -266,9 +302,11 @@ function renderSession(){
     $('#eventsCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#wlCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#giftCard').classList.remove('hide');
+    $('#friendsCard').classList.remove('hide');
+    $('#notifCard').classList.remove('hide');
   } else {
     $('#who').textContent='not signed in'; $('#authCard').classList.remove('hide');
-    ['merchCard','moCard','giftCard'].forEach(x=>$('#'+x).classList.add('hide'));
+    ['merchCard','moCard','giftCard','friendsCard','notifCard'].forEach(x=>$('#'+x).classList.add('hide'));
   }
 }
 $('#logout').onclick = () => { TOKEN=''; ME=null; localStorage.removeItem('genie.token'); renderSession(); };
@@ -600,10 +638,96 @@ async function loadMerchantOrders(){
   }catch(e){}
 }
 
+// ---- friends ----
+$$('.tabs button[data-ftab]').forEach(b => b.onclick = () => {
+  $$('.tabs button[data-ftab]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  $$('[data-fpane]').forEach(p=>p.classList.toggle('hide', p.dataset.fpane!==b.dataset.ftab));
+});
+$('#fr_add').onclick = async () => {
+  try{
+    msg('#friendsMsg','',true);
+    const r = await api('/v1/friends/requests', {method:'POST', body:{username:$('#fr_user').value.trim()}});
+    msg('#friendsMsg', r.status==='accepted' ? 'You are now friends!' : 'Request sent.', true);
+    $('#fr_user').value=''; loadFriends();
+  }catch(e){ msg('#friendsMsg', e.message, false); }
+};
+$('#fr_import').onclick = async () => {
+  const contacts = $('#fr_contacts').value.split('\\n').map(l=>l.trim()).filter(Boolean).map(l => {
+    const i = l.lastIndexOf(','); return i<0 ? {phone:l} : {name:l.slice(0,i).trim(), phone:l.slice(i+1).trim()};
+  });
+  if(!contacts.length) return;
+  try{
+    const r = await api('/v1/friends/import-contacts', {method:'POST', body:{contacts}});
+    $('#fr_matches').innerHTML = '<div class="item s">'+r.matched+' of '+r.contactsProcessed+' contacts are on genie</div>' +
+      r.matches.map(m => '<div class="item"><div class="t">'+m.firstName+' '+m.lastName+' <span class="pill">@'+m.username+'</span></div>'+
+      '<div class="s">'+(m.contactName?('saved as '+m.contactName+' · '):'')+m.friendStatus+
+      (m.friendStatus==='none'?' <button class="sm" data-fadd="'+m.username+'">add</button>':'')+'</div></div>').join('');
+    $$('#fr_matches [data-fadd]').forEach(b => b.onclick = async () => {
+      try{ await api('/v1/friends/requests', {method:'POST', body:{username:b.dataset.fadd}}); msg('#friendsMsg','Request sent.', true); loadFriends(); }
+      catch(e){ msg('#friendsMsg', e.message, false); }
+    });
+  }catch(e){ msg('#friendsMsg', e.message, false); }
+};
+async function loadFriends(){
+  if(!ME) return;
+  try{
+    const [friends, reqs, blocked] = await Promise.all([
+      api('/v1/friends'), api('/v1/friends/requests'), api('/v1/friends/blocked'),
+    ]);
+    $('#fr_list').innerHTML = friends.map(f =>
+      '<div class="item"><div class="t">'+f.firstName+' '+f.lastName+' <span class="pill">@'+f.username+'</span></div>'+
+      '<div class="s"><button class="sm ghost" data-unfriend="'+f.userId+'">unfriend</button> '+
+      '<button class="sm ghost" data-block="'+f.userId+'">block</button></div></div>').join('') || '<p class="muted">No friends yet.</p>';
+    $('#fr_reqs').innerHTML = reqs.map(r =>
+      '<div class="item"><div class="t">@'+r.user.username+' <span class="pill">'+r.direction+'</span></div>'+
+      '<div class="s">'+(r.direction==='incoming'
+        ? '<button class="sm" data-acc="'+r.id+'">accept</button> <button class="sm ghost" data-dec="'+r.id+'">decline</button>'
+        : '<button class="sm ghost" data-cancel="'+r.id+'">cancel</button>')+'</div></div>').join('') || '<p class="muted">No pending requests.</p>';
+    $('#fr_blocked').innerHTML = blocked.map(b =>
+      '<div class="item"><div class="t">@'+b.username+'</div><div class="s"><button class="sm ghost" data-unblock="'+b.userId+'">unblock</button></div></div>').join('')
+      || '<p class="muted">Nobody blocked.</p>';
+    const wire = (sel, fn) => $$(sel).forEach(b => b.onclick = async () => { try{ await fn(b); loadFriends(); loadNotifs(); }catch(e){ msg('#friendsMsg', e.message, false); } });
+    wire('#fr_reqs [data-acc]', b => api('/v1/friends/requests/'+b.dataset.acc+'/accept', {method:'POST'}));
+    wire('#fr_reqs [data-dec]', b => api('/v1/friends/requests/'+b.dataset.dec+'/decline', {method:'POST'}));
+    wire('#fr_reqs [data-cancel]', b => api('/v1/friends/requests/'+b.dataset.cancel, {method:'DELETE'}));
+    wire('#fr_list [data-unfriend]', b => api('/v1/friends/'+b.dataset.unfriend, {method:'DELETE'}));
+    wire('#fr_list [data-block]', b => api('/v1/friends/'+b.dataset.block+'/block', {method:'POST'}));
+    wire('#fr_blocked [data-unblock]', b => api('/v1/friends/'+b.dataset.unblock+'/block', {method:'DELETE'}));
+  }catch(e){}
+}
+
+// ---- notifications ----
+$('#n_read').onclick = async () => { try{ await api('/v1/notifications/read', {method:'POST', body:{all:true}}); loadNotifs(); }catch(e){} };
+$('#n_reg').onclick = async () => {
+  const fcmToken = $('#n_tok').value.trim() || ('tok-console-'+rnd()+rnd());
+  try{ await api('/v1/devices', {method:'POST', body:{fcmToken, platform:'ANDROID'}}); msg('#friendsMsg','Device registered — pushes now log server-side.', true); $('#n_tok').value=''; }
+  catch(e){ msg('#friendsMsg', e.message, false); }
+};
+async function loadNotifs(){
+  if(!ME) return;
+  try{
+    const [list, count] = await Promise.all([
+      api('/v1/notifications?pageSize=15'), api('/v1/notifications/unread-count'),
+    ]);
+    const n = count.count || 0;
+    const badge = $('#n_badge'); badge.textContent = n; badge.style.display = n>0 ? 'inline-block' : 'none';
+    $('#n_list').innerHTML = list.map(x =>
+      '<div class="item" style="'+(x.read?'opacity:.55':'')+'"><div class="t">'+x.title+' <span class="pill">'+x.category+'</span></div>'+
+      '<div class="s">'+x.body+' · '+new Date(x.createdAt).toLocaleTimeString()+'</div></div>').join('') || '<p class="muted">Nothing yet.</p>';
+    const prefs = await api('/v1/notifications/preferences');
+    $('#n_prefs').innerHTML = prefs.map(p =>
+      '<label style="display:inline-flex;gap:4px;align-items:center;margin-right:12px">'+
+      '<input type="checkbox" style="width:auto" data-pref="'+p.category+'" '+(p.push?'checked':'')+'/> '+p.category.toLowerCase()+' push</label>').join('');
+    $$('#n_prefs [data-pref]').forEach(cb => cb.onchange = async () => {
+      try{ await api('/v1/notifications/preferences', {method:'PUT', body:{preferences:[{category:cb.dataset.pref, push:cb.checked}]}}); }catch(e){}
+    });
+  }catch(e){}
+}
+
 async function refreshAll(){
   renderSession();
   if(!ME) return;
-  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders()]);
+  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs()]);
 }
 
 // boot

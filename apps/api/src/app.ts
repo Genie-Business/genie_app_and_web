@@ -21,6 +21,8 @@ import giftsRoutes from './modules/gifts/gifts.routes';
 import feesRoutes from './modules/fees/fees.routes';
 import payoutsRoutes from './modules/payouts/payouts.routes';
 import ordersRoutes from './modules/orders/orders.routes';
+import friendsRoutes from './modules/friends/friends.routes';
+import notificationsRoutes from './modules/notifications/notifications.routes';
 import { mountStubs } from './modules/stubs';
 
 export function createApp() {
@@ -89,6 +91,8 @@ export function createApp() {
   app.route('/v1/gifts', giftsRoutes);
   app.route('/v1/orders', ordersRoutes);
   app.route('/v1/payouts', payoutsRoutes);
+  app.route('/v1/friends', friendsRoutes);
+  app.route('/v1', notificationsRoutes); // /v1/notifications, /v1/devices
   app.route('/v1/public', publicRoutes);
 
   // ── Planned endpoints (501 + documented) ─────────────────────────────
@@ -105,9 +109,9 @@ export function createApp() {
     openapi: '3.1.0',
     info: {
       title: 'genie API',
-      version: '0.3.0',
+      version: '0.4.0',
       description:
-        'API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals. Other endpoints are documented but return 501.',
+        'API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals, friends & contact matching, notifications & push device tokens. Other endpoints are documented but return 501.',
     },
     servers: [{ url: '/', description: 'current host' }],
   });

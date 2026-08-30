@@ -6,10 +6,12 @@ import {
   generateOtp,
   hashOtp,
   hashPassword,
+  hashPhone,
   isValidEmail,
   isValidUsername,
   koboToNaira,
   nairaToKobo,
+  normalizePhoneNG,
   verifyOtp,
   verifyPassword,
 } from '../src/index';
@@ -56,6 +58,24 @@ describe('otp', () => {
     const h = hashOtp(code, 'pepper');
     expect(verifyOtp(code, h, 'pepper')).toBe(true);
     expect(verifyOtp('000000', h, 'pepper')).toBe(false);
+  });
+});
+
+describe('phone', () => {
+  it('normalises Nigerian numbers to E.164', () => {
+    expect(normalizePhoneNG('08030001111')).toBe('+2348030001111');
+    expect(normalizePhoneNG('0803 000 1111')).toBe('+2348030001111');
+    expect(normalizePhoneNG('+234 803 000 1111')).toBe('+2348030001111');
+    expect(normalizePhoneNG('2348030001111')).toBe('+2348030001111');
+    expect(normalizePhoneNG('8030001111')).toBe('+2348030001111'); // missing leading 0
+    expect(normalizePhoneNG('12345')).toBeNull();
+  });
+  it('hashes equal numbers to the same digest regardless of format', () => {
+    const a = hashPhone('08030001111', 'pep');
+    const b = hashPhone('+234 803 000 1111', 'pep');
+    expect(a).toBe(b);
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashPhone('nope', 'pep')).toBeNull();
   });
 });
 

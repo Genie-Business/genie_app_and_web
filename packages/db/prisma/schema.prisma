@@ -204,6 +204,14 @@ enum NotificationChannel {
   IN_APP
 }
 
+enum NotificationCategory {
+  GIFT
+  EVENT
+  FRIEND
+  PAYMENT
+  SYSTEM
+}
+
 enum SupportStatus {
   OPEN
   PENDING
@@ -277,6 +285,7 @@ model User {
   payoutAccount     PayoutAccount?
   payouts           Payout[]
   notifications     Notification[]
+  notificationPreferences NotificationPreference[]
   activityLogs      ActivityLog[]
   friendshipsSent     Friendship[]   @relation("FriendshipRequester")
   friendshipsReceived Friendship[]   @relation("FriendshipAddressee")
@@ -855,19 +864,39 @@ model Referral {
 }
 
 model Notification {
-  id      String              @id @default(cuid())
-  userId  String
-  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel NotificationChannel
-  type    String
-  title   String
-  body    String
-  payload Json?
-  readAt  DateTime?
-  sentAt  DateTime?
-  createdAt DateTime          @default(now())
+  id       String               @id @default(cuid())
+  userId   String
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel  NotificationChannel
+  category NotificationCategory @default(SYSTEM)
+  type     String
+  title    String
+  body     String
+  payload  Json?
+  readAt   DateTime?
+  /** Set once a push / email side-delivery has been dispatched. */
+  sentAt   DateTime?
+  createdAt DateTime            @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, category])
+}
+
+/**
+ * Per-user, per-category delivery preferences. A missing row means "defaults":
+ * in-app on, push on, email off. In-app is always on (the feed can't be muted).
+ */
+model NotificationPreference {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  NotificationCategory
+  push      Boolean              @default(true)
+  email     Boolean              @default(false)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@unique([userId, category])
 }
 
 model SupportThread {
