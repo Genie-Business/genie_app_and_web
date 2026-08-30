@@ -46,6 +46,8 @@ if (process.argv.includes('--clean-probes')) {
       select: { id: true, email: true },
     }),
   );
+  const wl = await prisma.waitlistSignup.deleteMany({ where: { email: { endsWith: '@example.com' } } });
+  if (wl.count) console.log('deleted', wl.count, 'example.com waitlist signups');
 }
 
 if (process.argv.includes('--set-admin-password')) {
