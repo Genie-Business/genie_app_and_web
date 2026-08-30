@@ -30,7 +30,7 @@
       "cwd": "apps/mobile",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=API_BASE_URL=http://192.168.1.100:8787",
+        "--dart-define=API_BASE_URL=http://192.168.1.102:8787",
         "--dart-define=APP_ENV=local"
       ]
     },

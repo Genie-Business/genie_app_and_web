@@ -1,6 +1,6 @@
 {
-  "// dart/flutter": "The Flutter app lives in apps/mobile; point the Dart tooling at it.",
-  "dart.flutterSdkPath": null,
+  "// dart/flutter": "The Flutter app lives in apps/mobile. This SDK path is the local clone; if you move it, update this or add <sdk>/bin to PATH.",
+  "dart.flutterSdkPath": "C:\\Documents\\Flutter\\flutter",
   "dart.projectSearchDepth": 3,
   "dart.previewFlutterUiGuides": true,
   "dart.openDevTools": "flutter",
