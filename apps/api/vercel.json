@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "cd ../.. && npm run db:generate && npx turbo run build --filter=@genie/api",
   "installCommand": "cd ../.. && npm install",
+  "buildCommand": "cd ../.. && npm run db:generate && npm run build --workspace @genie/api",
   "outputDirectory": ".",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {

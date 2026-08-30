@@ -8,11 +8,10 @@
 // typed BigInt. The API installs a BigInt JSON serialiser at boot.
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = []
-  // "native" for local dev / CI; the rhel target is the engine Vercel's Node
-  // serverless functions (Amazon Linux 2023) load at runtime.
-  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
+  provider = "prisma-client-js"
+  // The client runs on Neon's serverless (WebSocket) driver via a driver
+  // adapter (see src/client.ts) — no native query-engine binary, which is what
+  // lets it work on Vercel functions. Driver adapters are GA as of Prisma 6.
 }
 
 datasource db {

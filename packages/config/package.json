@@ -12,7 +12,11 @@
     "./tsconfig/node.json": "./tsconfig/node.json",
     "./tsconfig/next.json": "./tsconfig/next.json"
   },
-  "files": ["src", "eslint", "tsconfig"],
+  "files": [
+    "src",
+    "eslint",
+    "tsconfig"
+  ],
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
@@ -25,6 +29,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.37.3",
     "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.19.0"
   }
