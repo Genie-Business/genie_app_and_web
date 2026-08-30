@@ -5,10 +5,23 @@
  *   node --env-file=../../.env scripts/dbcheck.mjs --clean-probes        # remove ad-hoc probe accounts (see PROBE_PREFIXES)
  *   node --env-file=../../.env scripts/dbcheck.mjs --set-admin-password  # reset admin@genieapps.co (needs NEW_ADMIN_PASSWORD env)
  */
+import { scrypt as _scrypt, randomBytes } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '@genie/core';
 
 const prisma = new PrismaClient();
+
+/** scrypt hash in @genie/core's format: `scrypt$N$r$p$saltB64$hashB64`.
+ * Inlined (not imported from @genie/core) so this script runs under plain node. */
+function hashPassword(password) {
+  const [N, r, p, maxmem] = [2 ** 15, 8, 1, 64 * 1024 * 1024];
+  const salt = randomBytes(16);
+  return new Promise((resolve, reject) => {
+    _scrypt(password.normalize('NFKC'), salt, 64, { N, r, p, maxmem }, (err, dk) => {
+      if (err) reject(err);
+      else resolve(['scrypt', N, r, p, salt.toString('base64'), dk.toString('base64')].join('$'));
+    });
+  });
+}
 
 /** Local/CI exploration accounts, all `@example.com`. */
 const PROBE_PREFIXES = ['probe+', 'probe1', 'deploycheck-', 'dupcheck-', 'e2e+', 'e2e2+'];
