@@ -67,10 +67,10 @@ export function otpEmail(code: string, purpose: 'verify' | 'reset' | 'delete'): 
     subject: `Your genie code: ${code}`,
     text: `${intro}\n\n${code}\n\nThis code expires in 10 minutes. If you didn't request it, you can ignore this email.`,
     html: `<div style="font-family:Inter,Arial,sans-serif;max-width:440px;margin:auto">
-      <h2 style="color:#123E47">genie</h2>
-      <p style="color:#3D4A50">${intro}</p>
-      <p style="font-size:32px;letter-spacing:6px;font-weight:700;color:#123E47">${code}</p>
-      <p style="color:#6E7F86;font-size:13px">This code expires in 10 minutes. If you didn't request it, ignore this email.</p>
+      <h2 style="color:#6D28D9">genie</h2>
+      <p style="color:#3F394E">${intro}</p>
+      <p style="font-size:32px;letter-spacing:6px;font-weight:700;color:#2B1153">${code}</p>
+      <p style="color:#716A81;font-size:13px">This code expires in 10 minutes. If you didn't request it, ignore this email.</p>
     </div>`,
   };
 }

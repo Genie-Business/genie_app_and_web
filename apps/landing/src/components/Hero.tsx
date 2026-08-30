@@ -46,7 +46,7 @@ export function Hero() {
               <a
                 key={item.label}
                 href={item.href}
-                className="text-sm font-medium text-[#0F2E36] transition-colors hover:text-neutral-600"
+                className="text-sm font-medium text-ink transition-colors hover:text-neutral-600"
               >
                 {item.label}
               </a>
@@ -62,7 +62,7 @@ export function Hero() {
           {/* Mobile hamburger */}
           <button
             type="button"
-            className="text-[#0F2E36] md:hidden"
+            className="text-ink md:hidden"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
@@ -81,7 +81,7 @@ export function Hero() {
                     key={item.label}
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
-                    className="rounded-lg px-3 py-2.5 text-sm font-medium text-[#0F2E36] transition-colors hover:bg-neutral-100"
+                    className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-neutral-100"
                   >
                     {item.label}
                   </a>
@@ -108,7 +108,7 @@ export function Hero() {
               <span className="text-6xl font-normal tracking-tighter text-neutral-500 md:text-7xl lg:text-8xl">
                 Premium.
               </span>
-              <span className="-mt-3 text-6xl font-normal tracking-tighter text-[#0F2E36] md:text-7xl lg:text-8xl">
+              <span className="-mt-3 text-6xl font-normal tracking-tighter text-ink md:text-7xl lg:text-8xl">
                 Accessible.
               </span>
             </h1>
@@ -125,7 +125,7 @@ export function Hero() {
               </a>
               <a
                 href="#waitlist"
-                className="rounded-full bg-[#0F2E36] px-4 py-2 font-medium text-white transition-colors hover:bg-[#0a2027]"
+                className="rounded-full bg-primary px-4 py-2 font-medium text-white transition-colors hover:bg-primary-hover"
               >
                 Get early access
               </a>

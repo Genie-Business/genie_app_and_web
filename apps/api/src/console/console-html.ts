@@ -10,9 +10,10 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
 <title>genie · test console</title>
 <style>
   :root{
-    --cyan:#33B6CE; --cyan-d:#2A93A8; --cyan-soft:#ECF8FB;
-    --ink:#0F2E36; --ink-2:#526168; --muted:#6E7F86;
-    --bg:#F1F5F7; --surface:#fff; --border:#E2E9EC; --ok:#16A46B; --err:#E5484D;
+    /* --cyan* keep their names for churn's sake; the brand is now deep violet. */
+    --cyan:#6D28D9; --cyan-d:#5A20B0; --cyan-soft:#F4F1FE;
+    --ink:#1B1330; --ink-2:#544D63; --muted:#716A81;
+    --bg:#F3F1F8; --surface:#fff; --border:#E6E2EE; --ok:#16A46B; --err:#E5484D;
   }
   *{box-sizing:border-box} html,body{margin:0}
   body{font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink)}
@@ -29,7 +30,7 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
   .card.full{grid-column:1/-1}
   label{display:block;font-size:12px;color:var(--ink-2);margin:8px 0 3px}
   input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font:inherit;background:#fff}
-  input:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(51,182,206,.18)}
+  input:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(109,40,217,.18)}
   .row{display:flex;gap:8px} .row>*{flex:1}
   button{cursor:pointer;border:0;border-radius:999px;padding:9px 16px;font:inherit;font-weight:600;background:var(--cyan);color:#fff}
   button:hover{background:var(--cyan-d)} button.ghost{background:var(--cyan-soft);color:var(--cyan-d)}
@@ -47,10 +48,10 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
   .prod .b{padding:8px}
   .msg{margin-top:8px;font-size:13px;padding:8px 10px;border-radius:8px;display:none}
   .msg.ok{display:block;background:#e7f6ef;color:var(--ok)} .msg.err{display:block;background:#fdecea;color:var(--err)}
-  pre{background:#0f2e36;color:#d7ecf1;border-radius:10px;padding:12px;overflow:auto;font-size:12px;max-height:260px;margin:0;max-width:100%}
+  pre{background:#1b1330;color:#e6ddf7;border-radius:10px;padding:12px;overflow:auto;font-size:12px;max-height:260px;margin:0;max-width:100%}
   .log-row .muted{white-space:pre-wrap;word-break:break-word}
-  .log-row{border-bottom:1px solid #1d3a42;padding:4px 0}
-  .log-row .m{color:#8fd3e0} .muted{color:var(--muted)}
+  .log-row{border-bottom:1px solid #33285a;padding:4px 0}
+  .log-row .m{color:#c4a9f0} .muted{color:var(--muted)}
   .hide{display:none}
   .kv{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--border)}
 </style>

@@ -4,33 +4,35 @@
  * in Dart) the Flutter app.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * BRAND COLOUR — provisional. The genie logo is a single cyan wordmark. The
- * exact hex has NOT yet been sampled from a source file. Drop the official
- * logo (SVG preferred) into `packages/config/brand/genie-logo.svg` and update
- * `brand.primary[500]` below; the rest of the ramp is derived from it.
- * Current working value: #33B6CE  (HSL ≈ 189° 61% 50%)
+ * BRAND COLOUR — genie deep violet. Primary #6D28D9 (HSL ≈ 262° 70% 50%); the
+ * rest of the ramp is a tint/shade series around it. The neutral scale carries
+ * a faint violet tint so greys read as the same family. If the official logo
+ * SVG is added at `packages/config/brand/genie-logo.svg`, resample
+ * `brand.primary[500]` from it and regenerate the ramp + the mirrored values
+ * in each app's globals.css and apps/mobile/lib/theme/genie_theme.dart.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 export const brand = {
-  /** Primary cyan — the logo colour and its tint/shade ramp. */
+  /** Primary deep violet — the logo colour and its tint/shade ramp. */
   primary: {
-    50: '#ECF8FB',
-    100: '#CFEFF5',
-    200: '#A3E1EC',
-    300: '#6FCEDE',
-    400: '#48BFD3',
-    500: '#33B6CE', // ← logo cyan (provisional — resample from official asset)
-    600: '#2A93A8',
-    700: '#227585',
-    800: '#195763',
-    900: '#123E47',
-    950: '#0B272D',
+    50: '#F4F1FE',
+    100: '#EAE3FC',
+    200: '#D6C7FA',
+    300: '#B99DF4',
+    400: '#9670EC',
+    500: '#6D28D9', // ← genie deep violet
+    600: '#5A20B0',
+    700: '#491B8B',
+    800: '#39166C',
+    900: '#2B1153',
+    950: '#1B0A38',
   },
   /**
    * Warm celebration accent — NOT from the logo. Used sparingly for primary
    * CTAs and "magic moment" highlights (a gift revealed, an event completed).
-   * Flagged for confirmation; the system reads fine monochrome-cyan if dropped.
+   * The warm amber plays off the deep violet; the system also reads fine
+   * monochrome-violet if the accent is dropped.
    */
   accent: {
     50: '#FEF6E7',
@@ -45,20 +47,20 @@ export const brand = {
     900: '#743F15',
     950: '#431F06',
   },
-  /** Neutral scale — very slightly cyan-tinted so greys read as the same family. */
+  /** Neutral scale — faintly violet-tinted so greys read as the same family. */
   neutral: {
     0: '#FFFFFF',
-    50: '#FBFDFE',
-    100: '#F1F5F7',
-    200: '#E2E9EC',
-    300: '#CBD6DB',
-    400: '#9DAEB4',
-    500: '#6E7F86',
-    600: '#526168',
-    700: '#3D4A50',
-    800: '#283237',
-    900: '#172025',
-    950: '#0D1316',
+    50: '#FCFBFE',
+    100: '#F3F1F8',
+    200: '#E6E2EE',
+    300: '#CFC9DA',
+    400: '#A29BB2',
+    500: '#716A81',
+    600: '#544D63',
+    700: '#3F394E',
+    800: '#292537',
+    900: '#181425',
+    950: '#0E0B16',
   },
 } as const;
 
@@ -66,7 +68,7 @@ export const semantic = {
   success: { fg: '#0F7B4F', bg: '#E7F6EF', solid: '#16A46B' },
   warning: { fg: '#8A5A00', bg: '#FEF3DA', solid: '#E0930B' },
   error: { fg: '#B42318', bg: '#FDECEA', solid: '#E5484D' },
-  info: { fg: '#1F6F86', bg: '#E7F5F9', solid: '#33B6CE' },
+  info: { fg: '#4A1C90', bg: '#EEE8FC', solid: '#7C3AED' },
 } as const;
 
 /** Role tokens for the light theme (default). */
@@ -75,7 +77,7 @@ export const lightTheme = {
   'bg-surface': brand.neutral[0],
   'bg-subtle': brand.neutral[100],
   'bg-inverse': brand.neutral[900],
-  'text-primary': '#0F2E36',
+  'text-primary': '#1B1330',
   'text-secondary': brand.neutral[600],
   'text-muted': brand.neutral[500],
   'text-inverse': brand.neutral[50],
@@ -92,21 +94,21 @@ export const lightTheme = {
 
 /** Role tokens for the dark theme. */
 export const darkTheme = {
-  'bg-canvas': '#0B1417',
-  'bg-surface': '#111E22',
-  'bg-subtle': '#16262B',
+  'bg-canvas': '#0E0B18',
+  'bg-surface': '#171224',
+  'bg-subtle': '#1E1730',
   'bg-inverse': brand.neutral[50],
-  'text-primary': '#EAF2F4',
+  'text-primary': '#EFEBF8',
   'text-secondary': brand.neutral[300],
   'text-muted': brand.neutral[400],
   'text-inverse': brand.neutral[900],
   'text-brand': brand.primary[300],
-  border: '#24363C',
-  'border-strong': '#31474E',
+  border: '#2C2440',
+  'border-strong': '#3B3154',
   ring: brand.primary[500],
   'primary-solid': brand.primary[400],
   'primary-solid-hover': brand.primary[300],
-  'primary-soft': '#12333B',
+  'primary-soft': '#241A3D',
   'accent-solid': brand.accent[400],
   'accent-soft': '#3A2A0C',
 } as const;
@@ -161,10 +163,10 @@ export const radius = {
 
 export const elevation = {
   none: 'none',
-  sm: '0 1px 2px 0 rgb(15 46 54 / 0.05)',
-  md: '0 4px 12px -2px rgb(15 46 54 / 0.10), 0 2px 4px -2px rgb(15 46 54 / 0.06)',
-  lg: '0 12px 32px -8px rgb(15 46 54 / 0.16), 0 4px 8px -4px rgb(15 46 54 / 0.08)',
-  glow: '0 0 0 4px rgb(51 182 206 / 0.18)',
+  sm: '0 1px 2px 0 rgb(27 19 48 / 0.05)',
+  md: '0 4px 12px -2px rgb(27 19 48 / 0.10), 0 2px 4px -2px rgb(27 19 48 / 0.06)',
+  lg: '0 12px 32px -8px rgb(27 19 48 / 0.16), 0 4px 8px -4px rgb(27 19 48 / 0.08)',
+  glow: '0 0 0 4px rgb(109 40 217 / 0.18)',
 } as const;
 
 export const breakpoints = {

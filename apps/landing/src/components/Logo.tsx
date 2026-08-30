@@ -1,5 +1,5 @@
 /**
- * genie wordmark. The supplied brand logo is a cyan "genie" wordmark with a
+ * genie wordmark. The brand logo is a deep-violet "genie" wordmark with a
  * genie-in-a-lamp glyph; this is a faithful placeholder built from type + a
  * simple lamp mark until the official SVG is dropped in
  * (packages/config/brand/genie-logo.svg → import it here).

@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Mirrors packages/config/src/design-tokens.ts. The primary cyan is the genie
-/// logo colour (provisional #33B6CE — resample from the official asset and
-/// update here + the TS tokens together).
+/// Mirrors packages/config/src/design-tokens.ts. The primary is genie deep
+/// violet (#6D28D9); keep this in sync with the TS tokens and apps/*/globals.css.
 class GenieColors {
-  static const primary = Color(0xFF33B6CE);
-  static const primaryDark = Color(0xFF2A93A8);
-  static const primarySoft = Color(0xFFECF8FB);
+  static const primary = Color(0xFF6D28D9);
+  static const primaryDark = Color(0xFF5A20B0);
+  static const primarySoft = Color(0xFFF4F1FE);
   static const accent = Color(0xFFEE9B12);
 
-  static const ink = Color(0xFF0F2E36);
-  static const inkSecondary = Color(0xFF526168);
-  static const inkMuted = Color(0xFF6E7F86);
+  static const ink = Color(0xFF1B1330);
+  static const inkSecondary = Color(0xFF544D63);
+  static const inkMuted = Color(0xFF716A81);
 
-  static const canvas = Color(0xFFFBFDFE);
+  static const canvas = Color(0xFFFCFBFE);
   static const surface = Color(0xFFFFFFFF);
-  static const subtle = Color(0xFFF1F5F7);
-  static const border = Color(0xFFE2E9EC);
+  static const subtle = Color(0xFFF3F1F8);
+  static const border = Color(0xFFE6E2EE);
 
   static const success = Color(0xFF16A46B);
   static const error = Color(0xFFE5484D);
