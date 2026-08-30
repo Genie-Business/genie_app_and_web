@@ -19,9 +19,10 @@ if (typeof globalThis.WebSocket === 'undefined') {
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) throw new Error('DATABASE_URL is not set');
-  const adapter = new PrismaNeon({ connectionString });
+  // Don't throw here if DATABASE_URL is absent — the Next.js apps evaluate this
+  // module during their build (no DB access) and Prisma/Neon connect lazily on
+  // the first query anyway.
+  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL ?? '' });
   return new PrismaClient({
     adapter,
     log:
