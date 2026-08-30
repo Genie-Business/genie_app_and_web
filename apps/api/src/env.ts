@@ -25,6 +25,11 @@ const schema = z.object({
 
   BLOB_READ_WRITE_TOKEN: z.string().optional().default(''),
 
+  /** Identity verification. `mock` approves deterministically (no bureau call). */
+  KYC_PROVIDER: z.enum(['mock', 'bureau']).default('mock'),
+  KYC_BASE_URL: z.string().url().default('https://api.dojah.io'),
+  KYC_API_KEY: z.string().optional().default(''),
+
   PAYMENTS_PROVIDER: z.enum(['mock', 'anchor']).default('mock'),
   ANCHOR_BASE_URL: z.string().url().default('https://api.sandbox.getanchor.co/api/v1'),
   ANCHOR_KEY: z.string().optional().default(''),

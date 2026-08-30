@@ -18,16 +18,6 @@ const STUBS: Stub[] = [
   ['delete', '/v1/cart/items/{itemId}', 'Cart', 'Remove a product from the cart'],
   // Instant messaging (E007) — needs its own schema; later milestone
   ['get', '/v1/messages/threads', 'Friends', 'Instant messaging threads'],
-  // Settings (E011)
-  ['post', '/v1/me/delete/request', 'Me', 'Request account deletion (sends OTP)'],
-  ['post', '/v1/me/delete/confirm', 'Me', 'Confirm account deletion with OTP'],
-  ['get', '/v1/settings/allowed-countries', 'Me', 'Countries/states available on genie'],
-  // Support (E011)
-  ['post', '/v1/support/threads', 'Support', 'Start a "Talk to us" support thread'],
-  ['get', '/v1/support/threads', 'Support', 'My support threads'],
-  // KYC (E002)
-  ['post', '/v1/kyc/level-1', 'KYC', 'Submit Level 1 verification (selfie + ID doc)'],
-  ['get', '/v1/kyc', 'KYC', 'My verification status'],
 ];
 
 export function mountStubs(app: OpenAPIHono<AppEnv>) {

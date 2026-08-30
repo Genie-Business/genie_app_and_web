@@ -237,6 +237,59 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="list" id="ac_list"></div>
   </section>
 
+  <!-- KYC -->
+  <section class="card hide" id="kycCard">
+    <h2>Identity (KYC) <span class="pill" id="kyc_badge">—</span></h2>
+    <div class="row">
+      <div><label>ID type</label><select id="kyc_type"><option>NIN</option><option>DRIVERS_LICENSE</option><option>PASSPORT</option><option>VOTERS_CARD</option></select></div>
+      <div><label>BVN (11 digits — end 0000 to fail, 9999 to hold)</label><input id="kyc_bvn" value="22222222222"/></div>
+    </div>
+    <div class="row">
+      <div><label>Selfie</label><input id="kyc_selfie" type="file" accept="image/*"/></div>
+      <div><label>ID document</label><input id="kyc_doc" type="file" accept="image/*"/></div>
+    </div>
+    <div style="margin-top:10px"><button id="kyc_go">Submit for verification</button>
+      <button class="ghost sm" id="kyc_fake">use test images</button></div>
+    <div class="msg" id="kycMsg"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="card hide" id="setCard">
+    <h2>Settings</h2>
+    <div class="tabs">
+      <button data-stab="profile" class="on">Profile</button>
+      <button data-stab="sessions">Sessions</button>
+      <button data-stab="danger">Delete account</button>
+    </div>
+    <div data-spane="profile">
+      <div class="row"><div><label>Date of birth</label><input id="st_dob" type="date"/></div>
+        <div><label>State</label><input id="st_state"/></div></div>
+      <div class="row"><div><label>Address line</label><input id="st_addr"/></div>
+        <div><label>City</label><input id="st_city"/></div></div>
+      <div style="margin-top:8px"><button class="sm" id="st_save">Save profile</button></div>
+    </div>
+    <div data-spane="sessions" class="hide">
+      <div class="list" id="st_sessions"></div>
+      <button class="ghost sm" id="st_revokeothers" style="margin-top:8px">sign out other devices</button>
+    </div>
+    <div data-spane="danger" class="hide">
+      <p class="muted" style="font-size:12px">Wallet must be empty. A 6-digit code is emailed (shown here in local mode).</p>
+      <button class="sm" id="st_delreq" style="background:var(--err)">Request deletion code</button>
+      <div class="row" style="margin-top:8px"><input id="st_delcode" placeholder="6-digit code"/><button class="sm" style="flex:0 0 auto;background:var(--err)" id="st_delconfirm">Confirm delete</button></div>
+    </div>
+    <div class="msg" id="setMsg"></div>
+  </section>
+
+  <!-- SUPPORT -->
+  <section class="card hide" id="supCard">
+    <h2>Talk to us</h2>
+    <div class="row"><input id="sup_subj" placeholder="Subject (optional)"/></div>
+    <label>Message</label><textarea id="sup_msg" rows="2" placeholder="How can we help?"></textarea>
+    <div style="margin-top:8px"><button class="sm" id="sup_go">Start conversation</button></div>
+    <div class="list" id="sup_list"></div>
+    <div class="msg" id="supMsg"></div>
+  </section>
+
   <!-- CATALOG -->
   <section class="card full" id="catCard">
     <h2>Catalogue <span class="muted" style="font-size:12px;text-transform:none">— click a product to add it to the selected wishlist</span></h2>
@@ -326,9 +379,12 @@ function renderSession(){
     $('#notifCard').classList.remove('hide');
     $('#refCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#actCard').classList.remove('hide');
+    $('#kycCard').classList.remove('hide');
+    $('#setCard').classList.remove('hide');
+    $('#supCard').classList.remove('hide');
   } else {
     $('#who').textContent='not signed in'; $('#authCard').classList.remove('hide');
-    ['merchCard','moCard','giftCard','friendsCard','notifCard','refCard','actCard'].forEach(x=>$('#'+x).classList.add('hide'));
+    ['merchCard','moCard','giftCard','friendsCard','notifCard','refCard','actCard','kycCard','setCard','supCard'].forEach(x=>$('#'+x).classList.add('hide'));
   }
 }
 $('#logout').onclick = () => { TOKEN=''; ME=null; localStorage.removeItem('genie.token'); renderSession(); };
@@ -776,10 +832,123 @@ async function loadActivity(){
   }catch(e){}
 }
 
+// ---- KYC ----
+function testImage(name){
+  const b = new Uint8Array([255,216,255,224,0,16,74,70,73,70,0,1,1,0,0,1,0,1,0,0]);
+  return new File([b], name, {type:'image/jpeg'});
+}
+$('#kyc_fake').onclick = () => { $('#kycMsg').textContent = 'Test images will be used on submit.'; $('#kycMsg').className='msg ok'; $('#kyc_selfie').dataset.fake='1'; };
+$('#kyc_go').onclick = async () => {
+  try{
+    msg('#kycMsg','',true);
+    const fd = new FormData();
+    fd.append('idDocType', $('#kyc_type').value);
+    if($('#kyc_bvn').value) fd.append('bvn', $('#kyc_bvn').value.trim());
+    const sf = $('#kyc_selfie').files[0] || ($('#kyc_selfie').dataset.fake ? testImage('selfie.jpg') : null);
+    const df = $('#kyc_doc').files[0] || ($('#kyc_selfie').dataset.fake ? testImage('id.jpg') : null);
+    if(!sf || !df) return msg('#kycMsg','Pick a selfie and an ID image (or click "use test images").', false);
+    fd.append('selfie', sf); fd.append('idDoc', df);
+    const res = await fetch(API+'/v1/kyc/level-1', {method:'POST', headers:{authorization:'Bearer '+TOKEN}, body:fd});
+    const j = await res.json();
+    logLine('POST','/v1/kyc/level-1', res.status, j.error||j.data);
+    if(!res.ok) throw new Error(j.error && j.error.message || 'failed');
+    msg('#kycMsg','Verification: '+j.data.status+(j.data.rejectionReason?(' — '+j.data.rejectionReason):''), j.data.status!=='REJECTED');
+    loadKyc(); loadActivity(); loadNotifs();
+  }catch(e){ msg('#kycMsg', e.message, false); }
+};
+async function loadKyc(){
+  if(!ME) return;
+  try{
+    const k = await api('/v1/kyc');
+    const badge = $('#kyc_badge'); badge.textContent = k.status;
+    badge.style.background = k.status==='APPROVED' ? '#e7f6ef' : k.status==='REJECTED' ? '#fdecea' : 'var(--cyan-soft)';
+  }catch(e){}
+}
+
+// ---- settings ----
+$$('.tabs button[data-stab]').forEach(b => b.onclick = () => {
+  $$('.tabs button[data-stab]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  $$('[data-spane]').forEach(p=>p.classList.toggle('hide', p.dataset.spane!==b.dataset.stab));
+});
+$('#st_save').onclick = async () => {
+  try{
+    const b = {};
+    if($('#st_dob').value) b.dateOfBirth = new Date($('#st_dob').value).toISOString();
+    if($('#st_state').value) b.stateOfResidence = $('#st_state').value;
+    if($('#st_addr').value) b.addressLine = $('#st_addr').value;
+    if($('#st_city').value) b.city = $('#st_city').value;
+    if(!Object.keys(b).length) return;
+    await api('/v1/me/profile', {method:'PATCH', body:b});
+    msg('#setMsg','Profile saved.', true); loadActivity();
+  }catch(e){ msg('#setMsg', e.message, false); }
+};
+$('#st_revokeothers').onclick = async () => {
+  try{ const r = await api('/v1/me/sessions/revoke-others', {method:'POST', body:{deviceId:device()}}); msg('#setMsg','Signed out '+r.revoked+' other device(s).', true); loadSessions(); }
+  catch(e){ msg('#setMsg', e.message, false); }
+};
+$('#st_delreq').onclick = async () => {
+  try{
+    await api('/v1/me/delete/request', {method:'POST'});
+    const peek = await api('/v1/auth/_dev/otp/'+encodeURIComponent(ME.email)+'?purpose=ACCOUNT_DELETE', {auth:false}).catch(()=>null);
+    msg('#setMsg','Code sent'+(peek?(' — '+peek.code):'')+'.', true);
+    if(peek) $('#st_delcode').value = peek.code;
+  }catch(e){ msg('#setMsg', e.message, false); }
+};
+$('#st_delconfirm').onclick = async () => {
+  if(!confirm('Permanently delete this account?')) return;
+  try{
+    await api('/v1/me/delete/confirm', {method:'POST', body:{code:$('#st_delcode').value.trim()}});
+    msg('#setMsg','Account deleted.', true);
+    TOKEN=''; ME=null; localStorage.removeItem('genie.token'); renderSession();
+  }catch(e){ msg('#setMsg', e.message, false); }
+};
+async function loadSessions(){
+  if(!ME) return;
+  try{
+    const rows = await api('/v1/me/sessions?deviceId='+encodeURIComponent(device()));
+    $('#st_sessions').innerHTML = rows.map(s =>
+      '<div class="item"><div class="t">'+(s.deviceName||s.deviceId)+(s.current?' <span class="pill">this device</span>':'')+'</div>'+
+      '<div class="s">'+(s.userAgent||'—')+' '+(s.current?'':'<button class="sm ghost" data-revoke="'+s.id+'">sign out</button>')+'</div></div>').join('') || '<p class="muted">No active sessions.</p>';
+    $$('#st_sessions [data-revoke]').forEach(b => b.onclick = async () => { await api('/v1/me/sessions/'+b.dataset.revoke, {method:'DELETE'}); loadSessions(); });
+  }catch(e){}
+}
+async function loadSettingsProfile(){
+  if(!ME) return;
+  $('#st_state').value = ME.stateOfResidence || '';
+  if(ME.address){ $('#st_addr').value = ME.address.line||''; $('#st_city').value = ME.address.city||''; }
+  if(ME.dateOfBirth) $('#st_dob').value = ME.dateOfBirth.slice(0,10);
+}
+
+// ---- support ----
+$('#sup_go').onclick = async () => {
+  try{
+    if(!$('#sup_msg').value.trim()) return;
+    await api('/v1/support/threads', {method:'POST', body:{subject:$('#sup_subj').value||undefined, message:$('#sup_msg').value}});
+    $('#sup_subj').value=''; $('#sup_msg').value='';
+    msg('#supMsg','Conversation started.', true); loadSupport();
+  }catch(e){ msg('#supMsg', e.message, false); }
+};
+async function loadSupport(){
+  if(!ME) return;
+  try{
+    const threads = await api('/v1/support/threads');
+    $('#sup_list').innerHTML = threads.map(t =>
+      '<div class="item"><div class="t">'+(t.subject||'(no subject)')+' <span class="pill">'+t.status+'</span></div>'+
+      '<div class="s">'+t.messageCount+' message(s) · '+new Date(t.lastMessageAt).toLocaleString()+
+      ' <button class="sm ghost" data-reply="'+t.id+'">reply</button></div></div>').join('') || '<p class="muted">No conversations.</p>';
+    $$('#sup_list [data-reply]').forEach(b => b.onclick = async () => {
+      const m = prompt('Your reply:'); if(!m) return;
+      try{ await api('/v1/support/threads/'+b.dataset.reply+'/messages', {method:'POST', body:{message:m}}); msg('#supMsg','Reply sent.', true); loadSupport(); }
+      catch(e){ msg('#supMsg', e.message, false); }
+    });
+  }catch(e){}
+}
+
 async function refreshAll(){
   renderSession();
   if(!ME) return;
-  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity()]);
+  loadSettingsProfile();
+  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity(), loadKyc(), loadSessions(), loadSupport()]);
 }
 
 // boot

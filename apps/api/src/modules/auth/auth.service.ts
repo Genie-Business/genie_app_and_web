@@ -47,7 +47,7 @@ export function peekOtp(email: string, purpose: OtpPurpose = 'EMAIL_VERIFY'): st
   return __lastOtp.get(`${purpose}:${normalizeEmail(email)}`) ?? null;
 }
 
-async function issueOtp(email: string, purpose: OtpPurpose, userId?: string): Promise<string> {
+export async function issueOtp(email: string, purpose: OtpPurpose, userId?: string): Promise<string> {
   const env = getEnv();
   const code = generateOtp(6);
   // Invalidate any outstanding codes for this (email, purpose).
@@ -65,7 +65,7 @@ async function issueOtp(email: string, purpose: OtpPurpose, userId?: string): Pr
   return code;
 }
 
-async function consumeOtp(email: string, purpose: OtpPurpose, code: string): Promise<string | null> {
+export async function consumeOtp(email: string, purpose: OtpPurpose, code: string): Promise<string | null> {
   const env = getEnv();
   const token = await prisma.otpToken.findFirst({
     where: { email, purpose, consumedAt: null },

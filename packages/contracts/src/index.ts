@@ -11,4 +11,7 @@ export * as friends from './friends';
 export * as notifications from './notifications';
 export * as referrals from './referrals';
 export * as activities from './activities';
+export * as kyc from './kyc';
+export * as settings from './settings';
+export * as support from './support';
 export * as misc from './misc';

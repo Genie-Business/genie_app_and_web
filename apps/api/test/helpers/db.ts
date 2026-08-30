@@ -52,9 +52,20 @@ export async function resetDb(): Promise<void> {
     'SupportMessage', 'SupportThread', 'ActivityLog', 'DeviceToken', 'RefreshToken', 'OtpToken',
     'KycVerification', 'MerchantProfile', 'MerchantInviteCode', 'User',
   ];
-  await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE ${tables.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`,
-  );
+  const sql = `TRUNCATE TABLE ${tables.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`;
+  // Neon can be slow enough that TRUNCATE loses a race for its ACCESS EXCLUSIVE
+  // lock (a prior test's connection still winding down). Retry a few times.
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await prisma.$executeRawUnsafe(sql);
+      return;
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 export { prisma };

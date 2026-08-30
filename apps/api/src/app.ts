@@ -25,6 +25,9 @@ import friendsRoutes from './modules/friends/friends.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import referralsRoutes from './modules/referrals/referrals.routes';
 import activitiesRoutes from './modules/activities/activities.routes';
+import kycRoutes from './modules/kyc/kyc.routes';
+import settingsRoutes from './modules/settings/settings.routes';
+import supportRoutes from './modules/support/support.routes';
 import { mountStubs } from './modules/stubs';
 
 export function createApp() {
@@ -82,6 +85,9 @@ export function createApp() {
 
   // ── Feature routers ───────────────────────────────────────────────────
   app.route('/v1/auth', authRoutes);
+  // settingsRoutes owns /v1/me/{profile,sessions,delete} + /v1/settings/* — it must
+  // sit before meRoutes so those paths aren't swallowed by meRoutes' catch-all auth.
+  app.route('/v1', settingsRoutes);
   app.route('/v1/me', meRoutes);
   app.route('/v1/payments', paymentsRoutes);
   app.route('/v1/waitlist', waitlistRoutes);
@@ -97,6 +103,8 @@ export function createApp() {
   app.route('/v1', notificationsRoutes); // /v1/notifications, /v1/devices
   app.route('/v1/referrals', referralsRoutes);
   app.route('/v1/activities', activitiesRoutes);
+  app.route('/v1/kyc', kycRoutes);
+  app.route('/v1/support', supportRoutes);
   app.route('/v1/public', publicRoutes);
 
   // ── Planned endpoints (501 + documented) ─────────────────────────────
@@ -113,9 +121,9 @@ export function createApp() {
     openapi: '3.1.0',
     info: {
       title: 'genie API',
-      version: '0.5.0',
+      version: '0.6.0',
       description:
-        'API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals, friends & contact matching, notifications & push device tokens, referrals & rewards, activity feed. Other endpoints are documented but return 501.',
+        'API for the genie social-gifting platform. Implemented: auth, catalog, merchant products, events, wishlists, wallet funding (mock), gifting (wallet + bank transfer), anonymous gifts + reveal, fees & commission, saved cards, merchant orders & delivery, payouts & withdrawals, friends & contact matching, notifications & push device tokens, referrals & rewards, activity feed, KYC Level 1 (mock bureau), profile & session management, account deletion, support threads. Other endpoints are documented but return 501.',
     },
     servers: [{ url: '/', description: 'current host' }],
   });
