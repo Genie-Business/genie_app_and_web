@@ -8,7 +8,7 @@
       "cwd": "apps/mobile",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=API_BASE_URL=https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app",
+        "--dart-define=API_BASE_URL=https://genie-app-and-web-api.vercel.app",
         "--dart-define=APP_ENV=preview"
       ]
     },
@@ -41,7 +41,7 @@
       "cwd": "apps/mobile",
       "program": "lib/main.dart",
       "flutterMode": "profile",
-      "args": ["--dart-define=API_BASE_URL=https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app"]
+      "args": ["--dart-define=API_BASE_URL=https://genie-app-and-web-api.vercel.app"]
     }
   ]
 }
