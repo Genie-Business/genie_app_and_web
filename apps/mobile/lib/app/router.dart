@@ -11,8 +11,12 @@ import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_celebrant_screen.dart';
 import '../features/auth/presentation/sign_up_merchant_screen.dart';
 import '../features/auth/presentation/verify_otp_screen.dart';
+import '../features/events/presentation/create_event_screen.dart';
+import '../features/events/presentation/event_detail_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/settings/placeholder_screens.dart';
+import '../features/wishlists/presentation/add_wishlist_item_screen.dart';
+import '../features/wishlists/presentation/wishlist_screen.dart';
 
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
@@ -74,6 +78,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ResetPasswordScreen(email: s.uri.queryParameters['email'] ?? ''),
       ),
       GoRoute(path: '/', builder: (_, __) => const HomeShell()),
+      GoRoute(path: '/events/new', builder: (_, __) => const CreateEventScreen()),
+      GoRoute(
+        path: '/events/:id',
+        builder: (_, s) => EventDetailScreen(eventId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/wishlists/:id',
+        builder: (_, s) => WishlistScreen(wishlistId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/wishlists/:id/add',
+        builder: (_, s) => AddWishlistItemScreen(wishlistId: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/settings/username',
         builder: (_, __) => const SettingsPlaceholderScreen(

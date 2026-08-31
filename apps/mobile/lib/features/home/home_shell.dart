@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../theme/genie_theme.dart';
 import '../auth/auth_controller.dart';
 import '../auth/models.dart';
+import '../events/presentation/events_screen.dart';
+import '../wishlists/presentation/wishlists_tab_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -27,8 +29,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             _Placeholder(icon: Icons.receipt_long_rounded, title: 'Orders', body: 'Gift orders from genie users will show here.'),
           ]
         : const [
-            _Placeholder(icon: Icons.event_rounded, title: 'Events', body: 'Create an event to start a wishlist.'),
-            _Placeholder(icon: Icons.card_giftcard_rounded, title: 'Wishlists', body: 'Your open wishlists will appear here.'),
+            EventsScreen(),
+            WishlistsTabScreen(),
           ];
 
     final destinations = isMerchant

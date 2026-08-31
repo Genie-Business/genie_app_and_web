@@ -78,6 +78,25 @@ class ApiClient {
     );
   }
 
+  Never _rethrowAsApi(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic> && data['error'] is Map) {
+      final err = data['error'] as Map<dynamic, dynamic>;
+      throw ApiException(
+        (err['code'] ?? 'error').toString(),
+        (err['message'] ?? 'Something went wrong.').toString(),
+        statusCode: e.response?.statusCode,
+      );
+    }
+    throw ApiException(
+      'network_error',
+      e.type == DioExceptionType.connectionError
+          ? 'Could not reach genie. Check your connection.'
+          : (e.message ?? 'Network error'),
+      statusCode: e.response?.statusCode,
+    );
+  }
+
   Future<T> _unwrap<T>(Future<Response<dynamic>> future) async {
     try {
       final res = await future;
@@ -87,27 +106,34 @@ class ApiClient {
       }
       return body as T;
     } on DioException catch (e) {
-      final data = e.response?.data;
-      if (data is Map<String, dynamic> && data['error'] is Map) {
-        final err = data['error'] as Map<dynamic, dynamic>;
-        throw ApiException(
-          (err['code'] ?? 'error').toString(),
-          (err['message'] ?? 'Something went wrong.').toString(),
-          statusCode: e.response?.statusCode,
-        );
-      }
-      throw ApiException(
-        'network_error',
-        e.type == DioExceptionType.connectionError
-            ? 'Could not reach genie. Check your connection.'
-            : (e.message ?? 'Network error'),
-        statusCode: e.response?.statusCode,
-      );
+      _rethrowAsApi(e);
     }
   }
 
   Future<T> get<T>(String path, {Map<String, dynamic>? query, bool auth = true}) =>
       _unwrap<T>(_dio.get(path, queryParameters: query, options: Options(extra: {'auth': auth})));
+
+  /// Like [get] but also returns the `meta` envelope (pagination, etc.).
+  Future<({T data, Map<String, dynamic> meta})> getPaged<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    try {
+      final res = await _dio.get<dynamic>(path,
+          queryParameters: query, options: Options(extra: {'auth': auth}));
+      final body = res.data;
+      if (body is Map<String, dynamic>) {
+        return (
+          data: body['data'] as T,
+          meta: (body['meta'] as Map<String, dynamic>?) ?? const <String, dynamic>{},
+        );
+      }
+      return (data: body as T, meta: const <String, dynamic>{});
+    } on DioException catch (e) {
+      _rethrowAsApi(e);
+    }
+  }
 
   Future<T> post<T>(String path, {Object? body, bool auth = true}) =>
       _unwrap<T>(_dio.post(path, data: body, options: Options(extra: {'auth': auth})));
