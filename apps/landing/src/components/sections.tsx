@@ -82,14 +82,25 @@ export function MerchantCta() {
   return (
     <section id="merchants" className="scroll-mt-20 py-20">
       <div className="container-genie">
-        <div
-          className="overflow-hidden rounded-3xl px-8 py-12 text-white sm:px-12"
-          style={{
-            background:
-              'linear-gradient(120deg, var(--genie-primary-solid), var(--genie-primary-solid-hover))',
-          }}
-        >
-          <Reveal>
+        <div className="relative overflow-hidden rounded-3xl px-8 py-12 text-white sm:px-12">
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            src="/merchants.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            aria-hidden
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(120deg, rgba(109,40,217,0.92), rgba(90,32,176,0.88))',
+            }}
+          />
+          <Reveal className="relative">
             <h2 className="max-w-xl font-display text-2xl font-bold sm:text-3xl">
               Sell on genie
             </h2>

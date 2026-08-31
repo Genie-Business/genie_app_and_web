@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:video_player/video_player.dart';
 
-/// The genie welcome tour — a full-bleed photo/video walkthrough that mirrors
-/// the marketing showcase (deep violet, Cormorant Garamond display).
+/// The genie welcome tour — a full-bleed photo walkthrough that mirrors the
+/// marketing showcase (deep violet, Cormorant Garamond display) with a slow
+/// Ken-Burns drift on each frame.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -18,13 +18,11 @@ class _Slide {
     required this.line2,
     required this.body,
     required this.image,
-    this.video,
   });
   final String line1;
   final String line2;
   final String body;
   final String image;
-  final String? video;
 }
 
 const _slides = [
@@ -33,7 +31,6 @@ const _slides = [
     line2: 'really wanted',
     body: 'Build a wishlist of real things, from real shops.',
     image: 'assets/onboarding/celebrate.jpg',
-    video: 'assets/onboarding/hero.mp4',
   ),
   _Slide(
     line1: 'A little bit of',
@@ -69,9 +66,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             controller: _controller,
             onPageChanged: (i) => setState(() => _page = i),
             itemCount: _slides.length,
-            itemBuilder: (_, i) => _SlideView(slide: _slides[i], active: _page == i),
+            itemBuilder: (_, i) => _SlideView(slide: _slides[i]),
           ),
-          // Bottom controls over the fade.
           Positioned(
             left: 0,
             right: 0,
@@ -107,10 +103,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFF16121F),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(27)),
-                          textStyle: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600, fontSize: 16.5),
+                          shape:
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(27)),
+                          textStyle:
+                              GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16.5),
                         ),
                         onPressed: () => context.go('/auth/role'),
                         child: const Text('Get started'),
@@ -135,20 +131,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _SlideView extends StatelessWidget {
-  const _SlideView({required this.slide, required this.active});
+  const _SlideView({required this.slide});
   final _Slide slide;
-  final bool active;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (slide.video != null)
-          _HeroVideo(asset: slide.video!, fallback: slide.image)
-        else
-          _KenBurns(asset: slide.image, active: active),
-        // Violet-black fade so text reads.
+        _KenBurns(asset: slide.image),
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -164,7 +155,6 @@ class _SlideView extends StatelessWidget {
             ),
           ),
         ),
-        // Violet glow from the top, like the showcase.
         const Align(
           alignment: Alignment.topCenter,
           child: DecoratedBox(
@@ -219,11 +209,7 @@ class _SlideView extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(
                   slide.body,
-                  style: GoogleFonts.inter(
-                    color: Colors.white70,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
+                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 15, height: 1.5),
                 ),
               ],
             ),
@@ -234,11 +220,10 @@ class _SlideView extends StatelessWidget {
   }
 }
 
-/// Slow pan + zoom on a still image (ping-pongs while [active]).
+/// Slow pan + zoom on a still image, ping-ponging.
 class _KenBurns extends StatefulWidget {
-  const _KenBurns({required this.asset, required this.active});
+  const _KenBurns({required this.asset});
   final String asset;
-  final bool active;
 
   @override
   State<_KenBurns> createState() => _KenBurnsState();
@@ -268,60 +253,6 @@ class _KenBurnsState extends State<_KenBurns> with SingleTickerProviderStateMixi
         );
       },
       child: Image.asset(widget.asset, fit: BoxFit.cover),
-    );
-  }
-}
-
-/// Looping muted background video, with the still image shown until it's ready.
-class _HeroVideo extends StatefulWidget {
-  const _HeroVideo({required this.asset, required this.fallback});
-  final String asset;
-  final String fallback;
-
-  @override
-  State<_HeroVideo> createState() => _HeroVideoState();
-}
-
-class _HeroVideoState extends State<_HeroVideo> {
-  VideoPlayerController? _v;
-
-  @override
-  void initState() {
-    super.initState();
-    final v = VideoPlayerController.asset(widget.asset);
-    _v = v;
-    v.setLooping(true);
-    v.setVolume(0);
-    v.initialize().then((_) {
-      if (mounted) {
-        v.play();
-        setState(() {});
-      }
-    }).catchError((_) {
-      if (mounted) setState(() => _v = null);
-    });
-  }
-
-  @override
-  void dispose() {
-    _v?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final v = _v;
-    if (v == null || !v.value.isInitialized) {
-      return Image.asset(widget.fallback, fit: BoxFit.cover);
-    }
-    return FittedBox(
-      fit: BoxFit.cover,
-      clipBehavior: Clip.hardEdge,
-      child: SizedBox(
-        width: v.value.size.width,
-        height: v.value.size.height,
-        child: VideoPlayer(v),
-      ),
     );
   }
 }
