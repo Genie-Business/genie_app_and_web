@@ -19,6 +19,7 @@ class Event {
     required this.eventDate,
     required this.expiresAt,
     required this.status,
+    required this.recurrence,
     required this.wishlistCount,
     required this.itemCount,
     required this.fulfilmentPct,
@@ -32,6 +33,9 @@ class Event {
   final String eventDate;
   final String expiresAt;
   final String status;
+
+  /// `ONE_OFF` or `ANNUAL`.
+  final String recurrence;
   final int wishlistCount;
   final int itemCount;
   final int fulfilmentPct;
@@ -39,6 +43,7 @@ class Event {
   final String? deliveryAddress;
 
   bool get isActive => status == 'ACTIVE';
+  bool get isRecurring => recurrence == 'ANNUAL';
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
         id: j['id'] as String,
@@ -47,6 +52,7 @@ class Event {
         eventDate: j['eventDate'] as String,
         expiresAt: (j['expiresAt'] ?? j['eventDate']) as String,
         status: (j['status'] as String?) ?? 'ACTIVE',
+        recurrence: (j['recurrence'] as String?) ?? 'ONE_OFF',
         wishlistCount: (j['wishlistCount'] as num?)?.toInt() ?? 0,
         itemCount: (j['itemCount'] as num?)?.toInt() ?? 0,
         fulfilmentPct: (j['fulfilmentPct'] as num?)?.toInt() ?? 0,

@@ -21,6 +21,7 @@ class EventsRepository {
     required String type,
     required String name,
     required DateTime eventDate,
+    String recurrence = 'ONE_OFF',
     String? deliveryAddress,
     String? wishlistName,
   }) async {
@@ -28,6 +29,7 @@ class EventsRepository {
       'type': type,
       'name': name,
       'eventDate': eventDate.toUtc().toIso8601String(),
+      'recurrence': recurrence,
       if (deliveryAddress != null && deliveryAddress.trim().isNotEmpty)
         'deliveryAddress': deliveryAddress.trim(),
       if (wishlistName != null && wishlistName.trim().isNotEmpty)

@@ -33,6 +33,21 @@ d('events (E003)', () => {
     expect((await body(list)).data).toHaveLength(1);
   });
 
+  it('defaults recurrence to ONE_OFF and stores ANNUAL when asked', async () => {
+    const { auth } = await makeCelebrant();
+    const oneOff = await app.request(
+      '/v1/events',
+      post({ type: 'Party', name: 'Just once', eventDate: inDays(20) }, auth),
+    );
+    expect((await body(oneOff)).data.recurrence).toBe('ONE_OFF');
+
+    const annual = await app.request(
+      '/v1/events',
+      post({ type: 'Birthday', name: 'Every year', eventDate: inDays(20), recurrence: 'ANNUAL' }, auth),
+    );
+    expect((await body(annual)).data.recurrence).toBe('ANNUAL');
+  });
+
   it('rejects a duplicate event name (case-insensitive)', async () => {
     const { auth } = await makeCelebrant();
     await app.request('/v1/events', post({ type: 'Wedding', name: 'Our Day', eventDate: inDays(60) }, auth));

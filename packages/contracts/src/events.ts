@@ -15,6 +15,14 @@ export const EVENT_TYPES = [
 
 export const eventStatus = z.enum(['ACTIVE', 'EXPIRED', 'COMPLETED', 'DELETED']);
 
+/**
+ * `ONE_OFF` — a single occasion. `ANNUAL` — repeats every year (birthdays,
+ * anniversaries); the celebrant's wishlist rolls forward to the next date once
+ * the event passes.
+ */
+export const eventRecurrence = z.enum(['ONE_OFF', 'ANNUAL']);
+export type EventRecurrence = z.infer<typeof eventRecurrence>;
+
 // ── Events (E003) ───────────────────────────────────────────────────────
 export const createEventBody = z
   .object({
@@ -24,6 +32,8 @@ export const createEventBody = z
     eventDate: z.string().datetime(),
     /** Defaults to the event date. Must be on/before the event date. */
     expiresAt: z.string().datetime().optional(),
+    /** Defaults to `ONE_OFF`. */
+    recurrence: eventRecurrence.optional(),
     /** When set, an empty wishlist with this name is created with the event. */
     wishlistName: z.string().trim().min(1).max(120).optional(),
   })
@@ -40,6 +50,7 @@ export const updateEventBody = z
     deliveryAddress: z.string().trim().max(400).nullable().optional(),
     eventDate: z.string().datetime().optional(),
     expiresAt: z.string().datetime().optional(),
+    recurrence: eventRecurrence.optional(),
   })
   .refine(
     (v) => !v.expiresAt || !v.eventDate || new Date(v.expiresAt) <= new Date(v.eventDate),
@@ -55,6 +66,7 @@ export const eventSummaryDto = z.object({
   eventDate: z.string(),
   expiresAt: z.string(),
   status: eventStatus,
+  recurrence: eventRecurrence,
   wishlistCount: z.number().int(),
   itemCount: z.number().int(),
   /** 0–100, weighted by quantityFulfilled / quantityWanted across all items. */

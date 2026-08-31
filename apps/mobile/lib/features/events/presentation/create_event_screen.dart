@@ -27,6 +27,7 @@ class _State extends ConsumerState<CreateEventScreen> {
   final _wishlistName = TextEditingController(text: 'Main wishlist');
   String _type = _eventTypes.first;
   DateTime? _date;
+  String _recurrence = 'ONE_OFF';
   bool _loading = false;
   String? _error;
 
@@ -46,7 +47,8 @@ class _State extends ConsumerState<CreateEventScreen> {
       lastDate: now.add(const Duration(days: 365 * 3)),
       initialDate: _date ?? now.add(const Duration(days: 14)),
     );
-    if (d != null) setState(() => _date = d);
+    // Normalise to local noon so a UTC conversion can't roll onto the day before.
+    if (d != null) setState(() => _date = DateTime(d.year, d.month, d.day, 12));
   }
 
   Future<void> _submit() async {
@@ -62,6 +64,7 @@ class _State extends ConsumerState<CreateEventScreen> {
             type: _type,
             name: _name.text.trim(),
             eventDate: _date!,
+            recurrence: _recurrence,
             deliveryAddress: _address.text,
             wishlistName: _wishlistName.text,
           );
@@ -109,9 +112,60 @@ class _State extends ConsumerState<CreateEventScreen> {
                 value: _date == null ? null : '${formatDate(_date!.toIso8601String())} · ${relativeDay(_date!.toIso8601String())}',
                 onTap: _pickDate,
               ),
+              const SizedBox(height: 4),
+              _RecurrenceField(
+                value: _recurrence,
+                onChanged: (v) => setState(() => _recurrence = v),
+              ),
+              const SizedBox(height: 14),
               GField(label: 'Delivery address (optional)', controller: _address),
               GField(label: 'First wishlist name', controller: _wishlistName),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecurrenceField extends StatelessWidget {
+  const _RecurrenceField({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text('How often', style: Theme.of(context).textTheme.labelMedium),
+        ),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(
+              value: 'ONE_OFF',
+              label: Text('One-off'),
+              icon: Icon(Icons.event_outlined),
+            ),
+            ButtonSegment(
+              value: 'ANNUAL',
+              label: Text('Every year'),
+              icon: Icon(Icons.autorenew),
+            ),
+          ],
+          selected: {value},
+          onSelectionChanged: (s) => onChanged(s.first),
+          showSelectedIcon: false,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, top: 6),
+          child: Text(
+            value == 'ANNUAL'
+                ? 'Birthdays and anniversaries — the wishlist rolls forward to next year automatically.'
+                : 'A single occasion.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
       ],

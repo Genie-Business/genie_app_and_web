@@ -51,6 +51,17 @@ class EventDetailScreen extends ConsumerWidget {
             const SizedBox(height: 6),
             Text('${e.type} · ${formatDate(e.eventDate)} (${relativeDay(e.eventDate)})',
                 style: const TextStyle(color: GenieColors.inkSecondary)),
+            if (e.isRecurring) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: const [
+                  Icon(Icons.autorenew, size: 15, color: GenieColors.primary),
+                  SizedBox(width: 6),
+                  Text('Repeats every year',
+                      style: TextStyle(color: GenieColors.primary, fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
             if (e.deliveryAddress != null) ...[
               const SizedBox(height: 4),
               Text('Deliver to: ${e.deliveryAddress}',

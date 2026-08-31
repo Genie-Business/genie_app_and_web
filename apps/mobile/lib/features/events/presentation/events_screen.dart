@@ -67,12 +67,19 @@ class _EventCard extends StatelessWidget {
                     child: Text(event.name,
                         style: GenieTheme.display(18), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
+                  if (event.isRecurring) ...[
+                    const Icon(Icons.autorenew, size: 14, color: GenieColors.primary),
+                    const SizedBox(width: 4),
+                  ],
                   _Pill(text: event.type),
                 ],
               ),
               const SizedBox(height: 4),
-              Text('${formatDate(event.eventDate)} · ${relativeDay(event.eventDate)}',
-                  style: const TextStyle(color: GenieColors.inkSecondary, fontSize: 13)),
+              Text(
+                '${formatDate(event.eventDate)} · ${relativeDay(event.eventDate)}'
+                '${event.isRecurring ? ' · repeats yearly' : ''}',
+                style: const TextStyle(color: GenieColors.inkSecondary, fontSize: 13),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [

@@ -3,6 +3,7 @@ import type { events as E } from '@genie/contracts';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { recordActivity } from '../activities/activities.service';
+import { nextOccurrence } from './recurrence';
 
 type CreateEvent = E.CreateEventBody;
 type UpdateEvent = E.UpdateEventBody;
@@ -20,14 +21,16 @@ function summarize(e: EventWithProgress) {
   const items = e.wishlists.flatMap((w) => w.items);
   const wanted = items.reduce((s, i) => s + i.quantityWanted, 0);
   const filled = items.reduce((s, i) => s + Math.min(i.quantityFulfilled, i.quantityWanted), 0);
+  const dates = nextOccurrence(e.eventDate, e.expiresAt, e.recurrence);
   return {
     id: e.id,
     type: e.type,
     name: e.name,
     deliveryAddress: e.deliveryAddress,
-    eventDate: e.eventDate.toISOString(),
-    expiresAt: e.expiresAt.toISOString(),
+    eventDate: dates.eventDate.toISOString(),
+    expiresAt: dates.expiresAt.toISOString(),
     status: e.status,
+    recurrence: e.recurrence,
     wishlistCount: e.wishlists.length,
     itemCount: items.length,
     fulfilmentPct: wanted === 0 ? 0 : Math.round((filled / wanted) * 100),
@@ -77,6 +80,7 @@ export async function createEvent(userId: string, input: CreateEvent) {
       deliveryAddress: input.deliveryAddress,
       eventDate,
       expiresAt,
+      recurrence: input.recurrence ?? 'ONE_OFF',
       ...(input.wishlistName
         ? { wishlists: { create: { name: input.wishlistName } } }
         : {}),
@@ -149,6 +153,7 @@ export async function updateEvent(userId: string, id: string, input: UpdateEvent
       deliveryAddress: input.deliveryAddress === undefined ? undefined : input.deliveryAddress,
       eventDate,
       expiresAt,
+      recurrence: input.recurrence,
     },
     include: EVENT_INCLUDE,
   });

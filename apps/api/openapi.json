@@ -4593,6 +4593,13 @@
                     "type": "string",
                     "format": "date-time"
                   },
+                  "recurrence": {
+                    "type": "string",
+                    "enum": [
+                      "ONE_OFF",
+                      "ANNUAL"
+                    ]
+                  },
                   "wishlistName": {
                     "type": "string",
                     "minLength": 1,
@@ -4823,6 +4830,13 @@
                   "expiresAt": {
                     "type": "string",
                     "format": "date-time"
+                  },
+                  "recurrence": {
+                    "type": "string",
+                    "enum": [
+                      "ONE_OFF",
+                      "ANNUAL"
+                    ]
                   }
                 }
               }

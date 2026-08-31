@@ -80,6 +80,11 @@ enum EventStatus {
   DELETED
 }
 
+enum EventRecurrence {
+  ONE_OFF
+  ANNUAL
+}
+
 enum CartStatus {
   OPEN
   CHECKED_OUT
@@ -501,9 +506,10 @@ model Event {
   deliveryAddress String?
   eventDate       DateTime
   expiresAt       DateTime
-  status          EventStatus @default(ACTIVE)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  status          EventStatus     @default(ACTIVE)
+  recurrence      EventRecurrence @default(ONE_OFF)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   wishlists Wishlist[]
   orders    Order[]

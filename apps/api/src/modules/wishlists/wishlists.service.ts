@@ -3,6 +3,7 @@ import type { events as E } from '@genie/contracts';
 import { getEnv } from '../../env';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { nextOccurrence } from '../events/recurrence';
 import {
   MIN_SHAREABLE_ITEMS,
   WISHLIST_INCLUDE,
@@ -131,6 +132,7 @@ export async function publicView(wishlistId: string) {
           type: true,
           eventDate: true,
           expiresAt: true,
+          recurrence: true,
           status: true,
           deliveryAddress: true,
           user: { select: { firstName: true, lastName: true } },
@@ -143,13 +145,19 @@ export async function publicView(wishlistId: string) {
     throw notFound('This wishlist is not ready to be shared yet.');
   }
 
+  const occ = nextOccurrence(
+    wishlist.event.eventDate,
+    wishlist.event.expiresAt,
+    wishlist.event.recurrence,
+  );
+
   return {
     wishlistId: wishlist.id,
     wishlistName: wishlist.name,
     eventName: wishlist.event.name,
     eventType: wishlist.event.type,
-    eventDate: wishlist.event.eventDate.toISOString(),
-    expiresAt: wishlist.event.expiresAt.toISOString(),
+    eventDate: occ.eventDate.toISOString(),
+    expiresAt: occ.expiresAt.toISOString(),
     celebrantName: `${wishlist.event.user.firstName} ${wishlist.event.user.lastName}`.trim(),
     deliveryAddress: wishlist.event.deliveryAddress,
     items: wishlist.items.map((i) => ({
