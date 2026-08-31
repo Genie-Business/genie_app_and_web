@@ -168,7 +168,10 @@
                     "minLength": 1
                   },
                   "lga": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "minLength": 1,
                     "maxLength": 80
                   },
@@ -348,7 +351,10 @@
                     "minLength": 1
                   },
                   "lga": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "minLength": 1,
                     "maxLength": 80
                   },
@@ -500,7 +506,10 @@
                     "maxLength": 128
                   },
                   "deviceName": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 120
                   }
                 },
@@ -742,7 +751,10 @@
                     "maxLength": 128
                   },
                   "deviceName": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 120
                   }
                 },
@@ -875,7 +887,10 @@
                     "maxLength": 128
                   },
                   "deviceName": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 120
                   }
                 },

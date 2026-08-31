@@ -10,10 +10,13 @@ import * as service from './auth.service';
 
 const router = createRouter();
 
-function device(c: { req: { header: (k: string) => string | undefined } }, body: { deviceId?: string; deviceName?: string }) {
+function device(
+  c: { req: { header: (k: string) => string | undefined } },
+  body: { deviceId?: string; deviceName?: string | null },
+) {
   return {
     deviceId: body.deviceId ?? 'unknown-device',
-    deviceName: body.deviceName,
+    deviceName: body.deviceName ?? undefined,
     userAgent: c.req.header('user-agent'),
     ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip'),
   };

@@ -29,7 +29,12 @@ class AuthRepository {
     final data = await _api.post<Map<String, dynamic>>(
       '/v1/auth/verify-email',
       auth: false,
-      body: {'email': email, 'code': code, 'deviceId': deviceId, 'deviceName': deviceName},
+      body: {
+        'email': email,
+        'code': code,
+        'deviceId': deviceId,
+        if (deviceName != null) 'deviceName': deviceName,
+      },
     );
     return AuthResult.fromJson(data);
   }
@@ -53,7 +58,7 @@ class AuthRepository {
         'identifier': identifier,
         'password': password,
         'deviceId': deviceId,
-        'deviceName': deviceName,
+        if (deviceName != null) 'deviceName': deviceName,
       },
     );
     return AuthResult.fromJson(data);

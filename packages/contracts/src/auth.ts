@@ -41,7 +41,8 @@ export const otpCodeSchema = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-dig
 
 const deviceInfo = {
   deviceId: z.string().min(8).max(128),
-  deviceName: z.string().max(120).optional(),
+  // `.nullish()` — clients may send an explicit null for "no device name".
+  deviceName: z.string().max(120).nullish(),
 };
 
 // ── Celebrant registration (US0001) ──────────────────────────────────────
@@ -53,7 +54,7 @@ export const registerCelebrantBody = z.object({
   password: passwordSchema,
   phone: phoneSchema,
   stateOfResidence: z.string().trim().min(1),
-  lga: z.string().trim().min(1).max(80).optional(),
+  lga: z.string().trim().min(1).max(80).nullish(),
   country: z.string().trim().length(2).default('NG'),
   referralCode: z.string().trim().min(4).max(24).optional(),
 });
@@ -68,7 +69,7 @@ export const registerMerchantBody = z.object({
   password: passwordSchema,
   businessPhone: phoneSchema,
   businessState: z.string().trim().min(1),
-  lga: z.string().trim().min(1).max(80).optional(),
+  lga: z.string().trim().min(1).max(80).nullish(),
   country: z.string().trim().length(2).default('NG'),
   bankName: z.string().trim().min(1),
   bankAccountNumber: z.string().trim().regex(/^\d{10}$/, 'Enter a valid 10-digit account number.'),
@@ -88,7 +89,7 @@ export const verifyEmailBody = z.object({
   email: emailSchema,
   code: otpCodeSchema,
   deviceId: z.string().min(8).max(128),
-  deviceName: z.string().max(120).optional(),
+  deviceName: z.string().max(120).nullish(),
 });
 export const resendOtpBody = z.object({
   email: emailSchema,
