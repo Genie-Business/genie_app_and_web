@@ -167,6 +167,7 @@ export async function registerCelebrant(input: RegisterCelebrant) {
       phone: input.phone,
       passwordHash,
       stateOfResidence: input.stateOfResidence,
+      lga: input.lga ?? null,
       country: input.country,
       referredById,
     },
@@ -217,6 +218,7 @@ export async function registerMerchant(input: RegisterMerchant) {
         phone: input.businessPhone,
         passwordHash,
         stateOfResidence: input.businessState,
+        lga: input.lga ?? null,
         country: input.country,
         merchantProfile: {
           create: {

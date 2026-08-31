@@ -53,6 +53,7 @@ export const registerCelebrantBody = z.object({
   password: passwordSchema,
   phone: phoneSchema,
   stateOfResidence: z.string().trim().min(1),
+  lga: z.string().trim().min(1).max(80).optional(),
   country: z.string().trim().length(2).default('NG'),
   referralCode: z.string().trim().min(4).max(24).optional(),
 });
@@ -67,6 +68,7 @@ export const registerMerchantBody = z.object({
   password: passwordSchema,
   businessPhone: phoneSchema,
   businessState: z.string().trim().min(1),
+  lga: z.string().trim().min(1).max(80).optional(),
   country: z.string().trim().length(2).default('NG'),
   bankName: z.string().trim().min(1),
   bankAccountNumber: z.string().trim().regex(/^\d{10}$/, 'Enter a valid 10-digit account number.'),

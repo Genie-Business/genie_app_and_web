@@ -45,19 +45,19 @@ next batch of screen work.
 
 ## 2. Generate the native project (first run only)
 
-`android/`, `ios/`, `web/` are **not** committed — they're regenerated. From
-`apps/mobile`:
+`android/` **is committed** — it carries native edits `flutter create` can't
+supply (the `INTERNET` + biometric permissions and `FlutterFragmentActivity`,
+without which a release build can't reach the API). `ios/` and `web/` are not
+committed. From `apps/mobile`:
 
 ```bash
 flutter create --org co.genieapps --project-name genie --platforms=android,ios .
 flutter pub get
 ```
 
-This keeps the existing `lib/`, `pubspec.yaml` and `test/`.
-
-> When you later need to keep native edits (biometric `FlutterFragmentActivity`,
-> `Info.plist` camera/FaceID strings, app icon, signing) — un-ignore
-> `apps/mobile/android/` in the root `.gitignore` and commit it.
+`flutter create` fills in `ios/` and any missing gradle wrapper / generated
+files; it never overwrites the committed `android/` sources. It keeps `lib/`,
+`pubspec.yaml` and `test/`.
 
 ---
 

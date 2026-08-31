@@ -167,6 +167,11 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "lga": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
                   "country": {
                     "type": "string",
                     "minLength": 2,
@@ -338,6 +343,11 @@
                   "businessState": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "lga": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
                   },
                   "country": {
                     "type": "string",

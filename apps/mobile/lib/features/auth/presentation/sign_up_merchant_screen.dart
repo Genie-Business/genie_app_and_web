@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../shared/widgets/genie_scaffold.dart';
 import '../auth_controller.dart';
+import '../nigeria_geo.dart';
 import '../validators.dart';
 import 'widgets.dart';
 
@@ -22,10 +23,12 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
   final _email = TextEditingController();
   final _username = TextEditingController();
   final _phone = TextEditingController();
-  final _state = TextEditingController();
   final _bankName = TextEditingController();
   final _bankAcct = TextEditingController();
   final _password = TextEditingController();
+
+  String? _state;
+  String? _lga;
 
   bool _loading = false;
   String? _error;
@@ -38,7 +41,6 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
       _email,
       _username,
       _phone,
-      _state,
       _bankName,
       _bankAcct,
       _password,
@@ -59,7 +61,8 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
         'email': _email.text.trim(),
         'username': _username.text.trim(),
         'businessPhone': _phone.text.trim(),
-        'businessState': _state.text.trim(),
+        'businessState': _state,
+        'lga': _lga,
         'bankName': _bankName.text.trim(),
         'bankAccountNumber': _bankAcct.text.trim(),
         'password': _password.text,
@@ -115,10 +118,25 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
                   controller: _phone,
                   keyboardType: TextInputType.phone,
                   validator: Validators.phone),
-              GField(
-                  label: 'Business state',
-                  controller: _state,
-                  validator: (v) => Validators.required(v, 'State')),
+              GDropdownField(
+                label: 'Business state',
+                value: _state,
+                items: nigeriaStates,
+                onChanged: (v) => setState(() {
+                  _state = v;
+                  _lga = null;
+                }),
+                validator: (v) => Validators.required(v, 'State'),
+              ),
+              GDropdownField(
+                label: 'Local government area',
+                value: _lga,
+                items: lgasFor(_state),
+                enabled: _state != null,
+                hint: _state == null ? 'Pick a state first' : null,
+                onChanged: (v) => setState(() => _lga = v),
+                validator: (v) => Validators.required(v, 'LGA'),
+              ),
               GField(
                   label: 'Bank name',
                   controller: _bankName,

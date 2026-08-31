@@ -48,10 +48,11 @@ apps/mobile/build/
 apps/mobile/.pub-cache/
 apps/mobile/.pub/
 apps/mobile/*.iml
-# Native platform folders are regenerated with `flutter create .` (locally and
-# in CI). Un-ignore + commit android/ (and ios/) once you need to keep native
-# edits — biometric FragmentActivity, Info.plist keys, signing config, icons.
-apps/mobile/android/
+# android/ IS committed — it carries native edits `flutter create` can't supply:
+# the INTERNET + biometric permissions and FlutterFragmentActivity. `flutter
+# create .` still runs (locally + CI) to fill any gaps; it never overwrites
+# committed files. Its own apps/mobile/android/.gitignore keeps build output,
+# local.properties, the gradle wrapper jar and keystores out.
 apps/mobile/ios/
 apps/mobile/web/
 apps/mobile/linux/

@@ -37,6 +37,50 @@ class GField extends StatelessWidget {
   }
 }
 
+class GDropdownField extends StatelessWidget {
+  const GDropdownField({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.validator,
+    this.enabled = true,
+    this.hint,
+  });
+
+  final String label;
+  final String? value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+  final String? Function(String?)? validator;
+  final bool enabled;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        onChanged: enabled ? onChanged : null,
+        validator: validator,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          enabled: enabled,
+        ),
+        items: [
+          for (final item in items)
+            DropdownMenuItem(value: item, child: Text(item, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+  }
+}
+
 class GPasswordField extends StatefulWidget {
   const GPasswordField({
     super.key,

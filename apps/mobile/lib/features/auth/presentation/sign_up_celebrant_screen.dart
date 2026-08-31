@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../shared/widgets/genie_scaffold.dart';
 import '../auth_controller.dart';
+import '../nigeria_geo.dart';
 import '../validators.dart';
 import 'widgets.dart';
 
@@ -22,16 +23,18 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
   final _email = TextEditingController();
   final _username = TextEditingController();
   final _phone = TextEditingController();
-  final _state = TextEditingController();
   final _password = TextEditingController();
   final _referral = TextEditingController();
+
+  String? _state;
+  String? _lga;
 
   bool _loading = false;
   String? _error;
 
   @override
   void dispose() {
-    for (final c in [_first, _last, _email, _username, _phone, _state, _password, _referral]) {
+    for (final c in [_first, _last, _email, _username, _phone, _password, _referral]) {
       c.dispose();
     }
     super.dispose();
@@ -48,7 +51,8 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
         'email': _email.text.trim(),
         'username': _username.text.trim(),
         'phone': _phone.text.trim(),
-        'stateOfResidence': _state.text.trim(),
+        'stateOfResidence': _state,
+        'lga': _lga,
         'password': _password.text,
         if (_referral.text.trim().isNotEmpty) 'referralCode': _referral.text.trim(),
       });
@@ -105,10 +109,25 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
                   controller: _phone,
                   keyboardType: TextInputType.phone,
                   validator: Validators.phone),
-              GField(
-                  label: 'State of residence',
-                  controller: _state,
-                  validator: (v) => Validators.required(v, 'State')),
+              GDropdownField(
+                label: 'State of residence',
+                value: _state,
+                items: nigeriaStates,
+                onChanged: (v) => setState(() {
+                  _state = v;
+                  _lga = null;
+                }),
+                validator: (v) => Validators.required(v, 'State'),
+              ),
+              GDropdownField(
+                label: 'Local government area',
+                value: _lga,
+                items: lgasFor(_state),
+                enabled: _state != null,
+                hint: _state == null ? 'Pick a state first' : null,
+                onChanged: (v) => setState(() => _lga = v),
+                validator: (v) => Validators.required(v, 'LGA'),
+              ),
               GPasswordField(label: 'Password', controller: _password, validator: Validators.password),
               GField(label: 'Referral code (optional)', controller: _referral),
             ],

@@ -24,7 +24,9 @@ function hashPassword(password) {
 }
 
 /** Local/CI exploration accounts, all `@example.com`. */
-const PROBE_PREFIXES = ['probe+', 'probe1', 'deploycheck-', 'dupcheck-', 'e2e+', 'e2e2+'];
+const PROBE_PREFIXES = [
+  'probe+', 'probe1', 'deploycheck-', 'dupcheck-', 'e2e+', 'e2e2+', 'netcheck-', 'lga+',
+];
 
 async function deleteUsers(users) {
   for (const u of users) {
