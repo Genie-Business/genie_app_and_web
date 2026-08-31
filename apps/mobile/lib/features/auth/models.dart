@@ -32,6 +32,7 @@ class AuthUser {
     required this.emailVerified,
     this.referralCode,
     this.merchantName,
+    this.kycLevel1 = 'NONE',
   });
 
   final String id;
@@ -43,6 +44,9 @@ class AuthUser {
   final bool emailVerified;
   final String? referralCode;
   final String? merchantName;
+
+  /// NONE · PENDING · APPROVED · REJECTED
+  final String kycLevel1;
 
   bool get isMerchant => role == UserRole.merchant;
 
@@ -57,6 +61,8 @@ class AuthUser {
         referralCode: j['referralCode'] as String?,
         merchantName:
             (j['merchant'] as Map<String, dynamic>?)?['businessName'] as String?,
+        kycLevel1:
+            (j['kyc'] as Map<String, dynamic>?)?['level1'] as String? ?? 'NONE',
       );
 }
 

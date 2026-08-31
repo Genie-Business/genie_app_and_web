@@ -29,6 +29,33 @@ class AppNotification {
       );
 }
 
+class NotificationPref {
+  const NotificationPref({required this.category, required this.push, required this.email});
+  final String category;
+  final bool push;
+  final bool email;
+
+  static const labels = {
+    'GIFT': 'Gifts',
+    'EVENT': 'Events',
+    'FRIEND': 'Friends',
+    'PAYMENT': 'Payments & wallet',
+    'MESSAGE': 'Messages',
+    'SYSTEM': 'Account & security',
+  };
+
+  String get label => labels[category] ?? category;
+
+  NotificationPref copyWith({bool? push, bool? email}) =>
+      NotificationPref(category: category, push: push ?? this.push, email: email ?? this.email);
+
+  factory NotificationPref.fromJson(Map<String, dynamic> j) => NotificationPref(
+        category: j['category'] as String,
+        push: j['push'] as bool? ?? true,
+        email: j['email'] as bool? ?? false,
+      );
+}
+
 class NotificationsRepository {
   NotificationsRepository(this._api);
   final ApiClient _api;
@@ -45,6 +72,20 @@ class NotificationsRepository {
 
   Future<void> markAllRead() =>
       _api.post<Map<String, dynamic>>('/v1/notifications/read', body: {'all': true});
+
+  Future<List<NotificationPref>> preferences() async {
+    final data = await _api.get<List<dynamic>>('/v1/notifications/preferences');
+    return data.map((e) => NotificationPref.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<NotificationPref>> setPreference(String category, {bool? push, bool? email}) async {
+    final data = await _api.put<List<dynamic>>('/v1/notifications/preferences', body: {
+      'preferences': [
+        {'category': category, if (push != null) 'push': push, if (email != null) 'email': email},
+      ],
+    });
+    return data.map((e) => NotificationPref.fromJson(e as Map<String, dynamic>)).toList();
+  }
 }
 
 final notificationsRepositoryProvider = Provider<NotificationsRepository>(
@@ -60,3 +101,6 @@ final unreadCountProvider = FutureProvider<int>((ref) async {
     return 0;
   }
 });
+
+final notificationPrefsProvider = FutureProvider<List<NotificationPref>>(
+    (ref) => ref.watch(notificationsRepositoryProvider).preferences());

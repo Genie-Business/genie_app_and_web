@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../shared/widgets/async_view.dart';
 import '../../../theme/genie_theme.dart';
+import '../../messages/messages_repository.dart';
 import '../friends_repository.dart';
 
 class FriendsScreen extends ConsumerWidget {
@@ -87,6 +88,11 @@ class FriendsScreen extends ConsumerWidget {
                             ),
                             title: Text(f.name.isEmpty ? '@${f.username}' : f.name),
                             subtitle: Text('@${f.username}'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.forum_outlined),
+                              tooltip: 'Message',
+                              onPressed: () => _message(context, ref, f),
+                            ),
                           ),
                         ))
                     .toList(),
@@ -96,6 +102,17 @@ class FriendsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _message(BuildContext context, WidgetRef ref, Friend f) async {
+    try {
+      final thread = await ref.read(messagesRepositoryProvider).startWith(userId: f.userId);
+      if (context.mounted) context.push('/messages/${thread.id}');
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 
   Future<void> _act(BuildContext context, WidgetRef ref, Future<void> Function() fn) async {

@@ -19,8 +19,15 @@ import '../features/friends/presentation/friends_screen.dart';
 import '../features/gifts/presentation/gift_a_friend_screen.dart';
 import '../features/gifts/presentation/gifts_received_screen.dart';
 import '../features/home/home_shell.dart';
+import '../features/kyc/presentation/kyc_screen.dart';
 import '../features/merchant/presentation/edit_product_screen.dart';
+import '../features/merchant/presentation/payout_account_screen.dart';
+import '../features/messages/presentation/chat_screen.dart';
+import '../features/messages/presentation/messages_screen.dart';
+import '../features/notifications/presentation/notification_settings_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/support/presentation/support_screen.dart';
+import '../features/support/presentation/support_thread_screen.dart';
 import '../features/settings/presentation/change_password_screen.dart';
 import '../features/settings/presentation/delete_account_screen.dart';
 import '../features/settings/presentation/edit_username_screen.dart';
@@ -118,9 +125,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/settings/username', builder: (_, __) => const EditUsernameScreen()),
       GoRoute(path: '/settings/password', builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(path: '/settings/delete', builder: (_, __) => const DeleteAccountScreen()),
+      GoRoute(
+          path: '/settings/notifications',
+          builder: (_, __) => const NotificationSettingsScreen()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/activity', builder: (_, __) => const ActivityScreen()),
       GoRoute(path: '/friends', builder: (_, __) => const FriendsScreen()),
+      GoRoute(path: '/kyc', builder: (_, __) => const KycScreen()),
+      GoRoute(path: '/messages', builder: (_, __) => const MessagesScreen()),
+      GoRoute(
+        path: '/messages/:id',
+        builder: (_, s) => ChatScreen(threadId: s.pathParameters['id']!),
+      ),
+      GoRoute(path: '/support', builder: (_, __) => const SupportScreen()),
+      GoRoute(path: '/support/new', builder: (_, __) => const NewSupportRequestScreen()),
+      GoRoute(
+        path: '/support/:id',
+        builder: (_, s) => SupportThreadScreen(threadId: s.pathParameters['id']!),
+      ),
+      GoRoute(path: '/merchant/payout', builder: (_, __) => const PayoutAccountScreen()),
     ],
   );
 });

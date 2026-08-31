@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/widgets/genie_mark.dart';
 import '../../theme/genie_theme.dart';
 import '../auth/auth_controller.dart';
 import '../auth/models.dart';
@@ -9,6 +10,7 @@ import '../events/presentation/events_screen.dart';
 import '../gifts/presentation/gifting_tab_screen.dart';
 import '../merchant/presentation/merchant_orders_screen.dart';
 import '../merchant/presentation/merchant_products_screen.dart';
+import '../messages/messages_repository.dart';
 import '../notifications/notifications_repository.dart';
 import '../wishlists/presentation/wishlists_tab_screen.dart';
 
@@ -55,8 +57,34 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('genie', style: GenieTheme.display(20).copyWith(color: GenieColors.primary)),
+        titleSpacing: 16,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const GenieMark(size: 22),
+            const SizedBox(width: 8),
+            Text('genie', style: GenieTheme.display(20).copyWith(color: GenieColors.primary)),
+          ],
+        ),
         actions: [
+          if (!isMerchant)
+            Consumer(
+              builder: (context, ref, _) {
+                final unread = ref.watch(messagesUnreadProvider).maybeWhen(
+                      data: (n) => n,
+                      orElse: () => 0,
+                    );
+                return IconButton(
+                  icon: Badge(
+                    isLabelVisible: unread > 0,
+                    label: Text('$unread'),
+                    child: const Icon(Icons.forum_outlined),
+                  ),
+                  tooltip: 'Messages',
+                  onPressed: () => context.push('/messages'),
+                );
+              },
+            ),
           Consumer(
             builder: (context, ref, _) {
               final unread = ref.watch(unreadCountProvider).maybeWhen(
@@ -69,6 +97,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   label: Text('$unread'),
                   child: const Icon(Icons.notifications_none),
                 ),
+                tooltip: 'Notifications',
                 onPressed: () => context.push('/notifications'),
               );
             },
@@ -111,12 +140,33 @@ class _AccountTab extends ConsumerWidget {
             onTap: () => context.push('/friends'),
           ),
           ListTile(
+            leading: const Icon(Icons.forum_outlined),
+            title: const Text('Messages'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/messages'),
+          ),
+          ListTile(
             leading: const Icon(Icons.account_balance_wallet_outlined),
             title: const Text('Wallet'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/wallet'),
           ),
         ],
+        if (user?.isMerchant ?? false)
+          ListTile(
+            leading: const Icon(Icons.account_balance_outlined),
+            title: const Text('Settlement account'),
+            subtitle: const Text('Where genie pays your sales'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/merchant/payout'),
+          ),
+        ListTile(
+          leading: const Icon(Icons.verified_user_outlined),
+          title: const Text('Identity verification'),
+          subtitle: Text(_kycLabel(user?.kycLevel1)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/kyc'),
+        ),
         ListTile(
           leading: const Icon(Icons.history),
           title: const Text('Activity'),
@@ -151,9 +201,21 @@ class _AccountTab extends ConsumerWidget {
             },
           ),
         ListTile(
+          leading: const Icon(Icons.notifications_active_outlined),
+          title: const Text('Notification settings'),
+          onTap: () => context.push('/settings/notifications'),
+        ),
+        ListTile(
           leading: const Icon(Icons.lock_outline),
           title: const Text('Change password'),
           onTap: () => context.push('/settings/password'),
+        ),
+        const Divider(height: 32),
+        ListTile(
+          leading: const Icon(Icons.support_agent_outlined),
+          title: const Text('Help & support'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/support'),
         ),
         ListTile(
           leading: const Icon(Icons.delete_outline, color: GenieColors.error),
@@ -168,5 +230,18 @@ class _AccountTab extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  static String _kycLabel(String? status) {
+    switch (status) {
+      case 'APPROVED':
+        return 'Verified';
+      case 'PENDING':
+        return 'Under review';
+      case 'REJECTED':
+        return 'Action needed';
+      default:
+        return 'Not verified';
+    }
   }
 }

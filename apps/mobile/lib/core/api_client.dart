@@ -138,6 +138,29 @@ class ApiClient {
   Future<T> post<T>(String path, {Object? body, bool auth = true}) =>
       _unwrap<T>(_dio.post(path, data: body, options: Options(extra: {'auth': auth})));
 
+  /// `multipart/form-data` upload (KYC documents). [fields] are string parts;
+  /// [files] maps a field name to a local file path.
+  Future<T> postMultipart<T>(
+    String path, {
+    Map<String, String> fields = const {},
+    Map<String, String> files = const {},
+    bool auth = true,
+  }) async {
+    final form = FormData.fromMap({
+      ...fields,
+      for (final e in files.entries)
+        e.key: await MultipartFile.fromFile(e.value, filename: e.value.split(RegExp(r'[/\\]')).last),
+    });
+    return _unwrap<T>(_dio.post(
+      path,
+      data: form,
+      options: Options(
+        extra: {'auth': auth},
+        contentType: 'multipart/form-data',
+      ),
+    ));
+  }
+
   Future<T> patch<T>(String path, {Object? body, bool auth = true}) =>
       _unwrap<T>(_dio.patch(path, data: body, options: Options(extra: {'auth': auth})));
 

@@ -33,6 +33,31 @@ String formatDate(String iso) {
   return '${d.day} ${_months[d.month - 1]} ${d.year}';
 }
 
+/// ISO string → `"14:32"`.
+String formatClock(String iso) {
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return '';
+  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
+/// ISO string → a compact chat timestamp: `"14:32"` today, `"Mon"` this week,
+/// else `"12 Aug"`.
+String chatTimestamp(String iso) {
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return '';
+  final now = DateTime.now();
+  final days = DateTime(now.year, now.month, now.day)
+      .difference(DateTime(d.year, d.month, d.day))
+      .inDays;
+  if (days == 0) return formatClock(iso);
+  if (days == 1) return 'Yesterday';
+  if (days < 7) {
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return wd[d.weekday - 1];
+  }
+  return '${d.day} ${_months[d.month - 1]}';
+}
+
 /// ISO string → a short relative label like `"in 5 days"` / `"3 days ago"` / `"today"`.
 String relativeDay(String iso) {
   final d = DateTime.tryParse(iso)?.toLocal();
