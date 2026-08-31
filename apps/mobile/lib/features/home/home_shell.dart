@@ -7,6 +7,8 @@ import '../auth/auth_controller.dart';
 import '../auth/models.dart';
 import '../events/presentation/events_screen.dart';
 import '../gifts/presentation/gifting_tab_screen.dart';
+import '../merchant/presentation/merchant_orders_screen.dart';
+import '../merchant/presentation/merchant_products_screen.dart';
 import '../wishlists/presentation/wishlists_tab_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -26,8 +28,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     final tabs = isMerchant
         ? const [
-            _Placeholder(icon: Icons.inventory_2_rounded, title: 'Products & services', body: 'Add and manage your catalogue.'),
-            _Placeholder(icon: Icons.receipt_long_rounded, title: 'Orders', body: 'Gift orders from genie users will show here.'),
+            MerchantProductsScreen(),
+            MerchantOrdersScreen(),
           ]
         : const [
             EventsScreen(),
@@ -59,36 +61,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: destinations,
-      ),
-    );
-  }
-}
-
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.icon, required this.title, required this.body});
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: GenieColors.primary),
-            const SizedBox(height: 16),
-            Text(title, style: GenieTheme.display(20)),
-            const SizedBox(height: 8),
-            Text(body,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: GenieColors.inkSecondary)),
-            const SizedBox(height: 24),
-            const Chip(label: Text('Coming soon')),
-          ],
-        ),
       ),
     );
   }

@@ -141,6 +141,9 @@ class ApiClient {
   Future<T> patch<T>(String path, {Object? body, bool auth = true}) =>
       _unwrap<T>(_dio.patch(path, data: body, options: Options(extra: {'auth': auth})));
 
+  Future<T> put<T>(String path, {Object? body, bool auth = true}) =>
+      _unwrap<T>(_dio.put(path, data: body, options: Options(extra: {'auth': auth})));
+
   Future<T> delete<T>(String path, {Object? body, bool auth = true}) =>
       _unwrap<T>(_dio.delete(path, data: body, options: Options(extra: {'auth': auth})));
 }

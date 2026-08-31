@@ -30,6 +30,8 @@ class Product {
     required this.images,
     this.location,
     this.availableStock,
+    this.status = 'ACTIVE',
+    this.deliveryOption = 'BOTH',
   });
 
   final String id;
@@ -40,9 +42,12 @@ class Product {
   final List<ProductImage> images;
   final String? location;
   final int? availableStock;
+  final String status;
+  final String deliveryOption;
 
   String? get imageUrl => images.isEmpty ? null : images.first.url;
   bool get inStock => availableStock == null || availableStock! > 0;
+  List<String> get imageUrls => images.map((e) => e.url).toList();
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
         id: j['id'] as String,
@@ -55,5 +60,7 @@ class Product {
             .toList(),
         location: j['location'] as String?,
         availableStock: (j['availableStock'] as num?)?.toInt(),
+        status: (j['status'] as String?) ?? 'ACTIVE',
+        deliveryOption: (j['deliveryOption'] as String?) ?? 'BOTH',
       );
 }
