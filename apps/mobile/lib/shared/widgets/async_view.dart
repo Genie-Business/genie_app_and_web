@@ -4,7 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/genie_theme.dart';
 
 /// Renders an [AsyncValue]: spinner while loading, a friendly error with retry,
-/// or [data]. Wrap the whole thing in a [RefreshIndicator] via [onRefresh].
+/// or [data].
+///
+/// When [onRefresh] is set the whole thing is pull-to-refresh:
+///  * loading / error / empty states are centred inside a scrollable so the
+///    gesture still works with nothing on screen;
+///  * the [data] builder is expected to return its **own** scrollable
+///    (`ListView`, `GridView`, `CustomScrollView`, …) — it is handed straight to
+///    [RefreshIndicator]. Do **not** wrap it in another scroll view here: a
+///    `ListView` given unbounded height throws and renders blank.
 class AsyncView<T> extends StatelessWidget {
   const AsyncView({
     super.key,
@@ -23,14 +31,21 @@ class AsyncView<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = value.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => _ErrorState(message: _msg(e), onRetry: onRefresh),
+    return value.when(
+      skipLoadingOnReload: true,
+      loading: () => _centred(const Center(child: CircularProgressIndicator())),
+      error: (e, _) => _centred(_ErrorState(message: _msg(e), onRetry: onRefresh)),
       data: (d) {
-        if (emptyWhen?.call(d) == true && empty != null) return empty!;
-        return data(d);
+        if (emptyWhen?.call(d) == true && empty != null) return _centred(empty!);
+        final child = data(d);
+        if (onRefresh == null) return child;
+        return RefreshIndicator(onRefresh: onRefresh!, child: child);
       },
     );
+  }
+
+  /// A centred message that still accepts the pull-to-refresh gesture.
+  Widget _centred(Widget child) {
     if (onRefresh == null) return child;
     return RefreshIndicator(
       onRefresh: onRefresh!,
