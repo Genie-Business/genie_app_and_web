@@ -55,6 +55,8 @@ router.openapi(
             email: z.string(),
             emailVerificationRequired: z.literal(true),
             message: z.string(),
+            // Non-production only: the code, so a test build can pre-fill it.
+            verificationCode: z.string().optional(),
           }),
         }),
       ),
@@ -65,7 +67,7 @@ router.openapi(
   async (c) => {
     const body = c.req.valid('json');
     rateLimit(`register:${clientIp(c)}`, RULES.register);
-    const { userId, email } = await service.registerCelebrant(body);
+    const { userId, email, verificationCode } = await service.registerCelebrant(body);
     return c.json(
       {
         data: {
@@ -73,6 +75,7 @@ router.openapi(
           email,
           emailVerificationRequired: true as const,
           message: 'Check your email for a 6-digit verification code.',
+          ...(verificationCode ? { verificationCode } : {}),
         },
       },
       201,
@@ -97,6 +100,7 @@ router.openapi(
             email: z.string(),
             emailVerificationRequired: z.literal(true),
             message: z.string(),
+            verificationCode: z.string().optional(),
           }),
         }),
       ),
@@ -106,7 +110,7 @@ router.openapi(
   async (c) => {
     const body = c.req.valid('json');
     rateLimit(`register:${clientIp(c)}`, RULES.register);
-    const { userId, email } = await service.registerMerchant(body);
+    const { userId, email, verificationCode } = await service.registerMerchant(body);
     return c.json(
       {
         data: {
@@ -114,6 +118,7 @@ router.openapi(
           email,
           emailVerificationRequired: true as const,
           message: 'Check your email for a 6-digit verification code.',
+          ...(verificationCode ? { verificationCode } : {}),
         },
       },
       201,
@@ -147,13 +152,29 @@ router.openapi(
     tags: ['Auth'],
     summary: 'Resend an email verification / password reset code',
     request: { body: jsonBody(C.resendOtpBody) },
-    responses: { 200: jsonResponse('If the account exists, a code was sent', messageSchema), ...commonErrorResponses },
+    responses: {
+      200: jsonResponse(
+        'If the account exists, a code was sent',
+        z.object({
+          data: z.object({ message: z.string(), verificationCode: z.string().optional() }),
+        }),
+      ),
+      ...commonErrorResponses,
+    },
   }),
   async (c) => {
     const body = c.req.valid('json');
     rateLimit(`otp-req:${body.email}`, RULES.otpRequest);
-    await service.resendOtp(body.email, body.purpose);
-    return c.json({ data: { message: 'If that account exists, a new code has been sent.' } }, 200);
+    const { verificationCode } = await service.resendOtp(body.email, body.purpose);
+    return c.json(
+      {
+        data: {
+          message: 'If that account exists, a new code has been sent.',
+          ...(verificationCode ? { verificationCode } : {}),
+        },
+      },
+      200,
+    );
   },
 );
 
@@ -217,13 +238,29 @@ router.openapi(
     tags: ['Auth'],
     summary: 'Request a password reset code (US0003)',
     request: { body: jsonBody(C.forgotPasswordBody) },
-    responses: { 200: jsonResponse('If the account exists, a code was sent', messageSchema), ...commonErrorResponses },
+    responses: {
+      200: jsonResponse(
+        'If the account exists, a code was sent',
+        z.object({
+          data: z.object({ message: z.string(), verificationCode: z.string().optional() }),
+        }),
+      ),
+      ...commonErrorResponses,
+    },
   }),
   async (c) => {
     const body = c.req.valid('json');
     rateLimit(`pwd-reset:${clientIp(c)}:${body.email}`, RULES.passwordReset);
-    await service.forgotPassword(body.email);
-    return c.json({ data: { message: 'If that account exists, a reset code has been sent.' } }, 200);
+    const { verificationCode } = await service.forgotPassword(body.email);
+    return c.json(
+      {
+        data: {
+          message: 'If that account exists, a reset code has been sent.',
+          ...(verificationCode ? { verificationCode } : {}),
+        },
+      },
+      200,
+    );
   },
 );
 

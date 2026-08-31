@@ -9,19 +9,41 @@ import '../../core/secure_store.dart';
 import 'auth_repository.dart';
 import 'models.dart';
 
-enum AuthStatus { unknown, unauthenticated, authenticated }
+enum AuthStatus { unknown, unauthenticated, pendingVerification, authenticated }
 
 @immutable
 class AuthState {
-  const AuthState({required this.status, this.user, this.biometricAvailable = false});
+  const AuthState({
+    required this.status,
+    this.user,
+    this.biometricAvailable = false,
+    this.pendingEmail,
+    this.pendingCode,
+  });
   final AuthStatus status;
   final AuthUser? user;
   final bool biometricAvailable;
 
-  AuthState copyWith({AuthStatus? status, AuthUser? user, bool? biometricAvailable}) => AuthState(
+  /// Set while [status] is [AuthStatus.pendingVerification]: the account exists
+  /// but its email isn't verified yet, so the app resumes the sign-up flow.
+  final String? pendingEmail;
+
+  /// The verification code, when a non-production API echoed it back.
+  final String? pendingCode;
+
+  AuthState copyWith({
+    AuthStatus? status,
+    AuthUser? user,
+    bool? biometricAvailable,
+    String? pendingEmail,
+    String? pendingCode,
+  }) =>
+      AuthState(
         status: status ?? this.status,
         user: user ?? this.user,
         biometricAvailable: biometricAvailable ?? this.biometricAvailable,
+        pendingEmail: pendingEmail ?? this.pendingEmail,
+        pendingCode: pendingCode ?? this.pendingCode,
       );
 }
 
@@ -81,6 +103,14 @@ class AuthController extends Notifier<AuthState> {
     if (restored) {
       try {
         final user = await _repo.me();
+        if (!user.emailVerified) {
+          state = AuthState(
+            status: AuthStatus.pendingVerification,
+            pendingEmail: user.email,
+            biometricAvailable: canBiometric,
+          );
+          return;
+        }
         state = AuthState(status: AuthStatus.authenticated, user: user, biometricAvailable: canBiometric);
         return;
       } catch (_) {/* fall through */}
@@ -103,14 +133,34 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _applyResult(AuthResult result) async {
     await _store.saveTokens(access: result.tokens.accessToken, refresh: result.tokens.refreshToken);
-    state = state.copyWith(status: AuthStatus.authenticated, user: result.user);
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      user: result.user,
+      biometricAvailable: state.biometricAvailable,
+    );
+  }
+
+  Future<void> _resumeVerification(String email) async {
+    // Keep the session (login already issued tokens); the app resumes the
+    // sign-up flow at the code screen instead of entering.
+    String? code;
+    try {
+      code = await _repo.resendOtp(email);
+    } catch (_) {/* code screen still offers a manual resend */}
+    state = AuthState(
+      status: AuthStatus.pendingVerification,
+      pendingEmail: email,
+      pendingCode: code,
+      biometricAvailable: state.biometricAvailable,
+    );
   }
 
   // ── Public actions ────────────────────────────────────────────────────
 
-  Future<void> registerCelebrant(Map<String, dynamic> body) => _repo.registerCelebrant(body);
-  Future<void> registerMerchant(Map<String, dynamic> body) => _repo.registerMerchant(body);
-  Future<void> resendOtp(String email, {String purpose = 'EMAIL_VERIFY'}) =>
+  /// Returns the echoed verification code on non-production deployments, or null.
+  Future<String?> registerCelebrant(Map<String, dynamic> body) => _repo.registerCelebrant(body);
+  Future<String?> registerMerchant(Map<String, dynamic> body) => _repo.registerMerchant(body);
+  Future<String?> resendOtp(String email, {String purpose = 'EMAIL_VERIFY'}) =>
       _repo.resendOtp(email, purpose: purpose);
   Future<void> forgotPassword(String email) => _repo.forgotPassword(email);
   Future<void> resetPassword({required String email, required String code, required String newPassword}) =>
@@ -127,8 +177,16 @@ class AuthController extends Notifier<AuthState> {
       password: password,
       deviceId: await _deviceId(),
     );
+    if (!result.user.emailVerified) {
+      await _store.saveTokens(access: result.tokens.accessToken, refresh: result.tokens.refreshToken);
+      await _resumeVerification(result.user.email);
+      return;
+    }
     await _applyResult(result);
   }
+
+  /// Bail out of a resumed sign-up ("not you?") — drop the session, go to sign-in.
+  Future<void> abandonPendingVerification() => logout();
 
   Future<void> logout() async {
     final refresh = await _store.refreshToken;
@@ -138,7 +196,10 @@ class AuthController extends Notifier<AuthState> {
       } catch (_) {}
     }
     await _store.clear();
-    state = state.copyWith(status: AuthStatus.unauthenticated, user: null);
+    state = AuthState(
+      status: AuthStatus.unauthenticated,
+      biometricAvailable: state.biometricAvailable,
+    );
   }
 
   Future<bool> enableBiometricUnlock() async {

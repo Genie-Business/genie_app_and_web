@@ -40,7 +40,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 | `DIRECT_URL` | Neon **direct** URL — no `-pooler`, `?sslmode=require` | |
 | `JWT_ACCESS_SECRET` | (generated) | ≥ 16 chars |
 | `JWT_REFRESH_SECRET` | (generated, different) | ≥ 16 chars |
-| `APP_ENV` | `preview` | keeps `/console`; enables nothing dangerous |
+| `APP_ENV` | `preview` | keeps `/console`; **echoes the OTP** in the register / resend response so the app can pre-fill it (never on `production`) |
 | `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet |
 | `KYC_PROVIDER` | `mock` | |
 | `PUSH_PROVIDER` | `log` | no FCM yet |
@@ -52,6 +52,11 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 `NODE_ENV` is set to `production` by Vercel automatically — don't add it.
 
 ### 3. Resend (so signup OTPs actually arrive)
+
+> With `APP_ENV=preview` the API also returns the code in the register /
+> resend / forgot-password response and the app pre-fills it, so testing works
+> even before Resend is set up. Set up Resend for a realistic flow (and it's
+> required once `APP_ENV=production`).
 
 1. Sign up at <https://resend.com> (free: 100/day).
 2. **API Keys → Create** → copy into `RESEND_API_KEY`.

@@ -7,11 +7,18 @@ class AuthRepository {
   AuthRepository(this._api);
   final ApiClient _api;
 
-  Future<void> registerCelebrant(Map<String, dynamic> body) =>
-      _api.post<Map<String, dynamic>>('/v1/auth/register', body: body, auth: false);
+  /// Returns the echoed verification code on non-production API deployments
+  /// (email delivery there is best-effort), or null.
+  Future<String?> registerCelebrant(Map<String, dynamic> body) async {
+    final data = await _api.post<Map<String, dynamic>>('/v1/auth/register', body: body, auth: false);
+    return data['verificationCode'] as String?;
+  }
 
-  Future<void> registerMerchant(Map<String, dynamic> body) =>
-      _api.post<Map<String, dynamic>>('/v1/auth/register/merchant', body: body, auth: false);
+  Future<String?> registerMerchant(Map<String, dynamic> body) async {
+    final data = await _api
+        .post<Map<String, dynamic>>('/v1/auth/register/merchant', body: body, auth: false);
+    return data['verificationCode'] as String?;
+  }
 
   Future<AuthResult> verifyEmail({
     required String email,
@@ -27,9 +34,11 @@ class AuthRepository {
     return AuthResult.fromJson(data);
   }
 
-  Future<void> resendOtp(String email, {String purpose = 'EMAIL_VERIFY'}) =>
-      _api.post<Map<String, dynamic>>('/v1/auth/resend-otp',
-          auth: false, body: {'email': email, 'purpose': purpose});
+  Future<String?> resendOtp(String email, {String purpose = 'EMAIL_VERIFY'}) async {
+    final data = await _api.post<Map<String, dynamic>>('/v1/auth/resend-otp',
+        auth: false, body: {'email': email, 'purpose': purpose});
+    return data['verificationCode'] as String?;
+  }
 
   Future<AuthResult> login({
     required String identifier,

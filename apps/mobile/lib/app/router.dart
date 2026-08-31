@@ -28,7 +28,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: _AuthListenable(ref),
     redirect: (context, state) {
-      final status = ref.read(authControllerProvider).status;
+      final auth = ref.read(authControllerProvider);
+      final status = auth.status;
       final loc = state.matchedLocation;
 
       if (status == AuthStatus.unknown) return loc == '/splash' ? null : '/splash';
@@ -37,6 +38,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (status == AuthStatus.unauthenticated) {
         return onAuthFlow ? null : '/onboarding';
       }
+
+      // Account exists but the email isn't verified — resume sign-up at the
+      // code screen. Still let them move around the auth flow (e.g. to sign in
+      // as someone else).
+      if (status == AuthStatus.pendingVerification) {
+        if (loc.startsWith('/auth/verify') || onAuthFlow) return null;
+        final email = Uri.encodeComponent(auth.pendingEmail ?? '');
+        final code = auth.pendingCode;
+        return '/auth/verify?email=$email${code != null ? '&code=$code' : ''}';
+      }
+
       // authenticated
       if (onAuthFlow || loc == '/splash') return '/';
       return null;
@@ -51,7 +63,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/auth/sign-up/merchant', builder: (_, __) => const SignUpMerchantScreen()),
       GoRoute(
         path: '/auth/verify',
-        builder: (_, s) => VerifyOtpScreen(email: s.uri.queryParameters['email'] ?? ''),
+        builder: (_, s) => VerifyOtpScreen(
+          email: s.uri.queryParameters['email'] ?? '',
+          prefillCode: s.uri.queryParameters['code'],
+        ),
       ),
       GoRoute(path: '/auth/forgot', builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(

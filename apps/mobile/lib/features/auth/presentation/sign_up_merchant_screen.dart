@@ -55,7 +55,7 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await ref.read(authControllerProvider.notifier).registerMerchant({
+      final code = await ref.read(authControllerProvider.notifier).registerMerchant({
         'businessName': _business.text.trim(),
         'confirmationCode': _code.text.trim(),
         'email': _email.text.trim(),
@@ -68,7 +68,8 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
         'password': _password.text,
       });
       if (mounted) {
-        context.go('/auth/verify?email=${Uri.encodeComponent(_email.text.trim())}');
+        final email = Uri.encodeComponent(_email.text.trim());
+        context.go('/auth/verify?email=$email${code != null ? '&code=$code' : ''}');
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);

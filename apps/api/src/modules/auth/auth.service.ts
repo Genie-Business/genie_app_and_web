@@ -41,6 +41,16 @@ function otpIsPeekable(env: ReturnType<typeof getEnv>): boolean {
   return process.env.NODE_ENV === 'test' || env.APP_ENV === 'local';
 }
 
+/**
+ * Non-production deployments echo the freshly-issued OTP in the register /
+ * resend response so the app can pre-fill it — email on a test env is
+ * best-effort (Resend's free tier only delivers to the account owner). Always
+ * false when APP_ENV=production.
+ */
+export function otpEchoEnabled(): boolean {
+  return getEnv().APP_ENV !== 'production';
+}
+
 /** Dev/test only: last code for an email + purpose, or null. */
 export function peekOtp(email: string, purpose: OtpPurpose = 'EMAIL_VERIFY'): string | null {
   if (!otpIsPeekable(getEnv())) return null;
@@ -188,7 +198,7 @@ export async function registerCelebrant(input: RegisterCelebrant) {
   const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
   await sendMail({ ...otpEmail(code, 'verify'), to: email });
   logger.info({ userId: user.id }, 'celebrant registered');
-  return { userId: user.id, email };
+  return { userId: user.id, email, verificationCode: otpEchoEnabled() ? code : undefined };
 }
 
 export async function registerMerchant(input: RegisterMerchant) {
@@ -244,7 +254,7 @@ export async function registerMerchant(input: RegisterMerchant) {
   const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
   await sendMail({ ...otpEmail(code, 'verify'), to: email });
   logger.info({ userId: user.id }, 'merchant registered');
-  return { userId: user.id, email };
+  return { userId: user.id, email, verificationCode: otpEchoEnabled() ? code : undefined };
 }
 
 // ── Email verification ───────────────────────────────────────────────────
@@ -263,14 +273,18 @@ export async function verifyEmail(rawEmail: string, code: string, device: Device
   return { tokens, user };
 }
 
-export async function resendOtp(rawEmail: string, purpose: 'EMAIL_VERIFY' | 'PASSWORD_RESET') {
+export async function resendOtp(
+  rawEmail: string,
+  purpose: 'EMAIL_VERIFY' | 'PASSWORD_RESET',
+): Promise<{ verificationCode?: string }> {
   const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findFirst({ where: { email, status: 'ACTIVE' } });
   // Don't leak whether the account exists.
-  if (!user) return;
-  if (purpose === 'EMAIL_VERIFY' && user.emailVerifiedAt) return;
+  if (!user) return {};
+  if (purpose === 'EMAIL_VERIFY' && user.emailVerifiedAt) return {};
   const code = await issueOtp(email, purpose, user.id);
   await sendMail({ ...otpEmail(code, purpose === 'EMAIL_VERIFY' ? 'verify' : 'reset'), to: email });
+  return { verificationCode: otpEchoEnabled() ? code : undefined };
 }
 
 // ── Login / refresh / logout ─────────────────────────────────────────────
@@ -331,12 +345,13 @@ export async function logout(refreshToken: string): Promise<void> {
 
 // ── Password reset ───────────────────────────────────────────────────────
 
-export async function forgotPassword(rawEmail: string): Promise<void> {
+export async function forgotPassword(rawEmail: string): Promise<{ verificationCode?: string }> {
   const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findFirst({ where: { email, status: 'ACTIVE' } });
-  if (!user) return; // silent — no enumeration
+  if (!user) return {}; // silent — no enumeration
   const code = await issueOtp(email, 'PASSWORD_RESET', user.id);
   await sendMail({ ...otpEmail(code, 'reset'), to: email });
+  return { verificationCode: otpEchoEnabled() ? code : undefined };
 }
 
 export async function resetPassword(rawEmail: string, code: string, newPassword: string): Promise<void> {

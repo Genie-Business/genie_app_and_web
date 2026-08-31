@@ -45,7 +45,7 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await ref.read(authControllerProvider.notifier).registerCelebrant({
+      final code = await ref.read(authControllerProvider.notifier).registerCelebrant({
         'firstName': _first.text.trim(),
         'lastName': _last.text.trim(),
         'email': _email.text.trim(),
@@ -57,7 +57,8 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
         if (_referral.text.trim().isNotEmpty) 'referralCode': _referral.text.trim(),
       });
       if (mounted) {
-        context.go('/auth/verify?email=${Uri.encodeComponent(_email.text.trim())}');
+        final email = Uri.encodeComponent(_email.text.trim());
+        context.go('/auth/verify?email=$email${code != null ? '&code=$code' : ''}');
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
