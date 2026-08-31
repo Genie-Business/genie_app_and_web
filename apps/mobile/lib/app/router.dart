@@ -11,14 +11,19 @@ import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_celebrant_screen.dart';
 import '../features/auth/presentation/sign_up_merchant_screen.dart';
 import '../features/auth/presentation/verify_otp_screen.dart';
+import '../features/activity/activity_screen.dart';
+import '../features/catalog/catalog_models.dart';
 import '../features/events/presentation/create_event_screen.dart';
 import '../features/events/presentation/event_detail_screen.dart';
-import '../features/catalog/catalog_models.dart';
+import '../features/friends/presentation/friends_screen.dart';
 import '../features/gifts/presentation/gift_a_friend_screen.dart';
 import '../features/gifts/presentation/gifts_received_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/merchant/presentation/edit_product_screen.dart';
-import '../features/settings/placeholder_screens.dart';
+import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/settings/presentation/change_password_screen.dart';
+import '../features/settings/presentation/delete_account_screen.dart';
+import '../features/settings/presentation/edit_username_screen.dart';
 import '../features/wallet/presentation/wallet_screen.dart';
 import '../features/wishlists/presentation/add_wishlist_item_screen.dart';
 import '../features/wishlists/presentation/wishlist_screen.dart';
@@ -110,23 +115,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/merchant/products/:id',
         builder: (_, s) => EditProductScreen(existing: s.extra as Product?),
       ),
-      GoRoute(
-        path: '/settings/username',
-        builder: (_, __) => const SettingsPlaceholderScreen(
-            title: 'Edit username', body: 'Only your username can be changed (US "Profile settings").'),
-      ),
-      GoRoute(
-        path: '/settings/password',
-        builder: (_, __) => const SettingsPlaceholderScreen(
-            title: 'Change password', body: 'Enter your current and new password.'),
-      ),
-      GoRoute(
-        path: '/settings/delete',
-        builder: (_, __) => const SettingsPlaceholderScreen(
-            title: 'Delete account',
-            body:
-                'We will email you a code to confirm. Your transaction history is retained; withdraw any wallet balance first.'),
-      ),
+      GoRoute(path: '/settings/username', builder: (_, __) => const EditUsernameScreen()),
+      GoRoute(path: '/settings/password', builder: (_, __) => const ChangePasswordScreen()),
+      GoRoute(path: '/settings/delete', builder: (_, __) => const DeleteAccountScreen()),
+      GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: '/activity', builder: (_, __) => const ActivityScreen()),
+      GoRoute(path: '/friends', builder: (_, __) => const FriendsScreen()),
     ],
   );
 });

@@ -9,6 +9,7 @@ import '../events/presentation/events_screen.dart';
 import '../gifts/presentation/gifting_tab_screen.dart';
 import '../merchant/presentation/merchant_orders_screen.dart';
 import '../merchant/presentation/merchant_products_screen.dart';
+import '../notifications/notifications_repository.dart';
 import '../wishlists/presentation/wishlists_tab_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -55,6 +56,24 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     return Scaffold(
       appBar: AppBar(
         title: Text('genie', style: GenieTheme.display(20).copyWith(color: GenieColors.primary)),
+        actions: [
+          Consumer(
+            builder: (context, ref, _) {
+              final unread = ref.watch(unreadCountProvider).maybeWhen(
+                    data: (n) => n,
+                    orElse: () => 0,
+                  );
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text('$unread'),
+                  child: const Icon(Icons.notifications_none),
+                ),
+                onPressed: () => context.push('/notifications'),
+              );
+            },
+          ),
+        ],
       ),
       body: body,
       bottomNavigationBar: NavigationBar(
@@ -82,6 +101,27 @@ class _AccountTab extends ConsumerWidget {
           leading: const CircleAvatar(child: Icon(Icons.person)),
           title: Text('${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim()),
           subtitle: Text(user?.email ?? ''),
+        ),
+        const Divider(height: 32),
+        if (!(user?.isMerchant ?? false)) ...[
+          ListTile(
+            leading: const Icon(Icons.people_alt_outlined),
+            title: const Text('Friends'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/friends'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('Wallet'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/wallet'),
+          ),
+        ],
+        ListTile(
+          leading: const Icon(Icons.history),
+          title: const Text('Activity'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/activity'),
         ),
         const Divider(height: 32),
         ListTile(

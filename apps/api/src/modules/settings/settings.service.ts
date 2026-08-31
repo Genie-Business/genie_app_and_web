@@ -3,7 +3,7 @@ import type { settings as S } from '@genie/contracts';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { otpEmail, sendMail } from '../../lib/mailer';
-import { consumeOtp, issueOtp } from '../auth/auth.service';
+import { consumeOtp, issueOtp, otpEchoEnabled } from '../auth/auth.service';
 import { recordActivity } from '../activities/activities.service';
 import { getBalanceKobo } from '../payments/ledger.service';
 
@@ -104,7 +104,10 @@ export async function requestDeletion(userId: string) {
   const code = await issueOtp(user.email, 'ACCOUNT_DELETE', userId);
   await sendMail({ ...otpEmail(code, 'delete'), to: user.email });
   logger.info({ userId }, 'account deletion requested');
-  return { message: 'We sent a confirmation code to your email. Enter it to permanently close your account.' };
+  return {
+    message: 'We sent a confirmation code to your email. Enter it to permanently close your account.',
+    ...(otpEchoEnabled() ? { verificationCode: code } : {}),
+  };
 }
 
 export async function confirmDeletion(userId: string, code: string) {

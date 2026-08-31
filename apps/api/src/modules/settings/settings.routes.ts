@@ -108,7 +108,12 @@ router.openapi(
     summary: 'Request account deletion (sends a confirmation code)',
     security: [{ bearerAuth: [] }],
     responses: {
-      200: jsonResponse('Code sent (or 400 if the wallet is not empty / a settlement is pending)', messageObj),
+      200: jsonResponse(
+        'Code sent (or 400 if the wallet is not empty / a settlement is pending)',
+        z.object({
+          data: z.object({ message: z.string(), verificationCode: z.string().optional() }),
+        }),
+      ),
       ...commonErrorResponses,
     },
   }),
