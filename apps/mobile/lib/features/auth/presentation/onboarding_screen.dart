@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../shared/widgets/genie_mark.dart';
+
 /// The genie welcome tour — a full-bleed photo walkthrough that mirrors the
 /// marketing showcase (deep violet, Cormorant Garamond display) with a slow
 /// Ken-Burns drift on each frame.
@@ -174,13 +176,20 @@ class _SlideView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('genie',
-                    style: GoogleFonts.quicksand(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      letterSpacing: -0.5,
-                    )),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const GenieMark(size: 24, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text('genie',
+                        style: GoogleFonts.quicksand(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 22,
+                          letterSpacing: -0.5,
+                        )),
+                  ],
+                ),
                 const Spacer(),
                 Text(
                   slide.line1,
