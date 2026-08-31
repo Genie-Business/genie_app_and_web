@@ -6,6 +6,7 @@ import '../../theme/genie_theme.dart';
 import '../auth/auth_controller.dart';
 import '../auth/models.dart';
 import '../events/presentation/events_screen.dart';
+import '../gifts/presentation/gifting_tab_screen.dart';
 import '../wishlists/presentation/wishlists_tab_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         : const [
             EventsScreen(),
             WishlistsTabScreen(),
+            GiftingTabScreen(),
           ];
 
     final destinations = isMerchant
@@ -42,6 +44,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         : const [
             NavigationDestination(icon: Icon(Icons.event_outlined), label: 'Events'),
             NavigationDestination(icon: Icon(Icons.card_giftcard_outlined), label: 'Wishlists'),
+            NavigationDestination(icon: Icon(Icons.volunteer_activism_outlined), label: 'Gifting'),
             NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
           ];
 

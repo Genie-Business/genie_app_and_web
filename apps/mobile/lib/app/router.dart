@@ -13,8 +13,11 @@ import '../features/auth/presentation/sign_up_merchant_screen.dart';
 import '../features/auth/presentation/verify_otp_screen.dart';
 import '../features/events/presentation/create_event_screen.dart';
 import '../features/events/presentation/event_detail_screen.dart';
+import '../features/gifts/presentation/gift_a_friend_screen.dart';
+import '../features/gifts/presentation/gifts_received_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/settings/placeholder_screens.dart';
+import '../features/wallet/presentation/wallet_screen.dart';
 import '../features/wishlists/presentation/add_wishlist_item_screen.dart';
 import '../features/wishlists/presentation/wishlist_screen.dart';
 
@@ -91,6 +94,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/wishlists/:id/add',
         builder: (_, s) => AddWishlistItemScreen(wishlistId: s.pathParameters['id']!),
       ),
+      GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
+      GoRoute(
+        path: '/gift',
+        builder: (_, s) => GiftAFriendScreen(initialLink: s.uri.queryParameters['link']),
+      ),
+      GoRoute(path: '/gifts/received', builder: (_, __) => const GiftsReceivedScreen()),
       GoRoute(
         path: '/settings/username',
         builder: (_, __) => const SettingsPlaceholderScreen(
