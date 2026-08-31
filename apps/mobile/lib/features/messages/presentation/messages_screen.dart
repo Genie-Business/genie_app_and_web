@@ -88,8 +88,15 @@ class MessagesScreen extends ConsumerWidget {
   }
 
   Future<void> _startChat(BuildContext context, WidgetRef ref) async {
-    final friendsAsync = ref.read(friendsProvider);
-    final friends = friendsAsync.asData?.value ?? const <Friend>[];
+    List<Friend> friends;
+    try {
+      friends = await ref.read(friendsProvider.future);
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return;
+    }
     if (!context.mounted) return;
 
     if (friends.isEmpty) {

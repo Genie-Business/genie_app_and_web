@@ -28,9 +28,10 @@ class KycScreen extends ConsumerWidget {
             _StatusBanner(s),
             const SizedBox(height: 20),
             if (s.canSubmit)
-              _SubmitForm(onDone: () {
+              _SubmitForm(onDone: () async {
                 ref.invalidate(kycStatusProvider);
-                ref.invalidate(authControllerProvider);
+                // Refresh the cached user so the account tag updates too.
+                await ref.read(authControllerProvider.notifier).bootstrap();
               })
             else
               const _Requirements(),
@@ -138,7 +139,7 @@ class _Requirements extends ConsumerWidget {
 
 class _SubmitForm extends ConsumerStatefulWidget {
   const _SubmitForm({required this.onDone});
-  final VoidCallback onDone;
+  final Future<void> Function() onDone;
 
   @override
   ConsumerState<_SubmitForm> createState() => _SubmitFormState();
@@ -190,7 +191,7 @@ class _SubmitFormState extends ConsumerState<_SubmitForm> {
             idDocNumber: _docNo.text,
             bvn: _bvn.text,
           );
-      widget.onDone();
+      await widget.onDone();
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Submitted for review')));

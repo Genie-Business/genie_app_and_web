@@ -23,9 +23,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Opening the thread marks incoming messages read server-side; refresh the
-    // inbox badge when we leave.
-    Future.microtask(() => ref.read(messagesRepositoryProvider).markRead(widget.threadId));
+    // Opening the thread marks incoming messages read server-side.
+    Future.microtask(() async {
+      try {
+        await ref.read(messagesRepositoryProvider).markRead(widget.threadId);
+        ref.invalidate(messagesUnreadProvider);
+        ref.invalidate(messageThreadsProvider);
+      } catch (_) {/* best effort */}
+    });
   }
 
   @override
