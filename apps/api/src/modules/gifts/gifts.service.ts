@@ -9,6 +9,10 @@ import { maybeRewardReferral } from '../referrals/referrals.service';
 import { getBalanceKobo, postEntry } from '../payments/ledger.service';
 import { getPaymentProvider } from '../payments/provider';
 import { ensureWallet } from '../payments/wallet.service';
+import { nextOccurrence } from '../events/recurrence';
+
+/** A wishlist needs this many items before it can be shared / gifted from. */
+const MIN_SHAREABLE_ITEMS = 2;
 
 const ITEM_INCLUDE = {
   product: { include: { inventory: true, merchant: true } },
@@ -512,6 +516,82 @@ export async function listGiven(userId: string) {
     orderStatus: g.order?.status ?? null,
     createdAt: g.createdAt.toISOString(),
   }));
+}
+
+/**
+ * Wishlists belonging to my friends that I can still gift from — the "invites to
+ * pay for the items" feed on the home screen. Only ACTIVE events that haven't
+ * passed (ANNUAL events roll forward), only shareable wishlists (≥ 2 items), and
+ * only ones that still have something unfulfilled.
+ */
+export async function listInvitations(userId: string) {
+  const friendships = await prisma.friendship.findMany({
+    where: { status: 'ACCEPTED', OR: [{ requesterId: userId }, { addresseeId: userId }] },
+    select: { requesterId: true, addresseeId: true },
+  });
+  const friendIds = friendships.map((f) =>
+    f.requesterId === userId ? f.addresseeId : f.requesterId,
+  );
+  if (friendIds.length === 0) return [];
+
+  const now = Date.now();
+  const wishlists = await prisma.wishlist.findMany({
+    where: {
+      event: {
+        userId: { in: friendIds },
+        status: 'ACTIVE',
+        OR: [{ expiresAt: { gte: new Date(now) } }, { recurrence: 'ANNUAL' }],
+      },
+    },
+    include: {
+      event: {
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          type: true,
+          eventDate: true,
+          expiresAt: true,
+          recurrence: true,
+          user: { select: { firstName: true, lastName: true, username: true } },
+        },
+      },
+      items: { include: { product: { select: { priceKobo: true } } } },
+    },
+  });
+
+  const rows = wishlists
+    .filter((w) => w.items.length >= MIN_SHAREABLE_ITEMS)
+    .map((w) => {
+      const outstanding = w.items.filter((i) => i.quantityFulfilled < i.quantityWanted);
+      const totalValueKobo = w.items.reduce(
+        (s, i) => s + i.product.priceKobo * BigInt(i.quantityWanted),
+        0n,
+      );
+      const outstandingValueKobo = outstanding.reduce(
+        (s, i) => s + i.product.priceKobo * BigInt(i.quantityWanted - i.quantityFulfilled),
+        0n,
+      );
+      const occ = nextOccurrence(w.event.eventDate, w.event.expiresAt, w.event.recurrence, now);
+      const name = `${w.event.user.firstName} ${w.event.user.lastName}`.trim();
+      return {
+        wishlistId: w.id,
+        wishlistName: w.name,
+        celebrantUserId: w.event.userId,
+        celebrantName: name || `@${w.event.user.username}`,
+        eventName: w.event.name,
+        eventType: w.event.type,
+        eventDate: occ.eventDate.toISOString(),
+        itemCount: w.items.length,
+        outstandingCount: outstanding.length,
+        totalValueKobo,
+        outstandingValueKobo,
+      };
+    })
+    .filter((w) => w.outstandingCount > 0);
+
+  rows.sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  return rows;
 }
 
 export async function listReceived(userId: string) {

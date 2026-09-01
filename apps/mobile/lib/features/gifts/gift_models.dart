@@ -61,6 +61,46 @@ class ReceivedGift {
       );
 }
 
+/// A friend's wishlist I've been invited to gift from (home feed).
+class GiftInvitation {
+  const GiftInvitation({
+    required this.wishlistId,
+    required this.wishlistName,
+    required this.celebrantName,
+    required this.eventName,
+    required this.eventType,
+    required this.eventDate,
+    required this.itemCount,
+    required this.outstandingCount,
+    required this.totalValueKobo,
+    required this.outstandingValueKobo,
+  });
+
+  final String wishlistId;
+  final String wishlistName;
+  final String celebrantName;
+  final String eventName;
+  final String eventType;
+  final String eventDate;
+  final int itemCount;
+  final int outstandingCount;
+  final String totalValueKobo;
+  final String outstandingValueKobo;
+
+  factory GiftInvitation.fromJson(Map<String, dynamic> j) => GiftInvitation(
+        wishlistId: j['wishlistId'] as String,
+        wishlistName: (j['wishlistName'] as String?) ?? 'Wishlist',
+        celebrantName: (j['celebrantName'] as String?) ?? 'A friend',
+        eventName: (j['eventName'] as String?) ?? '',
+        eventType: (j['eventType'] as String?) ?? '',
+        eventDate: (j['eventDate'] as String?) ?? '',
+        itemCount: (j['itemCount'] as num?)?.toInt() ?? 0,
+        outstandingCount: (j['outstandingCount'] as num?)?.toInt() ?? 0,
+        totalValueKobo: (j['totalValueKobo'] ?? '0').toString(),
+        outstandingValueKobo: (j['outstandingValueKobo'] ?? '0').toString(),
+      );
+}
+
 class PublicWishlistItem {
   const PublicWishlistItem({
     required this.id,

@@ -78,6 +78,19 @@ router.openapi(
   async (c) => c.json(serializeBigInts({ data: await service.listReceived(c.get('user')!.id) }), 200),
 );
 
+// ── GET /gifts/invitations ─────────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'get',
+    path: '/invitations',
+    tags: ['Gifts'],
+    summary: "Friends' wishlists I can still gift from (home feed)",
+    security: [{ bearerAuth: [] }],
+    responses: { 200: jsonResponse('Invitations', dataArr), ...commonErrorResponses },
+  }),
+  async (c) => c.json(serializeBigInts({ data: await service.listInvitations(c.get('user')!.id) }), 200),
+);
+
 // ── POST /gifts/{id}/reveal ────────────────────────────────────────────
 router.openapi(
   createRoute({

@@ -273,4 +273,35 @@ d('gifting (E005 / E012)', () => {
     expect(given[0].productName).toBe(product.name);
     expect(given[0].orderNumber).toMatch(/^ORD-/);
   });
+
+  it("shows a friend's shareable wishlist as a gift invitation", async () => {
+    const merchant = await makeMerchant();
+    const p1 = await makeProduct(merchant.user.id, { priceKobo: 5_000_00 });
+    const p2 = await makeProduct(merchant.user.id, { priceKobo: 3_000_00 });
+    const { celebrant, wishlistId } = await wishlistItemFor(app, p1.id);
+    await app.request(`/v1/wishlists/${wishlistId}/items`, post({ productId: p2.id }, celebrant.auth));
+
+    const gifter = await makeCelebrant();
+
+    // Not friends yet → nothing.
+    const before = (await body(await app.request('/v1/gifts/invitations', { headers: gifter.auth }))).data;
+    expect(before).toHaveLength(0);
+
+    // Become friends (request + accept).
+    await app.request(
+      '/v1/friends/requests',
+      post({ userId: gifter.user.id }, celebrant.auth),
+    );
+    const reqs = (await body(await app.request('/v1/friends/requests', { headers: gifter.auth }))).data;
+    await app.request(`/v1/friends/requests/${reqs[0].id}/accept`, {
+      method: 'POST',
+      headers: gifter.auth,
+    });
+
+    const after = (await body(await app.request('/v1/gifts/invitations', { headers: gifter.auth }))).data;
+    expect(after).toHaveLength(1);
+    expect(after[0].wishlistId).toBe(wishlistId);
+    expect(after[0].itemCount).toBe(2);
+    expect(after[0].outstandingCount).toBe(2);
+  });
 });

@@ -40,6 +40,11 @@ class GiftsRepository {
     return data.map((e) => ReceivedGift.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<List<GiftInvitation>> invitations() async {
+    final data = await _api.get<List<dynamic>>('/v1/gifts/invitations');
+    return data.map((e) => GiftInvitation.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<void> reveal(String giftId) =>
       _api.post<Map<String, dynamic>>('/v1/gifts/$giftId/reveal');
 }
@@ -49,6 +54,9 @@ final giftsRepositoryProvider =
 
 final receivedGiftsProvider =
     FutureProvider<List<ReceivedGift>>((ref) => ref.watch(giftsRepositoryProvider).received());
+
+final giftInvitationsProvider =
+    FutureProvider<List<GiftInvitation>>((ref) => ref.watch(giftsRepositoryProvider).invitations());
 
 /// [id] may be a full share URL or a bare wishlist id.
 final publicWishlistProvider = FutureProvider.family<PublicWishlist, String>((ref, id) {

@@ -7,12 +7,12 @@ import '../../theme/genie_theme.dart';
 import '../auth/auth_controller.dart';
 import '../auth/models.dart';
 import '../events/presentation/events_screen.dart';
-import '../gifts/presentation/gifting_tab_screen.dart';
 import '../merchant/presentation/merchant_orders_screen.dart';
 import '../merchant/presentation/merchant_products_screen.dart';
 import '../messages/messages_repository.dart';
 import '../notifications/notifications_repository.dart';
 import '../wishlists/presentation/wishlists_tab_screen.dart';
+import 'presentation/home_dashboard_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -35,9 +35,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             MerchantOrdersScreen(),
           ]
         : const [
+            HomeDashboardScreen(),
             EventsScreen(),
             WishlistsTabScreen(),
-            GiftingTabScreen(),
           ];
 
     final destinations = isMerchant
@@ -47,9 +47,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
           ]
         : const [
+            NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
             NavigationDestination(icon: Icon(Icons.event_outlined), label: 'Events'),
             NavigationDestination(icon: Icon(Icons.card_giftcard_outlined), label: 'Wishlists'),
-            NavigationDestination(icon: Icon(Icons.volunteer_activism_outlined), label: 'Gifting'),
             NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
           ];
 
