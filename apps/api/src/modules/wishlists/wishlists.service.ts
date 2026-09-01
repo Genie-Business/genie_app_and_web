@@ -112,7 +112,7 @@ export async function shareInfo(userId: string, wishlistId: string) {
   const itemCount = wishlist.items.length;
   return {
     wishlistId,
-    shareUrl: `${getEnv().APP_PUBLIC_URL}/w/${wishlistId}`,
+    shareUrl: `${getEnv().APP_PUBLIC_URL.replace(/\/$/, '')}/w/${wishlistId}`,
     itemCount,
     isShareable: itemCount >= MIN_SHAREABLE_ITEMS,
   };

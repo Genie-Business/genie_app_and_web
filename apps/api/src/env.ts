@@ -35,8 +35,12 @@ const schema = z.object({
   ANCHOR_KEY: z.string().optional().default(''),
   ANCHOR_WEBHOOK_SECRET: z.string().optional().default(''),
 
-  /** Consumer web app base — used to build wishlist share links. */
-  APP_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
+  /**
+   * Consumer web app base — used to build wishlist share links and referral
+   * links. Defaults to the deployed landing site so a shared link works out of
+   * the box; override for local dev (`APP_PUBLIC_URL=http://localhost:3000`).
+   */
+  APP_PUBLIC_URL: z.string().url().default('https://genie-app-and-web-landing.vercel.app'),
   CORS_ORIGINS: z.string().default('*'),
 });
 
