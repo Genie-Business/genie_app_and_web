@@ -58,10 +58,11 @@ export function otpEchoEnabled(email?: string): boolean {
   if (env.APP_ENV === 'local') return true;
   if (env.OTP_DEBUG_ECHO && env.APP_ENV !== 'production') return true;
   if (email) {
-    const allow = env.OTP_ECHO_EMAILS.split(',')
-      .map((s) => normalizeEmail(s.trim()))
-      .filter(Boolean);
-    return allow.includes(normalizeEmail(email));
+    // Match ignoring a "+tag" so one allow-list entry covers all of a tester's
+    // aliases, while a genuinely different address never matches.
+    const base = (e: string) => normalizeEmail(e).replace(/\+[^@]*(?=@)/, '');
+    const allow = env.OTP_ECHO_EMAILS.split(',').map((s) => base(s.trim())).filter(Boolean);
+    return allow.includes(base(email));
   }
   return false;
 }
