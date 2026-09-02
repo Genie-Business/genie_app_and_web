@@ -156,3 +156,29 @@ export const publicWishlistDto = z.object({
     }),
   ),
 });
+
+// ── Guest checkout — buy from a shared wishlist link without an account ──
+export const guestCheckoutBody = z.object({
+  wishlistItemIds: z.array(z.string().min(1).max(64)).min(1).max(20),
+  gifterName: z.string().trim().min(2).max(80),
+  gifterEmail: z.string().trim().toLowerCase().email().max(160),
+  gifterPhone: z.string().trim().regex(/^\+?[0-9]{7,15}$/).optional(),
+  isAnonymous: z.boolean().default(false),
+  message: z.string().trim().max(280).optional(),
+});
+export type GuestCheckoutBody = z.infer<typeof guestCheckoutBody>;
+
+export const guestCheckoutResultDto = z.object({
+  reference: z.string(),
+  status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED']),
+  totalKobo: koboString,
+  breakdown: z.array(
+    z.object({ wishlistItemId: z.string(), productName: z.string(), amountKobo: koboString }),
+  ),
+  virtualAccount: z.object({
+    accountNumber: z.string(),
+    bankName: z.string(),
+    accountName: z.string(),
+    expiresAt: z.string().nullable(),
+  }),
+});

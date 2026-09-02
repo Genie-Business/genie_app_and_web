@@ -90,16 +90,18 @@ export async function settleAddFunds(reference: string, paidAmountKobo: bigint) 
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
   if (!intent) throw notFound(`No payment intent for reference ${reference}.`);
   if (intent.purpose !== 'ADD_FUNDS') throw badRequest('Not a funding intent.');
+  if (!intent.userId) throw badRequest('Funding intent is missing its account.');
   if (intent.status === 'COMPLETED') {
     return { alreadySettled: true, intentReference: reference };
   }
 
+  const userId = intent.userId;
   const amount = paidAmountKobo > 0n ? paidAmountKobo : intent.amountKobo;
 
   await prisma.$transaction(async (tx) => {
     await postEntry(
       {
-        userId: intent.userId,
+        userId,
         direction: 'CREDIT',
         amountKobo: amount,
         reason: 'FUNDING',
@@ -117,7 +119,7 @@ export async function settleAddFunds(reference: string, paidAmountKobo: bigint) 
     await tx.transaction.create({
       data: {
         reference: transactionReference(),
-        userId: intent.userId,
+        userId,
         type: 'FUNDING',
         amountKobo: amount,
         status: 'COMPLETED',
@@ -128,7 +130,7 @@ export async function settleAddFunds(reference: string, paidAmountKobo: bigint) 
   });
 
   await recordActivity({
-    userId: intent.userId,
+    userId,
     category: 'TRANSACTION',
     action: 'wallet.funded',
     entityType: 'PaymentIntent',
@@ -136,7 +138,7 @@ export async function settleAddFunds(reference: string, paidAmountKobo: bigint) 
     metadata: { amountKobo: amount.toString() },
   });
   await notify({
-    userId: intent.userId,
+    userId,
     type: 'wallet.funded',
     title: 'Wallet topped up',
     body: `₦${(Number(amount) / 100).toLocaleString()} was added to your wallet.`,

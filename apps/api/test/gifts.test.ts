@@ -274,6 +274,50 @@ d('gifting (E005 / E012)', () => {
     expect(given[0].orderNumber).toMatch(/^ORD-/);
   });
 
+  it('lets a guest (no account) buy wishlist items via bank transfer', async () => {
+    const merchant = await makeMerchant();
+    const p1 = await makeProduct(merchant.user.id, { priceKobo: 5_000_00 });
+    const p2 = await makeProduct(merchant.user.id, { priceKobo: 3_000_00 });
+    const { celebrant, wishlistId } = await wishlistItemFor(app, p1.id);
+    const added = await app.request(
+      `/v1/wishlists/${wishlistId}/items`,
+      post({ productId: p2.id }, celebrant.auth),
+    );
+    const ids = (await body(added)).data.items.map((i: { id: string }) => i.id);
+
+    const checkout = await app.request(`/v1/public/wishlists/${wishlistId}/checkout`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        wishlistItemIds: ids,
+        gifterName: 'Chidi Guest',
+        gifterEmail: 'chidi@example.com',
+        isAnonymous: false,
+      }),
+    });
+    expect(checkout.status).toBe(201);
+    const { reference, virtualAccount, breakdown } = (await body(checkout)).data;
+    expect(virtualAccount.accountNumber).toBeTruthy();
+    expect(breakdown).toHaveLength(2);
+
+    // Settle the transfer → both gifts finalise with no gifter account.
+    await app.request(`/v1/public/payments/${reference}/_simulate`, { method: 'POST' });
+
+    const status = await app.request(`/v1/public/payments/${reference}`);
+    expect((await body(status)).data.status).toBe('COMPLETED');
+
+    const gifts = await prisma.gift.findMany({ where: { status: 'PAID' } });
+    expect(gifts).toHaveLength(2);
+    expect(gifts.every((g) => g.gifterUserId === null)).toBe(true);
+    expect(gifts.every((g) => g.giftedByName === 'Chidi Guest')).toBe(true);
+
+    // The celebrant sees them as received gifts, from "Chidi Guest".
+    const received = (await body(await app.request('/v1/gifts/received', { headers: celebrant.auth })))
+      .data;
+    expect(received).toHaveLength(2);
+    expect(received[0].from).toBe('Chidi Guest');
+  });
+
   it("shows a friend's shareable wishlist as a gift invitation", async () => {
     const merchant = await makeMerchant();
     const p1 = await makeProduct(merchant.user.id, { priceKobo: 5_000_00 });

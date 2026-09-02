@@ -31,6 +31,9 @@ dependencies:
   # KYC document capture
   image_picker: ^1.1.2
 
+  # Deep links — open shared wishlist / invite URLs in the app
+  app_links: ^6.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

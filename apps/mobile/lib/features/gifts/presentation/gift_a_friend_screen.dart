@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../core/api_client.dart';
 import '../../../core/format.dart';
 import '../../../shared/widgets/async_view.dart';
 import '../../../theme/genie_theme.dart';
+import '../../auth/auth_controller.dart';
 import '../../wallet/wallet_repository.dart';
 import '../gift_models.dart';
 import '../gifts_repository.dart';
@@ -129,6 +132,23 @@ class _WishlistView extends ConsumerWidget {
   }
 
   Future<void> _gift(BuildContext context, WidgetRef ref, PublicWishlistItem item) async {
+    // Gifting needs a genie account (wallet or bank transfer + a receipt).
+    if (ref.read(authControllerProvider).status != AuthStatus.authenticated) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sign in to send this gift'),
+          content: const Text(
+              'Create a free genie account to gift from a friend’s wishlist — or open the link in a browser to pay as a guest.'),
+          actions: [
+            TextButton(onPressed: () => ctx.pop(false), child: const Text('Not now')),
+            FilledButton(onPressed: () => ctx.pop(true), child: const Text('Get started')),
+          ],
+        ),
+      );
+      if (go == true && context.mounted) context.go('/auth/role');
+      return;
+    }
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,

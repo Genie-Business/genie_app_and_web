@@ -596,6 +596,8 @@ model Gift {
   isAnonymous     Boolean    @default(false)
   amountKobo      BigInt
   message         String?
+  /// Display name when the gifter has no genie account (guest web checkout).
+  giftedByName    String?
   status          GiftStatus @default(PENDING_PAYMENT)
   paymentIntentId String?    @unique
   orderId         String?    @unique
@@ -708,8 +710,12 @@ model LedgerEntry {
 model PaymentIntent {
   id                 String         @id @default(cuid())
   reference          String         @unique
-  userId             String
-  user               User           @relation(fields: [userId], references: [id])
+  // Null for a guest checkout from a shared wishlist link (no genie account).
+  userId             String?
+  user               User?          @relation(fields: [userId], references: [id])
+  guestName          String?
+  guestEmail         String?
+  guestPhone         String?
   purpose            PaymentPurpose
   amountKobo         BigInt
   currency           String         @default("NGN")

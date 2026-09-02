@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "co.genieapps.genie",
+      "sha256_cert_fingerprints": [
+        "61:88:36:AB:04:38:0F:D2:05:BB:29:F5:92:B4:1C:3D:C5:7F:D1:7D:C1:98:EF:61:24:E7:A2:2A:FE:65:7C:DB"
+      ]
+    }
+  }
+]

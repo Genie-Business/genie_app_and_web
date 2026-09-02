@@ -29,6 +29,30 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Custom scheme: genie://w/<id>, genie://join?ref=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="genie"/>
+            </intent-filter>
+
+            <!-- Android App Links: shared wishlist / invite URLs open straight in
+                 the app (verified against /.well-known/assetlinks.json). Scoped
+                 to /w/ and /join so the rest of the marketing site stays in the
+                 browser. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"
+                      android:host="genie-app-and-web-landing.vercel.app"
+                      android:pathPrefix="/w/"/>
+                <data android:scheme="https"
+                      android:host="genie-app-and-web-landing.vercel.app"
+                      android:pathPrefix="/join"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

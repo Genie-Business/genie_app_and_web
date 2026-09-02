@@ -1,4 +1,4 @@
-import { orderNumber, paymentReference, transactionReference } from '@genie/core';
+import { normalizeEmail, orderNumber, paymentReference, transactionReference } from '@genie/core';
 import { prisma, type Prisma } from '@genie/db';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
@@ -79,7 +79,10 @@ type PayInput = {
  */
 async function finalizeGift(opts: {
   item: ItemFull;
-  gifterUserId: string;
+  /** Null for a guest checkout from a shared wishlist link. */
+  gifterUserId: string | null;
+  /** Shown on the reveal when there is no account (guest). */
+  giftedByName?: string | null;
   input: PayInput;
   charge: GiftCharge;
   paidFromWallet: boolean;
@@ -95,7 +98,10 @@ async function finalizeGift(opts: {
 
   // Provision wallets outside the transaction (provider calls + idempotent).
   await ensureWallet(merchantId);
-  if (opts.paidFromWallet) await ensureWallet(gifterUserId);
+  if (opts.paidFromWallet) {
+    if (!gifterUserId) throw badRequest('Wallet payments require an account.');
+    await ensureWallet(gifterUserId);
+  }
 
   // The transaction covers only what must move atomically: the two ledger
   // postings, the order + gift + transaction records, and the fulfilment /
@@ -103,7 +109,7 @@ async function finalizeGift(opts: {
   // failure there must not roll back a paid gift.
   const { gift, order } = await prisma.$transaction(
     async (tx) => {
-      if (opts.paidFromWallet) {
+      if (opts.paidFromWallet && gifterUserId) {
         await postEntry(
           {
             userId: gifterUserId,
@@ -166,6 +172,7 @@ async function finalizeGift(opts: {
         data: {
           wishlistItemId: item.id,
           gifterUserId,
+          giftedByName: gifterUserId || input.isAnonymous ? null : (opts.giftedByName ?? null),
           isAnonymous: input.isAnonymous,
           amountKobo: charge.subtotalKobo,
           message: input.message,
@@ -208,9 +215,11 @@ async function finalizeGift(opts: {
   const celebrantId = item.wishlist.event.user.id;
   const gifterName = input.isAnonymous
     ? 'Someone'
-    : (await prisma.user
-        .findUnique({ where: { id: gifterUserId }, select: { firstName: true } })
-        .then((u) => u?.firstName)) ?? 'A friend';
+    : gifterUserId
+      ? ((await prisma.user
+          .findUnique({ where: { id: gifterUserId }, select: { firstName: true } })
+          .then((u) => u?.firstName)) ?? 'A friend')
+      : (opts.giftedByName?.trim().split(/\s+/)[0] ?? 'A friend');
 
   try {
     await notify({
@@ -229,14 +238,16 @@ async function finalizeGift(opts: {
       body: `${item.product.name} ×${input.quantity} — ${order.orderNumber}`,
       payload: { orderId: order.id },
     });
-    await recordActivity({
-      userId: gifterUserId,
-      category: 'TRANSACTION',
-      action: 'gift.paid',
-      entityType: 'Gift',
-      entityId: gift.id,
-      metadata: { amountKobo: charge.gifterPaysKobo.toString(), anonymous: input.isAnonymous },
-    });
+    if (gifterUserId) {
+      await recordActivity({
+        userId: gifterUserId,
+        category: 'TRANSACTION',
+        action: 'gift.paid',
+        entityType: 'Gift',
+        entityId: gift.id,
+        metadata: { amountKobo: charge.gifterPaysKobo.toString(), anonymous: input.isAnonymous },
+      });
+    }
     await recordActivity({
       userId: celebrantId,
       category: 'TRANSACTION',
@@ -246,7 +257,7 @@ async function finalizeGift(opts: {
       metadata: { productName: item.product.name },
     });
     // A referred user's first paid gift converts their referral.
-    await maybeRewardReferral(gifterUserId);
+    if (gifterUserId) await maybeRewardReferral(gifterUserId);
   } catch (err) {
     logger.error({ err, giftId: gift.id }, 'gift post-commit side effects failed');
   }
@@ -419,8 +430,10 @@ export async function settleGiftTransfer(reference: string, paidAmountKobo: bigi
 
   const rawMeta = intent.metadata as Record<string, unknown>;
 
-  // Cart checkout: finalise every line, then mark the intent complete.
-  if (rawMeta?.kind === 'cart') {
+  // Cart checkout (in-app) or guest checkout (a shared link, no account):
+  // finalise every line, then mark the intent complete.
+  if (rawMeta?.kind === 'cart' || rawMeta?.kind === 'guest-cart') {
+    const guest = rawMeta.kind === 'guest-cart';
     const lines = (rawMeta.items as CartLine[]) ?? [];
     for (const line of lines) {
       const item = await loadItem(line.wishlistItemId);
@@ -431,7 +444,8 @@ export async function settleGiftTransfer(reference: string, paidAmountKobo: bigi
       });
       await finalizeGift({
         item,
-        gifterUserId: intent.userId,
+        gifterUserId: guest ? null : intent.userId,
+        giftedByName: guest ? intent.guestName : null,
         input: {
           wishlistItemId: line.wishlistItemId,
           quantity: line.quantity,
@@ -489,6 +503,137 @@ export async function settleGiftTransfer(reference: string, paidAmountKobo: bigi
 }
 
 // ── Reads ────────────────────────────────────────────────────────────────
+
+// ── Guest checkout (E005) — buy from a shared wishlist link, no account ──
+
+export type GuestCheckoutInput = {
+  wishlistItemIds: string[];
+  gifterName: string;
+  gifterEmail: string;
+  gifterPhone?: string;
+  isAnonymous: boolean;
+  message?: string;
+};
+
+/**
+ * A visitor following a shared wishlist link picks one or more items and pays
+ * for all of them in one bank transfer. No genie account: the gift rows carry
+ * `gifterUserId = null` and (unless anonymous) the guest's name. The webhook
+ * finalises everything once the transfer lands.
+ */
+export async function guestCheckout(wishlistId: string, input: GuestCheckoutInput) {
+  const wishlist = await prisma.wishlist.findUnique({
+    where: { id: wishlistId },
+    include: {
+      event: { select: { status: true } },
+      items: { include: { product: { include: { inventory: true } } } },
+    },
+  });
+  if (!wishlist || wishlist.event.status === 'DELETED') {
+    throw notFound('This wishlist is not available.');
+  }
+
+  const wanted = [...new Set(input.wishlistItemIds)];
+  const items = wishlist.items.filter((i) => wanted.includes(i.id));
+  if (items.length === 0) throw badRequest('Choose at least one item to gift.');
+  if (items.length !== wanted.length) {
+    throw badRequest('Some of those items are not on this wishlist.');
+  }
+
+  const lines: CartLine[] = [];
+  const breakdown: { wishlistItemId: string; productName: string; amountKobo: bigint }[] = [];
+  let totalKobo = 0n;
+  for (const it of items) {
+    if (it.quantityFulfilled >= it.quantityWanted) {
+      throw conflict('already_fulfilled', `"${it.product.name}" has already been gifted.`);
+    }
+    if (it.product.status !== 'ACTIVE') {
+      throw badRequest(`"${it.product.name}" is no longer available.`);
+    }
+    if (it.product.inventory && it.product.inventory.availableStock < 1) {
+      throw conflict('out_of_stock', `"${it.product.name}" is out of stock.`);
+    }
+    const charge = await computeGiftCharge({
+      unitPriceKobo: it.product.priceKobo,
+      quantity: 1,
+      deliveryOption: it.product.deliveryOption,
+    });
+    totalKobo += charge.gifterPaysKobo;
+    lines.push({
+      wishlistItemId: it.id,
+      quantity: 1,
+      isAnonymous: input.isAnonymous,
+      message: input.message,
+    });
+    breakdown.push({
+      wishlistItemId: it.id,
+      productName: it.product.name,
+      amountKobo: charge.gifterPaysKobo,
+    });
+  }
+
+  const provider = getPaymentProvider();
+  const reference = paymentReference();
+  const dva = await provider.createDynamicVirtualAccount({
+    amountKobo: totalKobo,
+    reference,
+    customerName: input.gifterName.slice(0, 40),
+    ttlSeconds: 3600,
+  });
+
+  await prisma.paymentIntent.create({
+    data: {
+      reference,
+      userId: null,
+      guestName: input.gifterName,
+      guestEmail: normalizeEmail(input.gifterEmail),
+      guestPhone: input.gifterPhone,
+      purpose: 'GIFT',
+      amountKobo: totalKobo,
+      provider: provider.name,
+      method: 'BANK_TRANSFER',
+      status: 'PENDING',
+      dynamicVirtualNuban: {
+        accountNumber: dva.accountNumber,
+        bankName: dva.bankName,
+        accountName: dva.accountName,
+      },
+      expiresAt: dva.expiresAt ? new Date(dva.expiresAt) : null,
+      metadata: { kind: 'guest-cart', wishlistId, items: lines },
+    },
+  });
+
+  return {
+    reference,
+    status: 'PENDING' as const,
+    totalKobo,
+    breakdown,
+    virtualAccount: {
+      accountNumber: dva.accountNumber,
+      bankName: dva.bankName,
+      accountName: dva.accountName,
+      expiresAt: dva.expiresAt ?? null,
+    },
+  };
+}
+
+/** Poll a guest checkout's payment status (unauthenticated, by reference). */
+export async function guestPaymentStatus(reference: string) {
+  const intent = await prisma.paymentIntent.findUnique({
+    where: { reference },
+    select: { purpose: true, status: true, amountKobo: true, expiresAt: true, metadata: true },
+  });
+  const kind = (intent?.metadata as Record<string, unknown> | null)?.kind;
+  if (!intent || intent.purpose !== 'GIFT' || kind !== 'guest-cart') {
+    throw notFound('Payment not found.');
+  }
+  return {
+    reference,
+    status: intent.status,
+    totalKobo: intent.amountKobo,
+    expiresAt: intent.expiresAt?.toISOString() ?? null,
+  };
+}
 
 export async function listGiven(userId: string) {
   const gifts = await prisma.gift.findMany({
@@ -613,13 +758,17 @@ export async function listReceived(userId: string) {
   });
   return gifts.map((g) => {
     const hidden = g.isAnonymous && g.revealedAt == null;
+    const gifterName =
+      `${g.gifter?.firstName ?? ''} ${g.gifter?.lastName ?? ''}`.trim() ||
+      g.giftedByName ||
+      'A friend';
     return {
       id: g.id,
       productName: g.wishlistItem.product.name,
       eventName: g.wishlistItem.wishlist.event.name,
       amountKobo: g.amountKobo,
       message: g.message,
-      from: hidden ? null : `${g.gifter?.firstName ?? ''} ${g.gifter?.lastName ?? ''}`.trim() || 'A friend',
+      from: hidden ? null : gifterName,
       isAnonymous: g.isAnonymous,
       revealed: g.revealedAt != null,
       canReveal: g.isAnonymous && g.revealedAt == null,
@@ -658,7 +807,10 @@ export async function reveal(userId: string, giftId: string) {
   });
   return {
     giftId,
-    from: `${gift.gifter?.firstName ?? ''} ${gift.gifter?.lastName ?? ''}`.trim() || 'A friend',
+    from:
+      `${gift.gifter?.firstName ?? ''} ${gift.gifter?.lastName ?? ''}`.trim() ||
+      gift.giftedByName ||
+      'A friend',
     message: gift.message,
   };
 }

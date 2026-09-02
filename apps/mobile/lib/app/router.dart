@@ -55,9 +55,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (status == AuthStatus.unknown) return loc == '/splash' ? null : '/splash';
 
+      // A shared wishlist link is viewable without an account (the gift action
+      // itself prompts for sign-in).
+      final isPublicLink = loc.startsWith('/w/');
       final onAuthFlow = loc.startsWith('/auth') || loc == '/onboarding';
       if (status == AuthStatus.unauthenticated) {
-        return onAuthFlow ? null : '/onboarding';
+        return (onAuthFlow || isPublicLink) ? null : '/onboarding';
       }
 
       // Account exists but the email isn't verified — resume sign-up at the
@@ -112,6 +115,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/gift',
         builder: (_, s) => GiftAFriendScreen(initialLink: s.uri.queryParameters['link']),
+      ),
+      // Shared wishlist deep link (genie://w/<id> or https://…/w/<id>).
+      GoRoute(
+        path: '/w/:id',
+        builder: (_, s) => GiftAFriendScreen(initialLink: s.pathParameters['id']),
       ),
       GoRoute(path: '/gifts/received', builder: (_, __) => const GiftsReceivedScreen()),
       GoRoute(

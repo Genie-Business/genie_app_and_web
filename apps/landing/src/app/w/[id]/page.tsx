@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { GetTheApp } from '@/components/GetTheApp';
+import { OpenInApp } from '@/components/OpenInApp';
+import { WishlistCheckout } from '@/components/WishlistCheckout';
 import { site } from '@/lib/site';
-import { formatDate, formatKobo } from '@/lib/money';
+import { formatDate } from '@/lib/money';
 
 export const revalidate = 60;
 
@@ -62,9 +64,10 @@ export async function generateMetadata({
   };
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ deepLinkPath, children }: { deepLinkPath?: string; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-canvas">
+      {deepLinkPath && <OpenInApp path={deepLinkPath} />}
       <header className="border-b border-line">
         <div className="container-genie flex h-16 items-center">
           <Link href="/" aria-label="genie home">
@@ -105,9 +108,10 @@ export default async function SharedWishlistPage({
   }
 
   const gifted = wl.items.filter((i) => i.quantityFulfilled >= i.quantityWanted).length;
+  const firstName = wl.celebrantName ? (wl.celebrantName.split(' ')[0] ?? '') : '';
 
   return (
-    <Shell>
+    <Shell deepLinkPath={`w/${id}`}>
       <div className="mx-auto max-w-3xl">
         <p className="text-sm font-semibold uppercase tracking-wide text-primary">
           {wl.eventType} · {formatDate(wl.eventDate)}
@@ -123,55 +127,16 @@ export default async function SharedWishlistPage({
           )}
         </p>
 
-        <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-          {wl.items.map((item) => {
-            const done = item.quantityFulfilled >= item.quantityWanted;
-            return (
-              <li
-                key={item.id}
-                className="flex gap-4 rounded-2xl border border-line bg-surface p-4"
-              >
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-subtle">
-                  {item.productImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.productImageUrl}
-                      alt={item.productName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-ink-muted">
-                      🎁
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-ink">{item.productName}</p>
-                  <p className="mt-0.5 text-sm text-ink-secondary">{formatKobo(item.unitPriceKobo)}</p>
-                  {item.note && (
-                    <p className="mt-1 line-clamp-2 text-xs text-ink-muted">“{item.note}”</p>
-                  )}
-                  <p className={`mt-2 text-xs font-semibold ${done ? 'text-ink-muted' : 'text-primary'}`}>
-                    {done
-                      ? 'Gifted'
-                      : item.quantityWanted > 1
-                        ? `Wants ${item.quantityWanted} · ${item.quantityFulfilled} gifted`
-                        : 'Available'}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <WishlistCheckout
+          wishlistId={wl.wishlistId}
+          celebrantFirstName={firstName}
+          items={wl.items}
+        />
 
-        <div className="mt-10">
+        <div className="mt-12">
           <GetTheApp
-            heading={
-              wl.celebrantName
-                ? `Send ${wl.celebrantName.split(' ')[0]} a gift`
-                : 'Send a gift'
-            }
-            sub="Pick something from this list and pay in the genie app — openly, or as an anonymous gift revealed only when it arrives."
+            heading="Prefer the app?"
+            sub="Get genie to send anonymous gifts, track deliveries, and build your own wishlist."
           />
         </div>
       </div>
