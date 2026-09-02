@@ -11,13 +11,15 @@ const apiOrigin = (() => {
 // Next's App Router hydration bootstrap uses inline <script> and inline styles;
 // nonce-based CSP needs per-request middleware. This policy still blocks
 // third-party script injection, framing, and form/base-uri hijacking.
+// `unsafe-eval` is only added in `next dev` (HMR / React refresh use eval).
+const dev = process.env.NODE_ENV !== 'production';
 const csp = [
   "default-src 'self'",
   "base-uri 'none'",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",

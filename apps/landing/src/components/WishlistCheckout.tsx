@@ -205,12 +205,13 @@ function CheckoutDialog({
           message: message.trim() || undefined,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? 'Could not start the payment.');
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message ?? 'Could not start the payment. Try again.');
       setResult(json.data as CheckoutResult);
       setStep('pay');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      const msg = e instanceof Error ? e.message : 'Something went wrong.';
+      setError(/failed to fetch|networkerror/i.test(msg) ? 'Could not reach genie. Check your connection and try again.' : msg);
     } finally {
       setBusy(false);
     }
