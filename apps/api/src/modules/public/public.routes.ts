@@ -79,13 +79,18 @@ router.openapi(
   },
 );
 
-// ── POST /public/payments/{reference}/_simulate — non-prod testing aid ──
-// Mirrors the wallet flow's _mock/settle: pretends the bank transfer landed.
+// ── POST /public/payments/{reference}/_simulate ────────────────────────
+// Pretends the bank transfer landed. Available only while the payment provider
+// is the in-memory mock (no real money moves) — it disables itself the moment
+// real Anchor keys are configured, on any environment.
 router.post('/payments/:reference/_simulate', async (c) => {
-  if (getEnv().APP_ENV === 'production') throw badRequest('Not available.');
+  if (getEnv().PAYMENTS_PROVIDER !== 'mock') throw badRequest('Not available.');
   const reference = c.req.param('reference');
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
-  if (!intent) throw badRequest('Unknown reference.');
+  const kind = (intent?.metadata as Record<string, unknown> | null)?.kind;
+  if (!intent || intent.purpose !== 'GIFT' || kind !== 'guest-cart') {
+    throw badRequest('Unknown reference.');
+  }
   await settleGiftTransfer(reference, intent.amountKobo);
   return c.json({ data: { simulated: true, reference } }, 200);
 });
