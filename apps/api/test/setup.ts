@@ -28,9 +28,11 @@ loadEnv([
 import { beforeEach } from 'vitest';
 import { __resetRateLimits } from '../src/lib/rate-limit';
 
-// The in-memory rate limiter is a module singleton — reset it per test so
-// earlier tests don't exhaust a bucket a later test depends on.
-beforeEach(() => __resetRateLimits());
+// Rate-limit state is shared (Postgres row + in-memory fallback) — reset it per
+// test so earlier tests don't exhaust a bucket a later test depends on.
+beforeEach(async () => {
+  await __resetRateLimits();
+});
 
 process.env.NODE_ENV = 'test';
 process.env.APP_ENV ??= 'test';

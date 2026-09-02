@@ -33,11 +33,11 @@ export const createProductBody = z.object({
   categoryId: z.string(),
   name: z.string().trim().min(1).max(160),
   description: z.string().trim().min(1).max(4000),
-  priceKobo: z.number().int().positive(),
+  priceKobo: z.number().int().positive().max(1_000_000_000), // ≤ ₦10,000,000
   location: z.string().trim().max(160).optional(),
   deliveryOption: deliveryOption.default('BOTH'),
-  quantity: z.number().int().min(0).default(0),
-  imageUrls: z.array(z.string().url()).max(8).default([]),
+  quantity: z.number().int().min(0).max(1_000_000).default(0),
+  imageUrls: z.array(z.string().url().startsWith('https://').max(2048)).max(8).default([]),
 });
 export type CreateProductBody = z.infer<typeof createProductBody>;
 

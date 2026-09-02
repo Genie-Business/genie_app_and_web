@@ -1,6 +1,7 @@
 import './lib/bigint';
 import { createRoute } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
 import { prisma } from '@genie/db';
 import { getEnv } from './env';
 import { handleError, handleNotFound } from './middleware/error-handler';
@@ -40,10 +41,46 @@ export function createApp() {
   app.notFound(handleNotFound);
 
   app.use('*', requestContext);
+
+  // Hardening headers on every response. This is a JSON API served over HTTPS
+  // and never framed, so the policy is deliberately tight.
+  app.use(
+    '*',
+    secureHeaders({
+      strictTransportSecurity: 'max-age=63072000; includeSubDomains; preload',
+      xFrameOptions: 'DENY',
+      xContentTypeOptions: 'nosniff',
+      referrerPolicy: 'no-referrer',
+      crossOriginResourcePolicy: 'same-site',
+      crossOriginOpenerPolicy: 'same-origin',
+      contentSecurityPolicy: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        // The dev console (local only) needs inline styles/scripts + fetch to self.
+        ...(env.APP_ENV === 'local'
+          ? {
+              scriptSrc: ["'self'", "'unsafe-inline'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              connectSrc: ["'self'"],
+            }
+          : {}),
+      },
+      xPermittedCrossDomainPolicies: 'none',
+      xDnsPrefetchControl: 'off',
+    }),
+  );
+
+  const allowedOrigins = env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean);
   app.use(
     '*',
     cors({
-      origin: env.CORS_ORIGINS === '*' ? '*' : env.CORS_ORIGINS.split(',').map((s) => s.trim()),
+      origin: (origin) => {
+        if (env.CORS_ORIGINS === '*') return origin ?? '*';
+        // Reflect only known origins; everything else gets no CORS header
+        // (native apps send no Origin and are unaffected).
+        return origin && allowedOrigins.includes(origin) ? origin : null;
+      },
       allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
       maxAge: 86_400,
@@ -132,11 +169,16 @@ export function createApp() {
     servers: [{ url: '/', description: 'current host' }],
   });
 
-  // ── Test console (dev aid) ──────────────────────────────────────────
-  app.get('/console', (c) =>
-    c.html(CONSOLE_HTML, 200, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' }),
-  );
-  app.get('/', (c) => c.redirect(env.APP_ENV === 'production' ? '/v1/health' : '/console'));
+  // ── Test console — local only. It is a full attack-surface UI, so it is
+  //    never registered on a deployed environment (preview or production).
+  if (env.APP_ENV === 'local') {
+    app.get('/console', (c) =>
+      c.html(CONSOLE_HTML, 200, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' }),
+    );
+    app.get('/', (c) => c.redirect('/console'));
+  } else {
+    app.get('/', (c) => c.redirect('/v1/health'));
+  }
 
   return app;
 }

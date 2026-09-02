@@ -27,6 +27,9 @@ export async function verifyAccessToken(token: string): Promise<AccessClaims> {
   const { payload } = await jwtVerify(token, enc.encode(env.JWT_ACCESS_SECRET), {
     issuer: 'genie-api',
     audience: 'genie-app',
+    algorithms: ['HS256'], // reject alg:none / algorithm-confusion outright
+    clockTolerance: 5,
+    maxTokenAge: `${env.ACCESS_TOKEN_TTL + 60}s`,
   });
   if (payload.typ !== 'access' || typeof payload.sub !== 'string') {
     throw new Error('Not an access token');

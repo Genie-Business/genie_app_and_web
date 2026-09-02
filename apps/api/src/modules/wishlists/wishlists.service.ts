@@ -134,7 +134,6 @@ export async function publicView(wishlistId: string) {
           expiresAt: true,
           recurrence: true,
           status: true,
-          deliveryAddress: true,
           user: { select: { firstName: true, lastName: true } },
         },
       },
@@ -151,6 +150,13 @@ export async function publicView(wishlistId: string) {
     wishlist.event.recurrence,
   );
 
+  // A share link may be forwarded well beyond the people the celebrant meant
+  // to reach, so the public view carries no home address and only the
+  // celebrant's first name + last initial.
+  const first = wishlist.event.user.firstName?.trim() ?? '';
+  const lastInitial = wishlist.event.user.lastName?.trim()?.[0];
+  const celebrantName = [first, lastInitial ? `${lastInitial}.` : ''].filter(Boolean).join(' ');
+
   return {
     wishlistId: wishlist.id,
     wishlistName: wishlist.name,
@@ -158,8 +164,7 @@ export async function publicView(wishlistId: string) {
     eventType: wishlist.event.type,
     eventDate: occ.eventDate.toISOString(),
     expiresAt: occ.expiresAt.toISOString(),
-    celebrantName: `${wishlist.event.user.firstName} ${wishlist.event.user.lastName}`.trim(),
-    deliveryAddress: wishlist.event.deliveryAddress,
+    celebrantName,
     items: wishlist.items.map((i) => ({
       id: i.id,
       productId: i.productId,

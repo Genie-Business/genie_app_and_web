@@ -17,6 +17,23 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().default('genie <no-reply@genieapps.co>'),
 
+  /**
+   * When `true`, register / resend / forgot responses echo the freshly-issued
+   * OTP so a test client can pre-fill it. NEVER set this on an internet-facing
+   * deployment — it turns "forgot password" into an account-takeover primitive.
+   * Ignored entirely when APP_ENV=production.
+   */
+  OTP_DEBUG_ECHO: z
+    .enum(['true', 'false', '1', '0'])
+    .transform((v) => v === 'true' || v === '1')
+    .default('false'),
+  /**
+   * Exact email addresses that MAY receive an echoed OTP even on a hardened
+   * deploy (comma-separated). For a small closed beta where email delivery
+   * isn't set up yet. An attacker cannot use this against arbitrary victims.
+   */
+  OTP_ECHO_EMAILS: z.string().default(''),
+
   /** Push delivery. `log` just writes to the logger (dev / no credentials). */
   PUSH_PROVIDER: z.enum(['log', 'fcm']).default('log'),
   FCM_PROJECT_ID: z.string().optional().default(''),
@@ -41,7 +58,16 @@ const schema = z.object({
    * the box; override for local dev (`APP_PUBLIC_URL=http://localhost:3000`).
    */
   APP_PUBLIC_URL: z.string().url().default('https://genie-app-and-web-landing.vercel.app'),
-  CORS_ORIGINS: z.string().default('*'),
+  /**
+   * Comma-separated allowed browser origins. Defaults to the genie web
+   * surfaces; the mobile app sends no Origin so CORS never applies to it.
+   * Set to `*` only for throwaway local experiments.
+   */
+  CORS_ORIGINS: z
+    .string()
+    .default(
+      'https://genie-app-and-web-landing.vercel.app,https://genie-app-and-web-admin.vercel.app',
+    ),
 });
 
 export type Env = z.infer<typeof schema>;

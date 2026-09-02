@@ -42,13 +42,28 @@ function otpIsPeekable(env: ReturnType<typeof getEnv>): boolean {
 }
 
 /**
- * Non-production deployments echo the freshly-issued OTP in the register /
- * resend response so the app can pre-fill it — email on a test env is
- * best-effort (Resend's free tier only delivers to the account owner). Always
- * false when APP_ENV=production.
+ * Whether to echo a freshly-issued OTP back in the API response so a test
+ * client can pre-fill it. This is dangerous — an echoed reset code is an
+ * account-takeover primitive — so it is OFF unless explicitly enabled:
+ *
+ *  - `OTP_DEBUG_ECHO=true` (and APP_ENV ≠ production): echo for everyone. Only
+ *    ever set this on a machine that is not reachable from the internet.
+ *  - `OTP_ECHO_EMAILS=a@x.com,b@y.com`: echo only for those exact addresses,
+ *    even on a hardened deploy — a safe way to run a tiny closed beta before
+ *    email delivery is configured. An attacker can't aim it at a real victim.
  */
-export function otpEchoEnabled(): boolean {
-  return getEnv().APP_ENV !== 'production';
+export function otpEchoEnabled(email?: string): boolean {
+  const env = getEnv();
+  // `local` is, by definition, a developer's own machine.
+  if (env.APP_ENV === 'local') return true;
+  if (env.OTP_DEBUG_ECHO && env.APP_ENV !== 'production') return true;
+  if (email) {
+    const allow = env.OTP_ECHO_EMAILS.split(',')
+      .map((s) => normalizeEmail(s.trim()))
+      .filter(Boolean);
+    return allow.includes(normalizeEmail(email));
+  }
+  return false;
 }
 
 /** Dev/test only: last code for an email + purpose, or null. */
@@ -198,7 +213,7 @@ export async function registerCelebrant(input: RegisterCelebrant) {
   const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
   await sendMail({ ...otpEmail(code, 'verify'), to: email });
   logger.info({ userId: user.id }, 'celebrant registered');
-  return { userId: user.id, email, verificationCode: otpEchoEnabled() ? code : undefined };
+  return { userId: user.id, email, verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
 export async function registerMerchant(input: RegisterMerchant) {
@@ -254,7 +269,7 @@ export async function registerMerchant(input: RegisterMerchant) {
   const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
   await sendMail({ ...otpEmail(code, 'verify'), to: email });
   logger.info({ userId: user.id }, 'merchant registered');
-  return { userId: user.id, email, verificationCode: otpEchoEnabled() ? code : undefined };
+  return { userId: user.id, email, verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
 // ── Email verification ───────────────────────────────────────────────────
@@ -284,7 +299,7 @@ export async function resendOtp(
   if (purpose === 'EMAIL_VERIFY' && user.emailVerifiedAt) return {};
   const code = await issueOtp(email, purpose, user.id);
   await sendMail({ ...otpEmail(code, purpose === 'EMAIL_VERIFY' ? 'verify' : 'reset'), to: email });
-  return { verificationCode: otpEchoEnabled() ? code : undefined };
+  return { verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
 // ── Login / refresh / logout ─────────────────────────────────────────────
@@ -316,7 +331,20 @@ export async function refresh(refreshToken: string, device: DeviceCtx) {
     include: { user: true },
   });
 
-  if (!stored || stored.revokedAt || stored.expiresAt.getTime() < Date.now()) {
+  if (!stored) throw unauthorized('Your session has expired. Please sign in again.');
+
+  // Reuse of an already-rotated token means it was captured somewhere. Assume
+  // compromise: revoke every live session for that user and refuse.
+  if (stored.revokedAt && stored.replacedByTokenHash) {
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    logger.warn({ userId: stored.userId, deviceId: stored.deviceId }, 'refresh token reuse — sessions revoked');
+    throw unauthorized('Your session was ended for security. Please sign in again.');
+  }
+
+  if (stored.revokedAt || stored.expiresAt.getTime() < Date.now()) {
     throw unauthorized('Your session has expired. Please sign in again.');
   }
   if (stored.user.status !== 'ACTIVE') throw unauthorized('Account not found.');
@@ -351,7 +379,7 @@ export async function forgotPassword(rawEmail: string): Promise<{ verificationCo
   if (!user) return {}; // silent — no enumeration
   const code = await issueOtp(email, 'PASSWORD_RESET', user.id);
   await sendMail({ ...otpEmail(code, 'reset'), to: email });
-  return { verificationCode: otpEchoEnabled() ? code : undefined };
+  return { verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
 export async function resetPassword(rawEmail: string, code: string, newPassword: string): Promise<void> {

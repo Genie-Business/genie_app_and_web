@@ -26,7 +26,6 @@ type PublicWishlist = {
   eventDate: string;
   expiresAt: string;
   celebrantName: string;
-  deliveryAddress: string | null;
   items: WishlistItem[];
 };
 

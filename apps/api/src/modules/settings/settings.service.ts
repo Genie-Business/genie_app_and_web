@@ -106,7 +106,7 @@ export async function requestDeletion(userId: string) {
   logger.info({ userId }, 'account deletion requested');
   return {
     message: 'We sent a confirmation code to your email. Enter it to permanently close your account.',
-    ...(otpEchoEnabled() ? { verificationCode: code } : {}),
+    ...(otpEchoEnabled(user.email) ? { verificationCode: code } : {}),
   };
 }
 

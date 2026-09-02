@@ -38,25 +38,30 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 |---|---|---|
 | `DATABASE_URL` | Neon **pooled** URL — the `-pooler` host, with `?sslmode=require&pgbouncer=true&connect_timeout=15` | serverless functions must use the pooler |
 | `DIRECT_URL` | Neon **direct** URL — no `-pooler`, `?sslmode=require` | |
-| `JWT_ACCESS_SECRET` | (generated) | ≥ 16 chars |
+| `JWT_ACCESS_SECRET` | (generated) | ≥ 16 chars — 48+ random bytes strongly preferred |
 | `JWT_REFRESH_SECRET` | (generated, different) | ≥ 16 chars |
-| `APP_ENV` | `preview` | keeps `/console`; **echoes the OTP** in the register / resend response so the app can pre-fill it (never on `production`) |
+| `APP_ENV` | **`production`** | hardened: no `/console`, no OTP echo. Use `preview` only for a throwaway environment. |
 | `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet |
 | `KYC_PROVIDER` | `mock` | |
 | `PUSH_PROVIDER` | `log` | no FCM yet |
-| `RESEND_API_KEY` | your Resend key | **needed to receive OTP emails** — see below |
-| `EMAIL_FROM` | `genie <onboarding@resend.dev>` | Resend's shared sender works for your own address |
-| `APP_PUBLIC_URL` | the landing URL once it exists, else the api URL | wishlist share links |
-| `CORS_ORIGINS` | `*` | tighten later |
+| `RESEND_API_KEY` | your Resend key | **required** once `APP_ENV=production` — otherwise no one can verify their email |
+| `EMAIL_FROM` | `genie <onboarding@resend.dev>` | Resend's shared sender only delivers to your own address; verify `genieapps.co` for real users |
+| `APP_PUBLIC_URL` | landing URL (default is already correct) | wishlist + referral links |
+| `CORS_ORIGINS` | *(leave unset)* | defaults to the landing + admin origins; the mobile app sends no Origin and is unaffected |
+| `OTP_ECHO_EMAILS` | *(optional)* `you@x.com,tester@y.com` | echoes the OTP **only** for these exact addresses, even in production — a safe way to run a tiny closed beta before Resend has a verified domain. Never put a real user's address here. |
+| `ADMIN_SESSION_SECRET` (admin project) | 32+ random chars | the admin app now **refuses to start** in production without it |
+
+> **Do not set `OTP_DEBUG_ECHO` anywhere that is reachable from the internet.**
+> It echoes every OTP to the caller, which turns "forgot password" into an
+> account-takeover. It exists for a local, offline dev machine only.
 
 `NODE_ENV` is set to `production` by Vercel automatically — don't add it.
 
 ### 3. Resend (so signup OTPs actually arrive)
 
-> With `APP_ENV=preview` the API also returns the code in the register /
-> resend / forgot-password response and the app pre-fills it, so testing works
-> even before Resend is set up. Set up Resend for a realistic flow (and it's
-> required once `APP_ENV=production`).
+> On a hardened deploy (`APP_ENV=production`) the OTP is never echoed. Set up
+> Resend, or list a couple of tester addresses in `OTP_ECHO_EMAILS`, so email
+> verification and password reset can complete.
 
 1. Sign up at <https://resend.com> (free: 100/day).
 2. **API Keys → Create** → copy into `RESEND_API_KEY`.

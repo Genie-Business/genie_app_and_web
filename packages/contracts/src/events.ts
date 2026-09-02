@@ -141,8 +141,8 @@ export const publicWishlistDto = z.object({
   eventType: z.string(),
   eventDate: z.string(),
   expiresAt: z.string(),
+  /** First name + last initial only — a share link travels further than intended. */
   celebrantName: z.string(),
-  deliveryAddress: z.string().nullable(),
   items: z.array(
     wishlistItemDto.pick({
       id: true,

@@ -4,9 +4,14 @@ import { koboString } from './common';
 export const paymentMethod = z.enum(['BANK_TRANSFER', 'CARD', 'WALLET']);
 export const paymentStatus = z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED']);
 
+/** ₦100 minimum, ₦2,000,000 maximum per top-up. Also well within 2^53 so
+ *  integer maths on the number stays exact before it becomes a BigInt. */
+export const MIN_TOPUP_KOBO = 10_000;
+export const MAX_TOPUP_KOBO = 200_000_000;
+
 // ── Add funds (US "Pay for Items" / wallet funding) ─────────────────────
 export const createAddFundsIntentBody = z.object({
-  amountKobo: z.number().int().min(10000), // ₦100 minimum
+  amountKobo: z.number().int().min(MIN_TOPUP_KOBO).max(MAX_TOPUP_KOBO),
   method: paymentMethod.default('BANK_TRANSFER'),
 });
 
@@ -29,8 +34,8 @@ export const paymentIntentDto = z.object({
 
 // ── Pay for a gift (US0016 / US0019) ───────────────────────────────────
 export const payForGiftBody = z.object({
-  wishlistItemId: z.string(),
-  amountKobo: z.number().int().positive(),
+  wishlistItemId: z.string().min(1).max(64),
+  amountKobo: z.number().int().positive().max(2_000_000_000), // ≤ ₦20,000,000
   isAnonymous: z.boolean().default(false),
   message: z.string().trim().max(280).optional(),
   /** WALLET pays from balance; BANK_TRANSFER issues a one-off virtual account. */

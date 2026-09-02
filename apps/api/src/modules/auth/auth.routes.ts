@@ -10,20 +10,36 @@ import * as service from './auth.service';
 
 const router = createRouter();
 
-function device(
-  c: { req: { header: (k: string) => string | undefined } },
-  body: { deviceId?: string; deviceName?: string | null },
-) {
+type HeaderCtx = { req: { header: (k: string) => string | undefined } };
+
+/**
+ * The real client IP. On Vercel `x-vercel-forwarded-for` / `x-real-ip` are set
+ * by the platform and cannot be spoofed by the caller; the first entry of a
+ * client-supplied `x-forwarded-for` CAN be, so it is only a last resort and we
+ * take its LAST hop (the one the nearest trusted proxy added).
+ */
+const clientIp = (c: HeaderCtx): string => {
+  const vercel = c.req.header('x-vercel-forwarded-for')?.trim();
+  if (vercel) return vercel;
+  const real = c.req.header('x-real-ip')?.trim();
+  if (real) return real;
+  const xff = c.req.header('x-forwarded-for');
+  if (xff) {
+    const hops = xff.split(',').map((s) => s.trim()).filter(Boolean);
+    const last = hops[hops.length - 1];
+    if (last) return last;
+  }
+  return 'local';
+};
+
+function device(c: HeaderCtx, body: { deviceId?: string; deviceName?: string | null }) {
   return {
     deviceId: body.deviceId ?? 'unknown-device',
     deviceName: body.deviceName ?? undefined,
-    userAgent: c.req.header('user-agent'),
-    ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip'),
+    userAgent: c.req.header('user-agent')?.slice(0, 300),
+    ip: clientIp(c),
   };
 }
-
-const clientIp = (c: { req: { header: (k: string) => string | undefined } }) =>
-  c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'local';
 
 const tokenPairSchema = z.object({
   accessToken: z.string(),
@@ -69,7 +85,7 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`register:${clientIp(c)}`, RULES.register);
+    await rateLimit(`register:${clientIp(c)}`, RULES.register);
     const { userId, email, verificationCode } = await service.registerCelebrant(body);
     return c.json(
       {
@@ -112,7 +128,7 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`register:${clientIp(c)}`, RULES.register);
+    await rateLimit(`register:${clientIp(c)}`, RULES.register);
     const { userId, email, verificationCode } = await service.registerMerchant(body);
     return c.json(
       {
@@ -141,7 +157,7 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`otp:${body.email}`, RULES.otpVerify);
+    await rateLimit(`otp:${body.email}`, RULES.otpVerify);
     const { tokens, user } = await service.verifyEmail(body.email, body.code, device(c, body));
     return c.json({ data: { user: await toMeResponse(user.id), tokens } }, 200);
   },
@@ -167,7 +183,7 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`otp-req:${body.email}`, RULES.otpRequest);
+    await rateLimit(`otp-req:${body.email}`, RULES.otpRequest);
     const { verificationCode } = await service.resendOtp(body.email, body.purpose);
     return c.json(
       {
@@ -193,7 +209,9 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`login:${clientIp(c)}:${body.identifier}`, RULES.login);
+    const ip = clientIp(c);
+    await rateLimit(`login-ip:${ip}`, RULES.loginIp); // spray across many identifiers
+    await rateLimit(`login:${ip}:${body.identifier}`, RULES.login); // one identifier
     const { tokens, user } = await service.login(body.identifier, body.password, device(c, body));
     return c.json({ data: { user: await toMeResponse(user.id), tokens } }, 200);
   },
@@ -253,7 +271,7 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`pwd-reset:${clientIp(c)}:${body.email}`, RULES.passwordReset);
+    await rateLimit(`pwd-reset:${clientIp(c)}:${body.email}`, RULES.passwordReset);
     const { verificationCode } = await service.forgotPassword(body.email);
     return c.json(
       {
@@ -279,7 +297,7 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    rateLimit(`otp:${body.email}`, RULES.otpVerify);
+    await rateLimit(`otp:${body.email}`, RULES.otpVerify);
     await service.resetPassword(body.email, body.code, body.newPassword);
     return c.json({ data: { message: 'Your password has been reset. Please sign in.' } }, 200);
   },

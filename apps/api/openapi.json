@@ -157,6 +157,7 @@
                   "password": {
                     "type": "string",
                     "minLength": 8,
+                    "maxLength": 200,
                     "pattern": "[A-Z]"
                   },
                   "phone": {
@@ -340,6 +341,7 @@
                   "password": {
                     "type": "string",
                     "minLength": 8,
+                    "maxLength": 200,
                     "pattern": "[A-Z]"
                   },
                   "businessPhone": {
@@ -739,11 +741,13 @@
                 "properties": {
                   "identifier": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 120
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 200
                   },
                   "deviceId": {
                     "type": "string",
@@ -1214,6 +1218,7 @@
                   "newPassword": {
                     "type": "string",
                     "minLength": 8,
+                    "maxLength": 200,
                     "pattern": "[A-Z]"
                   }
                 },
@@ -1315,11 +1320,13 @@
                 "properties": {
                   "currentPassword": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 200
                   },
                   "newPassword": {
                     "type": "string",
                     "minLength": 8,
+                    "maxLength": 200,
                     "pattern": "[A-Z]"
                   }
                 },
@@ -2313,7 +2320,8 @@
                 "properties": {
                   "amountKobo": {
                     "type": "integer",
-                    "minimum": 10000
+                    "minimum": 10000,
+                    "maximum": 200000000
                   },
                   "method": {
                     "type": "string",
@@ -2871,14 +2879,17 @@
                 "properties": {
                   "amountKobo": {
                     "type": "integer",
-                    "minimum": 10000
+                    "minimum": 10000,
+                    "maximum": 500000000
                   },
                   "bankName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 120
                   },
                   "bankCode": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 20
                   },
                   "accountNumber": {
                     "type": "string",
@@ -2886,7 +2897,8 @@
                   },
                   "accountName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 120
                   }
                 },
                 "required": [
@@ -3705,7 +3717,8 @@
                   },
                   "priceKobo": {
                     "type": "integer",
-                    "exclusiveMinimum": 0
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000000000
                   },
                   "location": {
                     "type": "string",
@@ -3723,12 +3736,14 @@
                   "quantity": {
                     "type": "integer",
                     "minimum": 0,
+                    "maximum": 1000000,
                     "default": 0
                   },
                   "imageUrls": {
                     "type": "array",
                     "items": {
                       "type": "string",
+                      "maxLength": 2048,
                       "format": "uri"
                     },
                     "maxItems": 8,
@@ -3925,7 +3940,8 @@
                   },
                   "priceKobo": {
                     "type": "integer",
-                    "exclusiveMinimum": 0
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000000000
                   },
                   "location": {
                     "type": "string",
@@ -3943,12 +3959,14 @@
                   "quantity": {
                     "type": "integer",
                     "minimum": 0,
+                    "maximum": 1000000,
                     "default": 0
                   },
                   "imageUrls": {
                     "type": "array",
                     "items": {
                       "type": "string",
+                      "maxLength": 2048,
                       "format": "uri"
                     },
                     "maxItems": 8,

@@ -1065,3 +1065,14 @@ model AllowedCountry {
   states      String[]
   isActive    Boolean  @default(true)
 }
+
+/// Fixed-window rate-limit counters. Shared across serverless instances (an
+/// in-memory map is per-instance and useless on Vercel). Rows are self-expiring
+/// via `expiresAt` and swept opportunistically.
+model RateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

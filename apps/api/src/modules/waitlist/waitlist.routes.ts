@@ -22,8 +22,11 @@ router.openapi(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-    rateLimit(`waitlist:${ip}`, { limit: 8, windowMs: 60 * 60_000 });
+    const ip =
+      c.req.header('x-vercel-forwarded-for')?.trim() ??
+      c.req.header('x-real-ip')?.trim() ??
+      'unknown';
+    await rateLimit(`waitlist:${ip}`, { limit: 8, windowMs: 60 * 60_000 });
 
     const email = body.email.toLowerCase();
     const existing = await prisma.waitlistSignup.findUnique({ where: { email } });

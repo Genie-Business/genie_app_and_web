@@ -64,11 +64,11 @@ export const cardDto = z.object({
 
 // ── Withdraw / payouts (E012) ──────────────────────────────────────────
 export const withdrawBody = z.object({
-  amountKobo: z.number().int().min(10000), // ₦100 min
-  bankName: z.string().trim().min(1),
-  bankCode: z.string().trim().optional(),
+  amountKobo: z.number().int().min(10000).max(500_000_000), // ₦100 min, ₦5,000,000 max
+  bankName: z.string().trim().min(1).max(120),
+  bankCode: z.string().trim().max(20).optional(),
   accountNumber: z.string().regex(/^\d{10}$/),
-  accountName: z.string().trim().min(1),
+  accountName: z.string().trim().min(1).max(120),
 });
 
 export const payoutAccountBody = z.object({

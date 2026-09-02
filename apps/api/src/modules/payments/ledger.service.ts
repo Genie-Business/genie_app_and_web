@@ -21,10 +21,6 @@ export type PostEntryInput = {
 export async function postEntry(input: PostEntryInput, client: Prisma.TransactionClient = prisma) {
   if (input.amountKobo <= 0n) throw badRequest('Ledger amount must be positive.');
 
-  const wallet = await client.walletAccount.findUnique({ where: { userId: input.userId } });
-  if (!wallet) throw notFound('Wallet not found for this user.');
-  if (wallet.status !== 'ACTIVE') throw badRequest('This wallet is not active.');
-
   if (input.idempotencyKey) {
     const existing = await client.ledgerEntry.findUnique({
       where: { idempotencyKey: input.idempotencyKey },
@@ -33,12 +29,32 @@ export async function postEntry(input: PostEntryInput, client: Prisma.Transactio
   }
 
   const delta = input.direction === 'CREDIT' ? input.amountKobo : -input.amountKobo;
-  const balanceAfter = wallet.balanceKobo + delta;
-  if (balanceAfter < 0n) {
-    throw conflict('insufficient_funds', 'Insufficient wallet balance for this transaction.');
-  }
 
   const write = async (db: Prisma.TransactionClient) => {
+    // Serialise concurrent postings to the same wallet: take a row lock, then
+    // read the authoritative balance under it. Without this two parallel gift
+    // payments could both see the pre-spend balance and overdraw.
+    const locked = await db.$queryRaw<{ id: string; balanceKobo: bigint; status: string }[]>`
+      SELECT "id", "balanceKobo", "status" FROM "WalletAccount"
+      WHERE "userId" = ${input.userId} FOR UPDATE
+    `;
+    const wallet = locked[0];
+    if (!wallet) throw notFound('Wallet not found for this user.');
+    if (wallet.status !== 'ACTIVE') throw badRequest('This wallet is not active.');
+
+    // Re-check idempotency inside the lock (a racing duplicate may have landed).
+    if (input.idempotencyKey) {
+      const dupe = await db.ledgerEntry.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (dupe) return dupe;
+    }
+
+    const balanceAfter = wallet.balanceKobo + delta;
+    if (balanceAfter < 0n) {
+      throw conflict('insufficient_funds', 'Insufficient wallet balance for this transaction.');
+    }
+
     const entry = await db.ledgerEntry.create({
       data: {
         walletId: wallet.id,
@@ -57,8 +73,8 @@ export async function postEntry(input: PostEntryInput, client: Prisma.Transactio
   };
 
   try {
-    // If we were handed a transaction client we're already inside a tx; otherwise
-    // open one so the entry + balance update commit together.
+    // If we were handed a transaction client we're already inside a tx (the row
+    // lock is held to that tx's commit); otherwise open one.
     return '$transaction' in client
       ? await (client as typeof prisma).$transaction((tx) => write(tx))
       : await write(client);

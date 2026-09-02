@@ -10,6 +10,7 @@ import { z } from 'zod';
 export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters long.')
+  .max(200, 'Password is too long.')
   .regex(/[A-Z]/, 'Password must contain an upper-case letter.')
   .regex(/[a-z]/, 'Password must contain a lower-case letter.')
   .regex(/[0-9]/, 'Password must contain a number.')
@@ -98,8 +99,8 @@ export const resendOtpBody = z.object({
 
 // ── Login (US0002 / US0005) ─────────────────────────────────────────────
 export const loginBody = z.object({
-  identifier: z.string().trim().min(1), // email or username
-  password: z.string().min(1),
+  identifier: z.string().trim().min(1).max(120), // email or username
+  password: z.string().min(1).max(200),
   ...deviceInfo,
 });
 export type LoginBody = z.infer<typeof loginBody>;
@@ -126,7 +127,7 @@ export const resetPasswordBody = z.object({
 // ── Change password (US0023, authenticated) ────────────────────────────
 export const changePasswordBody = z
   .object({
-    currentPassword: z.string().min(1),
+    currentPassword: z.string().min(1).max(200),
     newPassword: passwordSchema,
   })
   .refine((v) => v.currentPassword !== v.newPassword, {

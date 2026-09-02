@@ -45,6 +45,7 @@ export async function resetDb(): Promise<void> {
   // App data wiped between tests. Global config (FeeConfig, CommissionConfig,
   // AllowedCountry, AppSetting, AdminUser) is left alone.
   const tables = [
+    'RateLimit',
     'LedgerEntry', 'Transaction', 'PaymentIntent', 'WebhookEvent', 'Payout', 'PayoutAccount',
     'SavedCard', 'WalletAccount', 'Gift', 'OrderItem', 'Delivery', 'Order', 'CartItem', 'Cart',
     'WishlistItem', 'Wishlist', 'Event', 'ProductImage', 'Inventory', 'Product', 'Category',
