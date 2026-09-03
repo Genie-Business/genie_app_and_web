@@ -1,15 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 40" role="img" aria-label="genie">
-  <!-- genie — deep violet #6D28D9 (brand.primary[500] in design-tokens.ts).
-       Single flat colour so it can be tinted anywhere. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 44" role="img" aria-label="genie">
+  <!-- genie — traced from the supplied cyan mark, recoloured to deep violet
+       #6D28D9 (brand.primary[500]). A seated genie: hair knot, round head, a
+       small ponytail, arms folded across the body, rising from a curl of
+       smoke. One flat colour so it tints on any background.
+       (Swap for the official vector when available.) -->
   <g fill="#6D28D9">
-    <!-- lamp body -->
-    <path d="M4.8 28.8q-0.8-8 8.8-9.6h12.8q9.6 1.6 8.8 9.6q0 5.6-15.2 5.6t-15.2-5.6z"/>
-    <!-- spout -->
-    <path d="M5.6 24 L0 25.6 L5.6 28 z"/>
-    <!-- rising wisp -->
-    <path d="M20 18.4q-8-4 0-12q-4-2 0.8-4.8" fill="none" stroke="#6D28D9" stroke-width="3.4" stroke-linecap="round"/>
-    <!-- the wish -->
-    <path d="M24 4q1.1 1.1 2.6 1.6q-1.5 0.5-2.6 1.6q-1.1-1.1-2.6-1.6q1.5-0.5 2.6-1.6z"/>
+    <!-- hair knot -->
+    <circle cx="16.4" cy="4.8" r="2.6"/>
+    <!-- head -->
+    <ellipse cx="16.4" cy="14" rx="8.4" ry="7"/>
+    <!-- ponytail -->
+    <path d="M24.2 11c3-.5 5 1 5.4 3.4.3 1.9-.6 3.6-2 4.2-.2-3.4-1.5-5.9-3.4-7.6z"/>
+    <!-- folded arms / body -->
+    <path d="M16.4 19.6c-6.7 0-11 3-11 6.9 0 3.4 3.3 5.4 8 5.9l-1.7 5.1c-.3.9.8 1.6 1.5 1l4.6-3.9c.4 0 .8.1 1.2.1 6.7 0 11-3 11-6.9 0-3.9-4.3-6.9-11-6.9z"/>
+    <!-- a hint of the fold -->
+    <path d="M16.4 24.4c-4 0-6.6 1.4-6.6 3.1s2.6 3.1 6.6 3.1 6.6-1.4 6.6-3.1-2.6-3.1-6.6-3.1z" fill="#fff" opacity=".16"/>
+    <!-- rising wisp of smoke -->
+    <path d="M8.2 33.4c-3.4.6-6-.6-6.6-3-.4-1.8.4-3.6 1.9-4.3-1 2.5 0 4.6 2.4 5.4 1.2.4 2 .8 2.3 1.9z"/>
   </g>
-  <text x="44" y="30" font-family="Quicksand, 'Trebuchet MS', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#6D28D9">genie</text>
+  <text x="47" y="32" font-family="Quicksand, 'Trebuchet MS', sans-serif" font-size="30" font-weight="600" fill="#6D28D9">genie</text>
 </svg>

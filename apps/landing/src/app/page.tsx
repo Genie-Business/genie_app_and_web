@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Hero, SiteNav, WaitlistBand } from '@/components/Hero';
-import { AnonymousGift, Faq, Features, HowItWorks, MerchantCta } from '@/components/sections';
+import { AnonymousGift, Features, HowItWorks, MerchantCta } from '@/components/sections';
 import { site } from '@/lib/site';
 
 export default function HomePage() {
@@ -14,7 +14,6 @@ export default function HomePage() {
         <AnonymousGift />
         <Features />
         <MerchantCta />
-        <Faq />
         <WaitlistBand />
       </main>
 
@@ -26,6 +25,7 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col gap-3 text-sm text-ink-muted">
             <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <Link href="/faq" className="hover:text-ink">FAQ</Link>
               <Link href="/privacy" className="hover:text-ink">Privacy</Link>
               <Link href="/terms" className="hover:text-ink">Terms</Link>
               <a href={`mailto:${site.email}`} className="hover:text-ink">{site.email}</a>

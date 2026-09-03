@@ -10,7 +10,7 @@ const NAV = [
   { label: 'How it works', href: '#how' },
   { label: 'Anonymous gifts', href: '#anonymous' },
   { label: 'For merchants', href: '#merchants' },
-  { label: 'FAQ', href: '#faq' },
+  { label: 'FAQ', href: '/faq' },
 ];
 
 export function SiteNav() {

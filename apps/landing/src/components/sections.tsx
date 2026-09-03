@@ -1,7 +1,6 @@
 import { Reveal } from './Reveal';
 import { WaitlistForm } from './WaitlistForm';
 import { PhoneMock } from './PhoneMock';
-import { faqs } from '@/lib/site';
 
 // ── How it works ──────────────────────────────────────────────────────
 const STEPS = [
@@ -160,23 +159,3 @@ export function MerchantCta() {
   );
 }
 
-// ── FAQ ───────────────────────────────────────────────────────────────
-export function Faq() {
-  return (
-    <section id="faq" className="border-t border-line py-20 sm:py-28">
-      <div className="container-genie max-w-3xl">
-        <Reveal>
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Questions, answered</h2>
-        </Reveal>
-        <dl className="mt-10 divide-y divide-line">
-          {faqs.map((f) => (
-            <div key={f.q} className="py-6">
-              <dt className="font-display text-base font-semibold">{f.q}</dt>
-              <dd className="mt-2 text-sm leading-relaxed text-ink-secondary">{f.a}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </section>
-  );
-}

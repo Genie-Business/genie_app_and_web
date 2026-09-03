@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../theme/genie_theme.dart';
 
-/// The genie-in-a-lamp glyph, drawn in one flat colour so it can be tinted to
-/// match the brand (deep violet #6D28D9) anywhere it appears. Pairs with the
-/// "genie" wordmark.
+/// The genie glyph — a seated genie (hair knot, head, ponytail, folded arms,
+/// a curl of smoke), one flat colour so it tints to the brand violet anywhere
+/// it appears. Pairs with the "genie" wordmark. Mirrors
+/// packages/config/brand/genie-logo.svg.
 class GenieMark extends StatelessWidget {
   const GenieMark({super.key, this.size = 24, this.color = GenieColors.primary});
   final double size;
@@ -12,7 +13,7 @@ class GenieMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-        size: Size.square(size),
+        size: Size(size * 34 / 44, size),
         painter: _GenieMarkPainter(color),
       );
 }
@@ -23,54 +24,52 @@ class _GenieMarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final s = size.width;
+    // Design space is 34 x 44 (matches the SVG viewBox).
+    final sx = size.width / 34;
+    final sy = size.height / 44;
+    canvas.scale(sx, sy);
+
     final p = Paint()
       ..color = color
       ..isAntiAlias = true;
 
-    // Lamp body — a rounded vessel sitting on the baseline.
+    // hair knot
+    canvas.drawCircle(const Offset(16.4, 4.8), 2.6, p);
+    // head
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(16.4, 14), width: 16.8, height: 14),
+      p,
+    );
+    // ponytail
+    final ponytail = Path()
+      ..moveTo(24.2, 11)
+      ..cubicTo(27.2, 10.5, 29.2, 12, 29.6, 14.4)
+      ..cubicTo(29.9, 16.3, 29, 18, 27.6, 18.6)
+      ..cubicTo(27.4, 15.2, 26.1, 12.7, 24.2, 11)
+      ..close();
+    canvas.drawPath(ponytail, p);
+    // folded arms / body
     final body = Path()
-      ..moveTo(s * 0.12, s * 0.72)
-      ..quadraticBezierTo(s * 0.10, s * 0.52, s * 0.34, s * 0.48)
-      ..lineTo(s * 0.66, s * 0.48)
-      ..quadraticBezierTo(s * 0.90, s * 0.52, s * 0.88, s * 0.72)
-      ..quadraticBezierTo(s * 0.88, s * 0.86, s * 0.50, s * 0.86)
-      ..quadraticBezierTo(s * 0.12, s * 0.86, s * 0.12, s * 0.72)
+      ..moveTo(16.4, 19.6)
+      ..cubicTo(9.7, 19.6, 5.4, 22.6, 5.4, 26.5)
+      ..cubicTo(5.4, 29.9, 8.7, 31.9, 13.4, 32.4)
+      ..lineTo(11.7, 37.5)
+      ..cubicTo(11.4, 38.4, 12.5, 39.1, 13.2, 38.5)
+      ..lineTo(17.8, 34.6)
+      ..cubicTo(18.2, 34.6, 18.6, 34.7, 19.0, 34.7)
+      ..cubicTo(25.7, 34.7, 30.0, 31.7, 30.0, 27.8)
+      ..cubicTo(30.0, 23.9, 25.7, 20.9, 19.0, 20.9)
       ..close();
     canvas.drawPath(body, p);
-
-    // Spout on the left.
-    final spout = Path()
-      ..moveTo(s * 0.14, s * 0.60)
-      ..lineTo(s * 0.00, s * 0.64)
-      ..lineTo(s * 0.14, s * 0.70)
+    // curl of smoke
+    final wisp = Path()
+      ..moveTo(8.2, 33.4)
+      ..cubicTo(4.8, 34, 2.2, 32.8, 1.6, 30.4)
+      ..cubicTo(1.2, 28.6, 2.0, 26.8, 3.5, 26.1)
+      ..cubicTo(2.5, 28.6, 3.5, 30.7, 5.9, 31.5)
+      ..cubicTo(7.1, 31.9, 7.9, 32.3, 8.2, 33.4)
       ..close();
-    canvas.drawPath(spout, p);
-
-    // Rising wisp of smoke curling to the flame.
-    final wisp = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.085
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
-    final curl = Path()
-      ..moveTo(s * 0.50, s * 0.46)
-      ..cubicTo(s * 0.30, s * 0.36, s * 0.68, s * 0.24, s * 0.50, s * 0.16)
-      ..cubicTo(s * 0.40, s * 0.11, s * 0.44, s * 0.05, s * 0.52, s * 0.04);
-    canvas.drawPath(curl, wisp);
-
-    // The wish — a small four-point star at the top of the wisp.
-    final c = Offset(s * 0.60, s * 0.10);
-    final r = s * 0.11;
-    final star = Path()
-      ..moveTo(c.dx, c.dy - r)
-      ..quadraticBezierTo(c.dx + r * 0.28, c.dy - r * 0.28, c.dx + r, c.dy)
-      ..quadraticBezierTo(c.dx + r * 0.28, c.dy + r * 0.28, c.dx, c.dy + r)
-      ..quadraticBezierTo(c.dx - r * 0.28, c.dy + r * 0.28, c.dx - r, c.dy)
-      ..quadraticBezierTo(c.dx - r * 0.28, c.dy - r * 0.28, c.dx, c.dy - r)
-      ..close();
-    canvas.drawPath(star, p);
+    canvas.drawPath(wisp, p);
   }
 
   @override
