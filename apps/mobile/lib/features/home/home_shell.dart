@@ -58,14 +58,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const GenieMark(size: 22),
-            const SizedBox(width: 8),
-            Text('genie', style: GenieTheme.display(20).copyWith(color: GenieColors.primary)),
-          ],
-        ),
+        title: const GenieLogo(height: 22),
         actions: [
           if (!isMerchant)
             Consumer(

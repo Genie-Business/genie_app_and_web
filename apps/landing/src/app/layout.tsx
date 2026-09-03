@@ -25,7 +25,6 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: { card: 'summary', title: `${site.name} — ${site.tagline}`, description: site.description },
-  icons: { icon: '/favicon.svg' },
 };
 
 export const viewport: Viewport = {

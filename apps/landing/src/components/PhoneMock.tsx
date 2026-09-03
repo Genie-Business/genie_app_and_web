@@ -29,14 +29,22 @@ export function PhoneMock({
 
 function Wordmark() {
   return (
-    <div className="flex items-center gap-1.5">
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={{ color: 'var(--genie-primary-solid)' }}>
-        <path d="M2.9 17.3q-0.5-4.8 5.3-5.8h7.6q5.8 1 5.3 5.8q0 3.4-9.1 3.4T2.9 17.3Z" fill="currentColor" />
-        <path d="M3.4 14.4 0 15.4l3.4 1.4Z" fill="currentColor" />
-        <path d="M12 11q-4.8-2.4 0-7.2-2.4-1.2 0.5-2.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <span className="font-display text-sm font-bold text-primary">genie</span>
-    </div>
+    <span
+      role="img"
+      aria-label="genie"
+      className="inline-block"
+      style={{
+        height: 15,
+        width: (15 * 692) / 200,
+        backgroundColor: 'var(--genie-primary-solid)',
+        WebkitMaskImage: 'url(/genie-logo-mask.png)',
+        maskImage: 'url(/genie-logo-mask.png)',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+      }}
+    />
   );
 }
 

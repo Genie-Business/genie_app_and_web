@@ -1,17 +1,29 @@
-# genie brand assets
+# genie brand
 
-Drop the official logo files here:
+The official logo, supplied by the design team.
 
-| File | Purpose |
+| file | use |
 |---|---|
-| `genie-logo.svg` | Primary horizontal wordmark (preferred — vector) |
-| `genie-logo.png` | Raster fallback, transparent background, ≥ 1024px wide |
-| `genie-mark.svg` | The genie-in-a-lamp glyph only (app icon, favicon source) |
-| `genie-logo-white.svg` | White/knockout version for dark surfaces |
+| `LOGO.png` | source — full lockup, brand cyan on transparent, 720×720 |
+| `LOGO-WHITE.png` | source — white lockup for dark backgrounds |
+| `Logo-1.png` | source — tight lockup crop |
+| `genie-logo-violet.png` | the mark recoloured to brand violet `#6D28D9` (692×200) |
+| `genie-logo-white.png` | white lockup, tight crop — used as a CSS/tint mask |
+| `genie-logo.svg` | the violet mark wrapped as an SVG (embedded raster) |
 
-## Colour
+## Where it's wired
 
-`src/design-tokens.ts` → `brand.primary[500]` is the logo cyan and currently a
-**provisional** value (`#33B6CE`). Once `genie-logo.svg` is here, sample the
-fill colour and update `brand.primary[500]`; regenerate the ramp so 50–950 stay
-consistent (any tint tool or `chroma.scale`).
+- **Landing** (`apps/landing`): `src/components/Logo.tsx` paints
+  `public/genie-logo-mask.png` as a CSS mask filled with
+  `var(--genie-primary-solid)`, so it tracks the light/dark theme. App icons
+  are `src/app/icon.png` + `src/app/apple-icon.png` (white glyph on a violet
+  rounded square).
+- **Mobile** (`apps/mobile`): `assets/brand/genie-logo-white.png` /
+  `genie-glyph-white.png`, tinted at runtime by `GenieLogo` / `GenieMark`
+  (`lib/shared/widgets/genie_mark.dart`).
+
+Regenerate the derived assets with the recolour step in the commit that added
+them (Pillow: keep alpha, set RGB to the target colour).
+
+Brand colour: **Deep Violet `#6D28D9`** (`brand.primary[500]` in
+`packages/config/src/design-tokens.ts`).

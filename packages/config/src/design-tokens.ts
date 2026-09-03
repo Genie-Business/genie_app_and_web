@@ -6,10 +6,11 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * BRAND COLOUR — genie deep violet. Primary #6D28D9 (HSL ≈ 262° 70% 50%); the
  * rest of the ramp is a tint/shade series around it. The neutral scale carries
- * a faint violet tint so greys read as the same family. If the official logo
- * SVG is added at `packages/config/brand/genie-logo.svg`, resample
- * `brand.primary[500]` from it and regenerate the ramp + the mirrored values
- * in each app's globals.css and apps/mobile/lib/theme/genie_theme.dart.
+ * a faint violet tint so greys read as the same family. The official logo
+ * (`packages/config/brand/`) is recoloured to this same #6D28D9. If the brand
+ * colour ever changes, regenerate the ramp + the mirrored values in each app's
+ * globals.css and apps/mobile/lib/theme/genie_theme.dart, and re-run the logo
+ * recolour step (see brand/README.md).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 

@@ -176,20 +176,7 @@ class _SlideView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const GenieMark(size: 24, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text('genie',
-                        style: GoogleFonts.quicksand(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 22,
-                          letterSpacing: -0.5,
-                        )),
-                  ],
-                ),
+                const GenieLogo(height: 24, color: Colors.white),
                 const Spacer(),
                 Text(
                   slide.line1,
