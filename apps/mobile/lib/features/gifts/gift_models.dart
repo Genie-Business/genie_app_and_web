@@ -124,9 +124,9 @@ class PublicWishlistItem {
 
   factory PublicWishlistItem.fromJson(Map<String, dynamic> j) => PublicWishlistItem(
         id: j['id'] as String,
-        productName: j['productName'] as String,
-        unitPriceKobo: j['unitPriceKobo'].toString(),
-        quantityWanted: (j['quantityWanted'] as num).toInt(),
+        productName: (j['productName'] as String?) ?? '',
+        unitPriceKobo: (j['unitPriceKobo'] ?? '0').toString(),
+        quantityWanted: (j['quantityWanted'] as num?)?.toInt() ?? 1,
         quantityFulfilled: (j['quantityFulfilled'] as num?)?.toInt() ?? 0,
         productImageUrl: j['productImageUrl'] as String?,
         note: j['note'] as String?,
