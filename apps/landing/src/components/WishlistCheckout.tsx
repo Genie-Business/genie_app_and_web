@@ -29,10 +29,27 @@ export function WishlistCheckout({
   celebrantFirstName: string;
   items: WishlistItem[];
 }) {
-  const available = items.filter((i) => i.quantityFulfilled < i.quantityWanted);
+  // Local copy so a completed purchase can be reflected instantly — the page
+  // itself is cached (revalidate: 60s), so waiting on a refetch would leave a
+  // buyer looking at their own just-gifted item as if it were still needed.
+  const [liveItems, setLiveItems] = useState(items);
+  useEffect(() => setLiveItems(items), [items]);
+  const available = liveItems.filter((i) => i.quantityFulfilled < i.quantityWanted);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const [ids, setIds] = useState<string[]>([]);
+
+  const markGifted = (giftedIds: string[]) => {
+    const gifted = new Set(giftedIds);
+    setLiveItems((prev) =>
+      prev.map((i) => (gifted.has(i.id) ? { ...i, quantityFulfilled: i.quantityWanted } : i)),
+    );
+    setSelected((s) => {
+      const next = new Set(s);
+      giftedIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -62,7 +79,7 @@ export function WishlistCheckout({
   return (
     <>
       <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-        {items.map((item) => {
+        {liveItems.map((item) => {
           const done = item.quantityFulfilled >= item.quantityWanted;
           const isSel = selected.has(item.id);
           return (
@@ -155,6 +172,7 @@ export function WishlistCheckout({
           items={available}
           celebrantFirstName={celebrantFirstName}
           onClose={() => setOpen(false)}
+          onPaid={markGifted}
         />
       )}
     </>
@@ -168,14 +186,19 @@ function CheckoutDialog({
   items,
   celebrantFirstName,
   onClose,
+  onPaid,
 }: {
   wishlistId: string;
   itemIds: string[];
   items: WishlistItem[];
   celebrantFirstName: string;
   onClose: () => void;
+  onPaid: (itemIds: string[]) => void;
 }) {
-  const chosen = items.filter((i) => itemIds.includes(i.id));
+  // Snapshot at open time — `items` is the live "still available" list, which
+  // loses this selection the moment payment completes (see onPaid below). The
+  // dialog needs a stable view of what was actually bought for its own copy.
+  const [chosen] = useState(() => items.filter((i) => itemIds.includes(i.id)));
   const [step, setStep] = useState<'form' | 'pay' | 'done'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -226,11 +249,14 @@ function CheckoutDialog({
       const j = await r.json();
       const s = j?.data?.status as string | undefined;
       if (s) setStatus(s);
-      if (s === 'COMPLETED') setStep('done');
+      if (s === 'COMPLETED') {
+        onPaid(itemIds);
+        setStep('done');
+      }
     } catch {
       /* keep polling */
     }
-  }, [result]);
+  }, [result, itemIds, onPaid]);
 
   useEffect(() => {
     if (step !== 'pay') return;
@@ -297,7 +323,7 @@ function CheckoutDialog({
             result={result}
             status={status}
             celebrantFirstName={celebrantFirstName}
-            onDone={() => setStep('done')}
+            onLeave={onClose}
           />
         )}
 
@@ -328,12 +354,12 @@ function PayStep({
   result,
   status,
   celebrantFirstName,
-  onDone,
+  onLeave,
 }: {
   result: CheckoutResult;
   status: string;
   celebrantFirstName: string;
-  onDone: () => void;
+  onLeave: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [simBusy, setSimBusy] = useState(false);
@@ -403,7 +429,7 @@ function PayStep({
         </button>
       )}
 
-      <button type="button" onClick={onDone} className="mt-4 w-full text-sm text-ink-muted">
+      <button type="button" onClick={onLeave} className="mt-4 w-full text-sm text-ink-muted">
         I&apos;ll finish this later
       </button>
       <p className="mt-3 text-center text-[11px] text-ink-muted">
