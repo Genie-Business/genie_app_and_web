@@ -182,3 +182,17 @@ export const guestCheckoutResultDto = z.object({
     expiresAt: z.string().nullable(),
   }),
 });
+
+// ── Guest quote — the real, fee-inclusive total before committing to pay ──
+export const guestQuoteBody = z.object({
+  wishlistItemIds: z.array(z.string().min(1).max(64)).min(1).max(20),
+});
+export type GuestQuoteBody = z.infer<typeof guestQuoteBody>;
+
+export const guestQuoteResultDto = z.object({
+  /** What the gifter pays in total — item prices + transaction fee + delivery. */
+  totalKobo: koboString,
+  breakdown: z.array(
+    z.object({ wishlistItemId: z.string(), productName: z.string(), amountKobo: koboString }),
+  ),
+});

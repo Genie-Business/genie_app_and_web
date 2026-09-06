@@ -213,9 +213,10 @@ router.openapi(
 );
 
 // Register the webhook route in the OpenAPI doc without zod validation.
+// Path is relative to this router's mount point (/v1/payments).
 router.openAPIRegistry.registerPath({
   method: 'post',
-  path: '/payments/webhooks/anchor',
+  path: '/webhooks/anchor',
   tags: ['Payments'],
   summary: 'Anchor webhook receiver (signature-verified)',
   request: { body: { content: { 'application/json': { schema: P.anchorWebhookEnvelope } } } },

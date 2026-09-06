@@ -126,7 +126,7 @@ d('gifting (E005 / E012)', () => {
     expect(notifs.some((n) => n.userId === merchant.user.id && n.type === 'order.new')).toBe(true);
   });
 
-  it('hides an anonymous gifter from the celebrant until it is revealed', async () => {
+  it('hides an anonymous gifter from the celebrant until the gift is delivered', async () => {
     const merchant = await makeMerchant();
     const product = await makeProduct(merchant.user.id, { priceKobo: 5_000_00 });
     const { celebrant, wishlistItemId } = await wishlistItemFor(app, product.id);
@@ -142,10 +142,25 @@ d('gifting (E005 / E012)', () => {
     let received = (await body(await app.request('/v1/gifts/received', { headers: celebrant.auth }))).data;
     expect(received).toHaveLength(1);
     expect(received[0].from).toBeNull();
-    expect(received[0].canReveal).toBe(true);
     expect(received[0].message).toBe('guess who');
-
+    // Not delivered yet — the surprise holds and reveal is refused.
+    expect(received[0].canReveal).toBe(false);
     const giftId = received[0].id;
+    expect(
+      (await app.request(`/v1/gifts/${giftId}/reveal`, { method: 'POST', headers: celebrant.auth })).status,
+    ).toBe(400);
+
+    // Merchant delivers the order.
+    const order = await prisma.order.findFirstOrThrow({ where: { merchantId: merchant.user.id } });
+    const deliver = await app.request(
+      `/v1/merchant/orders/${order.id}/delivery`,
+      { method: 'PATCH', headers: merchant.auth, body: JSON.stringify({ status: 'DELIVERED' }) },
+    );
+    expect(deliver.status).toBe(200);
+
+    received = (await body(await app.request('/v1/gifts/received', { headers: celebrant.auth }))).data;
+    expect(received[0].canReveal).toBe(true);
+
     const revealRes = await app.request(`/v1/gifts/${giftId}/reveal`, { method: 'POST', headers: celebrant.auth });
     expect(revealRes.status).toBe(200);
     expect((await body(revealRes)).data.from).toContain('Test');

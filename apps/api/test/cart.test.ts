@@ -126,7 +126,35 @@ d('gift cart (E013)', () => {
     expect((await body(await app.request('/v1/cart', { headers: gifter.auth }))).data.itemCount).toBe(1);
   });
 
-  it('flags a non-giftable line and blocks checkout', async () => {
+  it('checks out the giftable lines and drops the ones that were claimed', async () => {
+    const { p1, item1, item2 } = await wishlistWithItems(app);
+    const gifter = await makeCelebrant();
+    await fund(gifter.user.id, 50_000_00n);
+    await app.request('/v1/cart/items', post({ wishlistItemId: item1, quantity: 1 }, gifter.auth));
+    await app.request('/v1/cart/items', post({ wishlistItemId: item2, quantity: 1 }, gifter.auth));
+
+    // item1's product sells out after it was added to the cart.
+    await prisma.inventory.update({ where: { productId: p1.id }, data: { availableStock: 0 } });
+
+    const cart = (await body(await app.request('/v1/cart', { headers: gifter.auth }))).data;
+    expect(cart.items.find((i: { wishlistItemId: string }) => i.wishlistItemId === item1).giftable).toBe(false);
+    expect(cart.allGiftable).toBe(false);
+
+    const res = await app.request('/v1/cart/checkout', post({ method: 'WALLET' }, gifter.auth));
+    expect(res.status).toBe(201);
+    const paid = (await body(res)).data;
+    expect(paid.status).toBe('PAID');
+    expect(paid.gifts).toHaveLength(1);
+    expect(paid.gifts[0].wishlistItemId).toBe(item2);
+    expect(paid.skipped).toHaveLength(1);
+    expect(paid.skipped[0].wishlistItemId).toBe(item1);
+
+    // The claimed line is gone; the cart is closed and a fresh one is empty.
+    const fresh = (await body(await app.request('/v1/cart', { headers: gifter.auth }))).data;
+    expect(fresh.itemCount).toBe(0);
+  });
+
+  it('rejects checkout when nothing in the cart can be gifted any more', async () => {
     const { p1, item1 } = await wishlistWithItems(app);
     const gifter = await makeCelebrant();
     await fund(gifter.user.id, 50_000_00n);
@@ -134,12 +162,11 @@ d('gift cart (E013)', () => {
 
     await prisma.inventory.update({ where: { productId: p1.id }, data: { availableStock: 0 } });
 
-    const cart = (await body(await app.request('/v1/cart', { headers: gifter.auth }))).data;
-    expect(cart.items[0].giftable).toBe(false);
-    expect(cart.allGiftable).toBe(false);
-
     const res = await app.request('/v1/cart/checkout', post({ method: 'WALLET' }, gifter.auth));
     expect(res.status).toBe(409);
+    expect((await body(res)).error.code).toBe('nothing_giftable');
+    // the dead item was cleared out
+    expect((await body(await app.request('/v1/cart', { headers: gifter.auth }))).data.itemCount).toBe(0);
   });
 
   it('blocks adding an item from your own wishlist', async () => {

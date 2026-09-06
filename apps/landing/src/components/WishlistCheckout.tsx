@@ -136,7 +136,7 @@ export function WishlistCheckout({
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface/95 p-4 shadow-lg backdrop-blur">
             <span className="text-sm text-ink-secondary">
               {selected.size > 0
-                ? `${selected.size} selected · ${formatKobo(selTotal.toString())}`
+                ? `${selected.size} selected · ${formatKobo(selTotal.toString())} + fees`
                 : `${available.length} item${available.length === 1 ? '' : 's'} available`}
             </span>
             <div className="flex gap-2">
@@ -146,7 +146,7 @@ export function WishlistCheckout({
                   onClick={() => startCheckout([...selected])}
                   className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
                 >
-                  Buy selected · {formatKobo(selTotal.toString())}
+                  Buy selected · {formatKobo(selTotal.toString())} + fees
                 </button>
               )}
               <button
@@ -158,7 +158,7 @@ export function WishlistCheckout({
                     : 'bg-primary text-white hover:bg-primary-hover'
                 }`}
               >
-                Buy all · {formatKobo(allTotal.toString())}
+                Buy all · {formatKobo(allTotal.toString())} + fees
               </button>
             </div>
           </div>
@@ -209,6 +209,32 @@ function CheckoutDialog({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResult | null>(null);
   const [status, setStatus] = useState<string>('PENDING');
+
+  // The item prices alone — a lower bound until the real quote (which adds the
+  // transaction fee and per-item delivery) comes back from the API.
+  const itemsSubtotal = useMemo(
+    () => chosen.reduce((s, i) => s + BigInt(i.unitPriceKobo), 0n),
+    [chosen],
+  );
+  const [quotedTotal, setQuotedTotal] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${api}/v1/public/wishlists/${encodeURIComponent(wishlistId)}/quote`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wishlistItemIds: itemIds }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.data?.totalKobo) setQuotedTotal(String(j.data.totalKobo));
+      })
+      .catch(() => {
+        /* fall back to the subtotal + "fees at payment" copy */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wishlistId, itemIds]);
 
   const submit = async () => {
     setError(null);
@@ -267,8 +293,6 @@ function CheckoutDialog({
     };
   }, [step, poll]);
 
-  const chosenTotal = chosen.reduce((s, i) => s + BigInt(i.unitPriceKobo), 0n);
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
@@ -284,7 +308,9 @@ function CheckoutDialog({
               Gift {chosen.length === 1 ? (chosen[0]?.productName ?? "this gift") : `${chosen.length} items`}
             </h2>
             <p className="mt-1 text-sm text-ink-secondary">
-              {formatKobo(chosenTotal.toString())} total, including delivery and fees.
+              {quotedTotal
+                ? `${formatKobo(quotedTotal)} total — item price, transaction fee and delivery included.`
+                : `${formatKobo(itemsSubtotal.toString())} for the ${chosen.length === 1 ? 'item' : 'items'}, plus a transaction fee and delivery — the exact total is on the next step.`}
             </p>
             {error && <p className="mt-3 text-sm text-error">{error}</p>}
             <div className="mt-4 space-y-3">
@@ -310,7 +336,9 @@ function CheckoutDialog({
               onClick={submit}
               className="mt-5 w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
             >
-              {busy ? 'Starting…' : `Continue to payment · ${formatKobo(chosenTotal.toString())}`}
+              {busy
+                ? 'Starting…'
+                : `Continue to payment${quotedTotal ? ` · ${formatKobo(quotedTotal)}` : ''}`}
             </button>
             <button type="button" onClick={onClose} className="mt-2 w-full text-sm text-ink-muted">
               Cancel

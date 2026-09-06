@@ -38,6 +38,26 @@ router.openapi(
   },
 );
 
+// ── POST /public/wishlists/{id}/quote — fee-inclusive total, no side effects ──
+router.openapi(
+  createRoute({
+    method: 'post',
+    path: '/wishlists/{id}/quote',
+    tags: ['Public'],
+    summary: 'What a guest will actually pay for a selection (item price + fees + delivery)',
+    request: { params: z.object({ id: z.string() }), body: jsonBody(E.guestQuoteBody) },
+    responses: {
+      200: jsonResponse('Quote', z.object({ data: E.guestQuoteResultDto })),
+      409: jsonResponse('Item unavailable', z.object({ error: z.record(z.unknown()) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => {
+    const res = await gifts.guestQuote(c.req.valid('param').id, c.req.valid('json').wishlistItemIds);
+    return c.json(serializeBigInts({ data: res }), 200);
+  },
+);
+
 // ── POST /public/wishlists/{id}/checkout — guest buys one or more items ──
 router.openapi(
   createRoute({

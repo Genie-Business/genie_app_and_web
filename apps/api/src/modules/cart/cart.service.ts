@@ -1,6 +1,6 @@
 import { prisma, type Prisma } from '@genie/db';
 import type { carts as C } from '@genie/contracts';
-import { badRequest, notFound } from '../../lib/errors';
+import { badRequest, conflict, notFound } from '../../lib/errors';
 // Kobo fields are returned as bigint and stringified by serializeBigInts in the route.
 import { recordActivity } from '../activities/activities.service';
 import { computeGiftCharge } from '../fees/fees.service';
@@ -158,7 +158,24 @@ export async function checkout(userId: string, method: 'WALLET' | 'BANK_TRANSFER
 
   const result = await payForCart(userId, { lines, method });
 
-  // Close this cart either way — a fresh OPEN one is created on next access.
+  // Anything that could no longer be gifted (someone else already claimed it,
+  // it sold out, the event ended) is dropped from the cart so a retry is clean.
+  const skipped = result.skipped ?? [];
+  if (skipped.length > 0) {
+    await prisma.cartItem.deleteMany({
+      where: { cartId: cart.id, wishlistItemId: { in: skipped.map((s) => s.wishlistItemId) } },
+    });
+  }
+
+  if (result.status === 'NOTHING_GIFTABLE') {
+    const detail = skipped.map((s) => `“${s.productName}” — ${s.reason.replace(/\.$/, '').toLowerCase()}`).join('; ');
+    throw conflict(
+      'nothing_giftable',
+      `None of your cart items can be gifted any more (${detail}). They've been removed from your cart.`,
+    );
+  }
+
+  // Close this cart — a fresh OPEN one is created on next access.
   await prisma.cart.update({ where: { id: cart.id }, data: { status: 'CHECKED_OUT' } });
   await recordActivity({
     userId,
@@ -166,7 +183,12 @@ export async function checkout(userId: string, method: 'WALLET' | 'BANK_TRANSFER
     action: 'cart.checkout',
     entityType: 'Cart',
     entityId: cart.id,
-    metadata: { items: lines.length, totalKobo: result.totalKobo.toString(), method },
+    metadata: {
+      items: lines.length - skipped.length,
+      skipped: skipped.length,
+      totalKobo: result.totalKobo.toString(),
+      method,
+    },
   });
   return result;
 }

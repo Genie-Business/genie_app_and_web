@@ -32,15 +32,8 @@ export const paymentIntentDto = z.object({
   checkoutUrl: z.string().nullable(),
 });
 
-// ── Pay for a gift (US0016 / US0019) ───────────────────────────────────
-export const payForGiftBody = z.object({
-  wishlistItemId: z.string().min(1).max(64),
-  amountKobo: z.number().int().positive().max(2_000_000_000), // ≤ ₦20,000,000
-  isAnonymous: z.boolean().default(false),
-  message: z.string().trim().max(280).optional(),
-  /** WALLET pays from balance; BANK_TRANSFER issues a one-off virtual account. */
-  method: z.enum(['WALLET', 'BANK_TRANSFER']).default('WALLET'),
-});
+// Paying for a gift is quantity-based (the server prices it from the live fee
+// schedule) — see `payForGiftBody` in ./gifts.ts.
 
 export const walletBalanceDto = z.object({
   currency: z.string(),

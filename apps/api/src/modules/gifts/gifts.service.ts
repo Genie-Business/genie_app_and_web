@@ -32,19 +32,52 @@ async function loadItem(wishlistItemId: string): Promise<ItemFull> {
   return item;
 }
 
-function assertGiftable(item: ItemFull, gifterUserId: string, quantity: number) {
-  if (item.product.status !== 'ACTIVE') throw badRequest('That product is no longer available.');
-  if (item.wishlist.event.status === 'DELETED') throw notFound('That wishlist is not available.');
-  if (item.wishlist.event.status === 'EXPIRED') throw badRequest('This event has ended.');
-  if (item.wishlist.event.user.id === gifterUserId) {
-    throw badRequest('You cannot gift an item on your own wishlist.');
+/**
+ * Why an item can't be gifted right now, or `null` if it can. Non-throwing so
+ * a multi-item checkout can skip a claimed line instead of aborting the batch —
+ * on a shared wishlist, items get taken while you shop.
+ */
+function giftBlockReason(
+  item: ItemFull,
+  gifterUserId: string | null,
+  quantity: number,
+): { code: 'unavailable' | 'over_fulfilled' | 'out_of_stock' | 'own_wishlist' | 'event_ended'; message: string } | null {
+  if (item.product.status !== 'ACTIVE') {
+    return { code: 'unavailable', message: 'That product is no longer available.' };
+  }
+  if (item.wishlist.event.status === 'DELETED') {
+    return { code: 'unavailable', message: 'That wishlist is not available.' };
+  }
+  if (item.wishlist.event.status === 'EXPIRED') {
+    return { code: 'event_ended', message: 'This event has ended.' };
+  }
+  if (gifterUserId && item.wishlist.event.user.id === gifterUserId) {
+    return { code: 'own_wishlist', message: 'You cannot gift an item on your own wishlist.' };
   }
   const remaining = item.quantityWanted - item.quantityFulfilled;
   if (quantity > remaining) {
-    throw conflict('over_fulfilled', `Only ${remaining} of this item still need${remaining === 1 ? 's' : ''} a gift.`);
+    return {
+      code: 'over_fulfilled',
+      message: `Only ${remaining} of this item still need${remaining === 1 ? 's' : ''} a gift.`,
+    };
   }
   const stock = item.product.inventory?.availableStock ?? 0;
-  if (stock < quantity) throw conflict('out_of_stock', 'The merchant is out of stock for this item.');
+  if (stock < quantity) {
+    return { code: 'out_of_stock', message: 'The merchant is out of stock for this item.' };
+  }
+  return null;
+}
+
+function assertGiftable(item: ItemFull, gifterUserId: string, quantity: number) {
+  const blocked = giftBlockReason(item, gifterUserId, quantity);
+  if (!blocked) return;
+  if (blocked.code === 'over_fulfilled' || blocked.code === 'out_of_stock') {
+    throw conflict(blocked.code, blocked.message);
+  }
+  if (blocked.code === 'unavailable' && item.wishlist.event.status === 'DELETED') {
+    throw notFound(blocked.message);
+  }
+  throw badRequest(blocked.message);
 }
 
 export async function quote(wishlistItemId: string, quantity: number) {
@@ -339,14 +372,25 @@ export async function payForGift(gifterUserId: string, input: PayInput) {
 // ── Cart checkout (E013) — pay for several wishlist gifts at once ─────────
 
 export type CartLine = { wishlistItemId: string; quantity: number; isAnonymous: boolean; message?: string };
+export type SkippedLine = { wishlistItemId: string; productName: string; reason: string };
 
+/**
+ * Price each line, dropping any that can't be gifted right now (someone else
+ * claimed the item, it sold out, the event ended). The dropped lines come back
+ * in `skipped` so the caller can tell the buyer and tidy their cart.
+ */
 async function priceCart(gifterUserId: string, lines: CartLine[]) {
   if (lines.length === 0) throw badRequest('Your cart is empty.');
   const priced = [];
+  const skipped: SkippedLine[] = [];
   let totalKobo = 0n;
   for (const line of lines) {
     const item = await loadItem(line.wishlistItemId);
-    assertGiftable(item, gifterUserId, line.quantity);
+    const blocked = giftBlockReason(item, gifterUserId, line.quantity);
+    if (blocked) {
+      skipped.push({ wishlistItemId: line.wishlistItemId, productName: item.product.name, reason: blocked.message });
+      continue;
+    }
     const charge = await computeGiftCharge({
       unitPriceKobo: item.product.priceKobo,
       quantity: line.quantity,
@@ -355,14 +399,23 @@ async function priceCart(gifterUserId: string, lines: CartLine[]) {
     priced.push({ item, line, charge });
     totalKobo += charge.gifterPaysKobo;
   }
-  return { priced, totalKobo };
+  return { priced, skipped, totalKobo };
 }
 
 export async function payForCart(
   gifterUserId: string,
   input: { lines: CartLine[]; method: 'WALLET' | 'BANK_TRANSFER' },
 ) {
-  const { priced, totalKobo } = await priceCart(gifterUserId, input.lines);
+  const { priced, skipped, totalKobo } = await priceCart(gifterUserId, input.lines);
+
+  if (priced.length === 0) {
+    return {
+      status: 'NOTHING_GIFTABLE' as const,
+      skipped,
+      totalKobo: 0n,
+      gifts: [] as { wishlistItemId: string; giftId: string; orderNumber: string }[],
+    };
+  }
 
   if (input.method === 'WALLET') {
     await ensureWallet(gifterUserId);
@@ -384,7 +437,7 @@ export async function payForCart(
       });
       results.push({ wishlistItemId: line.wishlistItemId, giftId: gift.id, orderNumber: order.orderNumber });
     }
-    return { status: 'PAID' as const, totalKobo, gifts: results };
+    return { status: 'PAID' as const, totalKobo, gifts: results, skipped };
   }
 
   // BANK_TRANSFER — one virtual account for the whole cart.
@@ -410,16 +463,16 @@ export async function payForCart(
       expiresAt: dva.expiresAt ? new Date(dva.expiresAt) : null,
       metadata: {
         kind: 'cart',
-        items: input.lines.map((l) => ({
-          wishlistItemId: l.wishlistItemId,
-          quantity: l.quantity,
-          isAnonymous: l.isAnonymous,
-          message: l.message ?? null,
+        items: priced.map(({ line }) => ({
+          wishlistItemId: line.wishlistItemId,
+          quantity: line.quantity,
+          isAnonymous: line.isAnonymous,
+          message: line.message ?? null,
         })),
       },
     },
   });
-  return { status: 'PENDING' as const, reference: intent.reference, virtualAccount: { ...dva }, totalKobo };
+  return { status: 'PENDING' as const, reference: intent.reference, virtualAccount: { ...dva }, totalKobo, skipped };
 }
 
 /** Called by the payment webhook when a GIFT-purpose transfer lands. */
@@ -516,12 +569,13 @@ export type GuestCheckoutInput = {
 };
 
 /**
- * A visitor following a shared wishlist link picks one or more items and pays
- * for all of them in one bank transfer. No genie account: the gift rows carry
- * `gifterUserId = null` and (unless anonymous) the guest's name. The webhook
- * finalises everything once the transfer lands.
+ * Price a guest's selection from a shared wishlist: validates the items are on
+ * the list and still giftable, then returns the per-item and total cost the
+ * gifter will actually pay (item price + transaction fee + delivery). Shared by
+ * the quote endpoint (so the web page shows the real number *before* payment)
+ * and the checkout itself.
  */
-export async function guestCheckout(wishlistId: string, input: GuestCheckoutInput) {
+export async function priceGuestSelection(wishlistId: string, wishlistItemIds: string[]) {
   const wishlist = await prisma.wishlist.findUnique({
     where: { id: wishlistId },
     include: {
@@ -533,14 +587,13 @@ export async function guestCheckout(wishlistId: string, input: GuestCheckoutInpu
     throw notFound('This wishlist is not available.');
   }
 
-  const wanted = [...new Set(input.wishlistItemIds)];
+  const wanted = [...new Set(wishlistItemIds)];
   const items = wishlist.items.filter((i) => wanted.includes(i.id));
   if (items.length === 0) throw badRequest('Choose at least one item to gift.');
   if (items.length !== wanted.length) {
     throw badRequest('Some of those items are not on this wishlist.');
   }
 
-  const lines: CartLine[] = [];
   const breakdown: { wishlistItemId: string; productName: string; amountKobo: bigint }[] = [];
   let totalKobo = 0n;
   for (const it of items) {
@@ -559,18 +612,35 @@ export async function guestCheckout(wishlistId: string, input: GuestCheckoutInpu
       deliveryOption: it.product.deliveryOption,
     });
     totalKobo += charge.gifterPaysKobo;
-    lines.push({
-      wishlistItemId: it.id,
-      quantity: 1,
-      isAnonymous: input.isAnonymous,
-      message: input.message,
-    });
     breakdown.push({
       wishlistItemId: it.id,
       productName: it.product.name,
       amountKobo: charge.gifterPaysKobo,
     });
   }
+  return { items, breakdown, totalKobo };
+}
+
+/** Fee-inclusive total for a guest's selection — no side effects. */
+export async function guestQuote(wishlistId: string, wishlistItemIds: string[]) {
+  const { breakdown, totalKobo } = await priceGuestSelection(wishlistId, wishlistItemIds);
+  return { totalKobo, breakdown };
+}
+
+/**
+ * A visitor following a shared wishlist link picks one or more items and pays
+ * for all of them in one bank transfer. No genie account: the gift rows carry
+ * `gifterUserId = null` and (unless anonymous) the guest's name. The webhook
+ * finalises everything once the transfer lands.
+ */
+export async function guestCheckout(wishlistId: string, input: GuestCheckoutInput) {
+  const { breakdown, totalKobo } = await priceGuestSelection(wishlistId, input.wishlistItemIds);
+  const lines: CartLine[] = breakdown.map((b) => ({
+    wishlistItemId: b.wishlistItemId,
+    quantity: 1,
+    isAnonymous: input.isAnonymous,
+    message: input.message,
+  }));
 
   const provider = getPaymentProvider();
   const reference = paymentReference();
@@ -739,6 +809,16 @@ export async function listInvitations(userId: string) {
   return rows;
 }
 
+/**
+ * An anonymous gift may only be revealed once it has physically reached the
+ * celebrant — that is the promise made to the gifter when they choose to send
+ * anonymously. "Arrived" means the merchant marked the order delivered, or the
+ * item is collected in person (PICKUP has no delivery leg to wait on).
+ */
+function giftHasArrived(g: { status: string; wishlistItem: { product: { deliveryOption: string } } }): boolean {
+  return g.status === 'DELIVERED' || g.wishlistItem.product.deliveryOption === 'PICKUP';
+}
+
 export async function listReceived(userId: string) {
   const gifts = await prisma.gift.findMany({
     where: {
@@ -750,7 +830,7 @@ export async function listReceived(userId: string) {
       gifter: { select: { firstName: true, lastName: true } },
       wishlistItem: {
         include: {
-          product: { select: { name: true } },
+          product: { select: { name: true, deliveryOption: true } },
           wishlist: { include: { event: { select: { name: true } } } },
         },
       },
@@ -771,7 +851,7 @@ export async function listReceived(userId: string) {
       from: hidden ? null : gifterName,
       isAnonymous: g.isAnonymous,
       revealed: g.revealedAt != null,
-      canReveal: g.isAnonymous && g.revealedAt == null,
+      canReveal: g.isAnonymous && g.revealedAt == null && giftHasArrived(g),
       status: g.status,
       createdAt: g.createdAt.toISOString(),
     };
@@ -784,7 +864,12 @@ export async function reveal(userId: string, giftId: string) {
     where: { id: giftId },
     include: {
       gifter: { select: { firstName: true, lastName: true } },
-      wishlistItem: { include: { wishlist: { include: { event: { select: { userId: true } } } } } },
+      wishlistItem: {
+        include: {
+          product: { select: { deliveryOption: true } },
+          wishlist: { include: { event: { select: { userId: true } } } },
+        },
+      },
     },
   });
   if (!gift) throw notFound('Gift not found.');
@@ -793,6 +878,9 @@ export async function reveal(userId: string, giftId: string) {
   }
   if (!gift.isAnonymous) throw badRequest('This gift is not anonymous.');
   if (gift.revealedAt) throw badRequest('This gift has already been revealed.');
+  if (!giftHasArrived(gift)) {
+    throw badRequest("You can reveal who this is from once the gift has been delivered.");
+  }
 
   await prisma.gift.update({
     where: { id: giftId },

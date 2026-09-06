@@ -74,9 +74,10 @@ router.post('/level-1', async (c) => {
   return c.json({ data: result }, 201);
 });
 
+// Path is relative to this router's mount point (/v1/kyc).
 router.openAPIRegistry.registerPath({
   method: 'post',
-  path: '/kyc/level-1',
+  path: '/level-1',
   tags: ['KYC'],
   summary: 'Submit Level 1 verification (selfie + ID doc, multipart)',
   security: [{ bearerAuth: [] }],
