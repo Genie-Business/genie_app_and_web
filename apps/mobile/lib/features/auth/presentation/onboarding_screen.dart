@@ -44,7 +44,7 @@ const _slides = [
     line1: 'One place for',
     line2: 'every celebration',
     body: 'Birthdays, weddings, showers. Friends gift exactly what you asked for.',
-    image: 'assets/onboarding/gift.jpg',
+    image: 'assets/onboarding/unwrap.jpg',
   ),
 ];
 
