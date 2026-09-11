@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { destroySession, getSession } from '@/lib/session';
+import { canAccessConcierge, destroySession, getSession } from '@/lib/session';
 
 const NAV: ReadonlyArray<readonly [label: string, href: string]> = [
   ['Dashboard', '/'],
@@ -40,6 +40,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {label}
             </Link>
           ))}
+          {canAccessConcierge(session.role) && (
+            <Link
+              href="/concierge"
+              className="block rounded-lg px-3 py-2 text-ink-secondary hover:bg-[var(--genie-bg-subtle)] hover:text-ink"
+            >
+              Concierge
+            </Link>
+          )}
         </nav>
       </aside>
       <div className="flex-1">

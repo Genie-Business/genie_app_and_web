@@ -9,6 +9,7 @@ class WishlistItem {
     required this.isAnonymousGift,
     this.productImageUrl,
     this.note,
+    this.isPending = false,
   });
 
   final String id;
@@ -20,6 +21,9 @@ class WishlistItem {
   final bool isAnonymousGift;
   final String? productImageUrl;
   final String? note;
+  /// True while the item's product isn't ACTIVE yet — e.g. a concierge
+  /// import still being priced. Not giftable until this clears.
+  final bool isPending;
 
   bool get fulfilled => quantityFulfilled >= quantityWanted;
 
@@ -33,6 +37,7 @@ class WishlistItem {
         isAnonymousGift: (j['isAnonymousGift'] as bool?) ?? false,
         productImageUrl: j['productImageUrl'] as String?,
         note: j['note'] as String?,
+        isPending: (j['isPending'] as bool?) ?? false,
       );
 }
 

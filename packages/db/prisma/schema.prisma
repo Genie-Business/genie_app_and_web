@@ -246,6 +246,22 @@ enum AdminRole {
   ADMIN
   SUPPORT
   FINANCE
+  CONCIERGE
+}
+
+/**
+ * A celebrant importing a gift from an external link (Amazon, Jumia, a
+ * boutique site — anything outside genie's catalogue). NEW/IN_REVIEW are
+ * pre-pricing states where the linked Product is DRAFT (not giftable);
+ * ACTIVE means a concierge has priced it and it behaves like any other
+ * catalogue item from then on.
+ */
+enum ConciergeRequestStatus {
+  NEW
+  IN_REVIEW
+  ACTIVE
+  REJECTED
+  CANCELLED
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -281,34 +297,35 @@ model User {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  merchantProfile   MerchantProfile?
-  kycVerifications  KycVerification[]
-  refreshTokens     RefreshToken[]
-  deviceTokens      DeviceToken[]
-  wallet            WalletAccount?
-  events            Event[]
-  carts             Cart[]
-  giftsGiven        Gift[]           @relation("GiftGifter")
-  ordersAsBuyer     Order[]          @relation("OrderBuyer")
-  productsAsMerchant Product[]       @relation("ProductMerchant")
-  ordersAsMerchant  Order[]          @relation("OrderMerchant")
-  payoutAccount     PayoutAccount?
-  payouts           Payout[]
-  notifications     Notification[]
+  merchantProfile         MerchantProfile?
+  kycVerifications        KycVerification[]
+  refreshTokens           RefreshToken[]
+  deviceTokens            DeviceToken[]
+  wallet                  WalletAccount?
+  events                  Event[]
+  carts                   Cart[]
+  giftsGiven              Gift[]                   @relation("GiftGifter")
+  ordersAsBuyer           Order[]                  @relation("OrderBuyer")
+  productsAsMerchant      Product[]                @relation("ProductMerchant")
+  ordersAsMerchant        Order[]                  @relation("OrderMerchant")
+  payoutAccount           PayoutAccount?
+  payouts                 Payout[]
+  notifications           Notification[]
   notificationPreferences NotificationPreference[]
-  activityLogs      ActivityLog[]
-  friendshipsSent     Friendship[]   @relation("FriendshipRequester")
-  friendshipsReceived Friendship[]   @relation("FriendshipAddressee")
-  referralRecords   Referral[]       @relation("ReferralReferrer")
-  referralAsReferee Referral?        @relation("ReferralReferee")
-  contactImports    ContactImport[]
-  messageThreadsA   MessageThread[]  @relation("ThreadParticipantA")
-  messageThreadsB   MessageThread[]  @relation("ThreadParticipantB")
-  messagesSent      Message[]        @relation("MessageSender")
-  supportThreads    SupportThread[]
-  transactions      Transaction[]
-  paymentIntents    PaymentIntent[]
-  savedCards        SavedCard[]
+  activityLogs            ActivityLog[]
+  friendshipsSent         Friendship[]             @relation("FriendshipRequester")
+  friendshipsReceived     Friendship[]             @relation("FriendshipAddressee")
+  referralRecords         Referral[]               @relation("ReferralReferrer")
+  referralAsReferee       Referral?                @relation("ReferralReferee")
+  contactImports          ContactImport[]
+  messageThreadsA         MessageThread[]          @relation("ThreadParticipantA")
+  messageThreadsB         MessageThread[]          @relation("ThreadParticipantB")
+  messagesSent            Message[]                @relation("MessageSender")
+  supportThreads          SupportThread[]
+  transactions            Transaction[]
+  paymentIntents          PaymentIntent[]
+  savedCards              SavedCard[]
+  conciergeRequests       ConciergeRequest[]
 
   @@index([role])
   @@index([status])
@@ -316,49 +333,49 @@ model User {
 }
 
 model SavedCard {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider       String   @default("anchor")
-  providerToken  String // tokenised by the provider client-side; genie never sees the PAN
-  last4          String
-  brand          String?
-  expMonth       Int?
-  expYear        Int?
-  isDefault      Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider      String   @default("anchor")
+  providerToken String // tokenised by the provider client-side; genie never sees the PAN
+  last4         String
+  brand         String?
+  expMonth      Int?
+  expYear       Int?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
 
   @@unique([userId, providerToken])
   @@index([userId])
 }
 
 model MerchantProfile {
-  id                String    @id @default(cuid())
-  userId            String    @unique
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String              @id @default(cuid())
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessName      String
   businessPhone     String?
   businessState     String?
   bankName          String?
   bankAccountNumber String?
   bankAccountName   String?
-  inviteCodeId      String?   @unique
+  inviteCodeId      String?             @unique
   inviteCode        MerchantInviteCode? @relation(fields: [inviteCodeId], references: [id])
-  kybStatus         KybStatus @default(PENDING)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  kybStatus         KybStatus           @default(PENDING)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 }
 
 model MerchantInviteCode {
-  id             String           @id @default(cuid())
-  code           String           @unique
-  singleUse      Boolean          @default(true)
-  usedByUserId   String?
-  usedAt         DateTime?
-  expiresAt      DateTime?
+  id               String           @id @default(cuid())
+  code             String           @unique
+  singleUse        Boolean          @default(true)
+  usedByUserId     String?
+  usedAt           DateTime?
+  expiresAt        DateTime?
   createdByAdminId String?
-  createdAt      DateTime         @default(now())
-  merchantProfile MerchantProfile?
+  createdAt        DateTime         @default(now())
+  merchantProfile  MerchantProfile?
 }
 
 model OtpToken {
@@ -377,19 +394,19 @@ model OtpToken {
 }
 
 model RefreshToken {
-  id                 String    @id @default(cuid())
-  userId             String
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash          String    @unique
-  deviceId           String
-  deviceName         String?
-  userAgent          String?
-  ipAddress          String?
-  expiresAt          DateTime
-  revokedAt          DateTime?
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash           String    @unique
+  deviceId            String
+  deviceName          String?
+  userAgent           String?
+  ipAddress           String?
+  expiresAt           DateTime
+  revokedAt           DateTime?
   replacedByTokenHash String?
-  lastUsedAt         DateTime?
-  createdAt          DateTime  @default(now())
+  lastUsedAt          DateTime?
+  createdAt           DateTime  @default(now())
 
   @@index([userId, deviceId])
 }
@@ -433,15 +450,15 @@ model KycVerification {
 // ──────────────────────────────────────────────────────────────
 
 model Category {
-  id               String    @id @default(cuid())
-  name             String    @unique
-  slug             String    @unique
+  id               String   @id @default(cuid())
+  name             String   @unique
+  slug             String   @unique
   description      String?
   imageBlobUrl     String?
-  isActive         Boolean   @default(true)
+  isActive         Boolean  @default(true)
   createdByAdminId String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   products          Product[]
   commissionConfigs CommissionConfig[]
@@ -463,14 +480,45 @@ model Product {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  images        ProductImage[]
-  inventory     Inventory?
-  wishlistItems WishlistItem[]
-  orderItems    OrderItem[]
+  images           ProductImage[]
+  inventory        Inventory?
+  wishlistItems    WishlistItem[]
+  orderItems       OrderItem[]
+  conciergeRequest ConciergeRequest?
 
   @@index([merchantId])
   @@index([categoryId])
   @@index([status])
+}
+
+/**
+ * Intake for the concierge service (import-a-gift). `productId` is a DRAFT
+ * placeholder Product (owned by the system "genie Concierge" merchant)
+ * created the moment the request is submitted, so the item shows up on the
+ * celebrant's wishlist immediately as pending; it becomes an ordinary
+ * ACTIVE catalogue item once a concierge prices it.
+ */
+model ConciergeRequest {
+  id                 String                 @id @default(cuid())
+  requestedByUserId  String
+  requestedBy        User                   @relation(fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  // Not a DB relation to WishlistItem on purpose — the item can be removed
+  // from the wishlist independently without this row blocking that.
+  wishlistItemId     String                 @unique
+  sourceUrl          String
+  name               String
+  note               String?
+  estimatedPriceKobo BigInt?
+  status             ConciergeRequestStatus @default(NEW)
+  productId          String                 @unique
+  product            Product                @relation(fields: [productId], references: [id])
+  claimedByAdminId   String?
+  rejectionReason    String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([status])
+  @@index([requestedByUserId])
 }
 
 model ProductImage {
@@ -498,9 +546,9 @@ model Inventory {
 // ──────────────────────────────────────────────────────────────
 
 model Event {
-  id              String      @id @default(cuid())
+  id              String          @id @default(cuid())
   userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   type            String
   name            String
   deliveryAddress String?
@@ -535,17 +583,17 @@ model Wishlist {
 }
 
 model WishlistItem {
-  id               String   @id @default(cuid())
-  wishlistId       String
-  wishlist         Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
-  productId        String
-  product          Product  @relation(fields: [productId], references: [id])
-  quantityWanted   Int      @default(1)
-  quantityFulfilled Int     @default(0)
-  isAnonymousGift  Boolean  @default(false)
-  note             String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default(cuid())
+  wishlistId        String
+  wishlist          Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id])
+  quantityWanted    Int      @default(1)
+  quantityFulfilled Int      @default(0)
+  isAnonymousGift   Boolean  @default(false)
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   gifts     Gift[]
   cartItems CartItem[]
@@ -588,22 +636,22 @@ model CartItem {
 // ──────────────────────────────────────────────────────────────
 
 model Gift {
-  id              String     @id @default(cuid())
+  id              String       @id @default(cuid())
   wishlistItemId  String
   wishlistItem    WishlistItem @relation(fields: [wishlistItemId], references: [id])
   gifterUserId    String?
-  gifter          User?      @relation("GiftGifter", fields: [gifterUserId], references: [id])
-  isAnonymous     Boolean    @default(false)
+  gifter          User?        @relation("GiftGifter", fields: [gifterUserId], references: [id])
+  isAnonymous     Boolean      @default(false)
   amountKobo      BigInt
   message         String?
   /// Display name when the gifter has no genie account (guest web checkout).
   giftedByName    String?
-  status          GiftStatus @default(PENDING_PAYMENT)
-  paymentIntentId String?    @unique
-  orderId         String?    @unique
+  status          GiftStatus   @default(PENDING_PAYMENT)
+  paymentIntentId String?      @unique
+  orderId         String?      @unique
   revealedAt      DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id])
   order         Order?         @relation(fields: [orderId], references: [id])
@@ -642,14 +690,14 @@ model Order {
 }
 
 model OrderItem {
-  id           String  @id @default(cuid())
-  orderId      String
-  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product @relation(fields: [productId], references: [id])
-  description  String
+  id            String  @id @default(cuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product @relation(fields: [productId], references: [id])
+  description   String
   unitPriceKobo BigInt
-  quantity     Int     @default(1)
+  quantity      Int     @default(1)
   lineTotalKobo BigInt
 
   @@index([orderId])
@@ -673,18 +721,18 @@ model Delivery {
 // ──────────────────────────────────────────────────────────────
 
 model WalletAccount {
-  id                  String       @id @default(cuid())
-  userId              String       @unique
-  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider            String       @default("mock")
-  providerCustomerId  String?
-  providerAccountId   String?
+  id                   String       @id @default(cuid())
+  userId               String       @unique
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider             String       @default("mock")
+  providerCustomerId   String?
+  providerAccountId    String?
   providerVirtualNuban String?
-  currency            String       @default("NGN")
-  balanceKobo         BigInt       @default(0)
-  status              WalletStatus @default(ACTIVE)
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  currency             String       @default("NGN")
+  balanceKobo          BigInt       @default(0)
+  status               WalletStatus @default(ACTIVE)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
   ledgerEntries LedgerEntry[]
   transactions  Transaction[]
@@ -708,27 +756,27 @@ model LedgerEntry {
 }
 
 model PaymentIntent {
-  id                 String         @id @default(cuid())
-  reference          String         @unique
+  id                  String         @id @default(cuid())
+  reference           String         @unique
   // Null for a guest checkout from a shared wishlist link (no genie account).
-  userId             String?
-  user               User?          @relation(fields: [userId], references: [id])
-  guestName          String?
-  guestEmail         String?
-  guestPhone         String?
-  purpose            PaymentPurpose
-  amountKobo         BigInt
-  currency           String         @default("NGN")
-  provider           String
-  providerRef        String?
-  method             PaymentMethod  @default(BANK_TRANSFER)
-  status             PaymentStatus  @default(PENDING)
+  userId              String?
+  user                User?          @relation(fields: [userId], references: [id])
+  guestName           String?
+  guestEmail          String?
+  guestPhone          String?
+  purpose             PaymentPurpose
+  amountKobo          BigInt
+  currency            String         @default("NGN")
+  provider            String
+  providerRef         String?
+  method              PaymentMethod  @default(BANK_TRANSFER)
+  status              PaymentStatus  @default(PENDING)
   dynamicVirtualNuban Json?
-  metadata           Json?
-  expiresAt          DateTime?
-  completedAt        DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  metadata            Json?
+  expiresAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   gift        Gift?
   transaction Transaction?
@@ -766,34 +814,34 @@ model Transaction {
 }
 
 model PayoutAccount {
-  id                 String   @id @default(cuid())
-  merchantId         String   @unique
-  merchant           User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  bankName           String
-  bankCode           String?
-  accountNumber      String
-  accountName        String
-  isVerified         Boolean  @default(false)
+  id                  String   @id @default(cuid())
+  merchantId          String   @unique
+  merchant            User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  bankName            String
+  bankCode            String?
+  accountNumber       String
+  accountName         String
+  isVerified          Boolean  @default(false)
   providerRecipientId String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model Payout {
-  id               String       @id @default(cuid())
-  reference        String       @unique
-  merchantId       String
-  merchant         User         @relation(fields: [merchantId], references: [id])
-  amountKobo       BigInt
-  feeKobo          BigInt       @default(0)
-  netAmountKobo    BigInt
-  status           PayoutStatus @default(PENDING)
+  id                  String       @id @default(cuid())
+  reference           String       @unique
+  merchantId          String
+  merchant            User         @relation(fields: [merchantId], references: [id])
+  amountKobo          BigInt
+  feeKobo             BigInt       @default(0)
+  netAmountKobo       BigInt
+  status              PayoutStatus @default(PENDING)
   providerTransferRef String?
-  failureReason    String?
-  periodStart      DateTime?
-  periodEnd        DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  failureReason       String?
+  periodStart         DateTime?
+  periodEnd           DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   transaction Transaction?
 
@@ -802,21 +850,21 @@ model Payout {
 }
 
 model FeeConfig {
-  id                String   @id @default(cuid())
-  key               FeeKey   @unique
-  type              FeeType
-  value             Decimal  @db.Decimal(12, 4)
-  minKobo           BigInt?
-  capKobo           BigInt?
-  updatedByAdminId  String?
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  key              FeeKey   @unique
+  type             FeeType
+  value            Decimal  @db.Decimal(12, 4)
+  minKobo          BigInt?
+  capKobo          BigInt?
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
 }
 
 model CommissionConfig {
   id               String    @id @default(cuid())
   scope            String    @default("GLOBAL")
   categoryId       String?
-  category         Category?  @relation(fields: [categoryId], references: [id])
+  category         Category? @relation(fields: [categoryId], references: [id])
   type             FeeType   @default(PERCENT)
   value            Decimal   @db.Decimal(12, 4)
   updatedByAdminId String?
@@ -826,16 +874,16 @@ model CommissionConfig {
 }
 
 model WebhookEvent {
-  id            String        @id @default(cuid())
-  provider      String
-  eventType     String
-  externalId    String?       @unique
-  payload       Json
-  signatureValid Boolean      @default(false)
-  status        WebhookStatus @default(RECEIVED)
-  error         String?
-  receivedAt    DateTime      @default(now())
-  processedAt   DateTime?
+  id             String        @id @default(cuid())
+  provider       String
+  eventType      String
+  externalId     String?       @unique
+  payload        Json
+  signatureValid Boolean       @default(false)
+  status         WebhookStatus @default(RECEIVED)
+  error          String?
+  receivedAt     DateTime      @default(now())
+  processedAt    DateTime?
 
   @@index([provider, eventType])
 }
@@ -919,19 +967,21 @@ model Referral {
 }
 
 model Notification {
-  id       String               @id @default(cuid())
-  userId   String
-  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel  NotificationChannel
-  category NotificationCategory @default(SYSTEM)
-  type     String
-  title    String
-  body     String
-  payload  Json?
-  readAt   DateTime?
-  /** Set once a push / email side-delivery has been dispatched. */
-  sentAt   DateTime?
-  createdAt DateTime            @default(now())
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  category  NotificationCategory @default(SYSTEM)
+  type      String
+  title     String
+  body      String
+  payload   Json?
+  readAt    DateTime?
+  /**
+   * Set once a push / email side-delivery has been dispatched.
+   */
+  sentAt    DateTime?
+  createdAt DateTime             @default(now())
 
   @@index([userId, readAt])
   @@index([userId, category])

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/format.dart';
@@ -41,6 +42,15 @@ class _State extends ConsumerState<AddWishlistItemScreen> {
       ref.read(catalogRepositoryProvider).products(category: _categoryId, query: _query);
 
   void _reload() => setState(() => _future = _load());
+
+  Future<void> _import() async {
+    final requested = await context.push<bool>('/wishlists/${widget.wishlistId}/import');
+    if (requested == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Got it — we'll add it to the wishlist once it's priced."),
+      ));
+    }
+  }
 
   Future<void> _add(Product p) async {
     try {
@@ -119,6 +129,18 @@ class _State extends ConsumerState<AddWishlistItemScreen> {
                 ],
               ),
               orElse: () => const SizedBox.shrink(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _import,
+                icon: const Icon(Icons.travel_explore_rounded, size: 18),
+                label: const Text("Can't find it? Import from anywhere"),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+              ),
             ),
           ),
           Expanded(

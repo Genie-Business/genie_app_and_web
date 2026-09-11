@@ -161,11 +161,21 @@ class _ItemTile extends StatelessWidget {
               : const _ImgFallback(),
         ),
         title: Text(item.productName, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          '${formatKobo(item.unitPriceKobo)}'
-          '${item.quantityWanted > 1 ? ' · x${item.quantityWanted}' : ''}'
-          '${item.quantityFulfilled > 0 ? ' · ${item.quantityFulfilled}/${item.quantityWanted} gifted' : ''}',
-        ),
+        subtitle: item.isPending
+            ? const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.hourglass_top_rounded, size: 13, color: GenieColors.accent),
+                  SizedBox(width: 4),
+                  Text('Sourcing… we\'ll let you know when it\'s ready',
+                      style: TextStyle(color: GenieColors.accent, fontSize: 12)),
+                ],
+              )
+            : Text(
+                '${formatKobo(item.unitPriceKobo)}'
+                '${item.quantityWanted > 1 ? ' · x${item.quantityWanted}' : ''}'
+                '${item.quantityFulfilled > 0 ? ' · ${item.quantityFulfilled}/${item.quantityWanted} gifted' : ''}',
+              ),
         trailing: IconButton(
           icon: const Icon(Icons.close, size: 18),
           onPressed: item.quantityFulfilled > 0 ? null : onRemove,

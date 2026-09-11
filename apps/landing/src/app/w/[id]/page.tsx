@@ -18,6 +18,7 @@ type WishlistItem = {
   quantityWanted: number;
   quantityFulfilled: number;
   note: string | null;
+  isPending: boolean;
 };
 
 type PublicWishlist = {

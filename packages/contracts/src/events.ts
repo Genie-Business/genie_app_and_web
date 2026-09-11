@@ -112,6 +112,9 @@ export const wishlistItemDto = z.object({
   quantityFulfilled: z.number().int(),
   isAnonymousGift: z.boolean(),
   note: z.string().nullable(),
+  /** True while the underlying product isn't ACTIVE yet — e.g. a concierge
+   *  import still being priced. Not shareable/giftable until this clears. */
+  isPending: z.boolean(),
 });
 
 export const wishlistDto = z.object({
@@ -153,6 +156,7 @@ export const publicWishlistDto = z.object({
       quantityWanted: true,
       quantityFulfilled: true,
       note: true,
+      isPending: true,
     }),
   ),
 });

@@ -174,6 +174,7 @@ export async function publicView(wishlistId: string) {
       quantityWanted: i.quantityWanted,
       quantityFulfilled: i.quantityFulfilled,
       note: i.note,
+      isPending: i.product.status !== 'ACTIVE',
     })),
   };
 }

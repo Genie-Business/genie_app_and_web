@@ -34,6 +34,9 @@ export function toWishlistItemDto(i: WishlistWithItems['items'][number]) {
     quantityFulfilled: i.quantityFulfilled,
     isAnonymousGift: i.isAnonymousGift,
     note: i.note,
+    // e.g. a concierge import still being priced — not ACTIVE yet, so not
+    // shareable/giftable even though it already has a wishlist item row.
+    isPending: i.product.status !== 'ACTIVE',
   };
 }
 

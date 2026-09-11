@@ -33,6 +33,7 @@ import '../features/settings/presentation/delete_account_screen.dart';
 import '../features/settings/presentation/edit_username_screen.dart';
 import '../features/wallet/presentation/wallet_screen.dart';
 import '../features/wishlists/presentation/add_wishlist_item_screen.dart';
+import '../features/concierge/presentation/import_gift_screen.dart';
 import '../features/wishlists/presentation/wishlist_screen.dart';
 
 class _SplashScreen extends StatelessWidget {
@@ -110,6 +111,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/wishlists/:id/add',
         builder: (_, s) => AddWishlistItemScreen(wishlistId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/wishlists/:id/import',
+        builder: (_, s) => ImportGiftScreen(wishlistId: s.pathParameters['id']!),
       ),
       GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
       GoRoute(

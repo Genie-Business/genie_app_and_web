@@ -113,6 +113,9 @@ async function main() {
   // --- Demo merchant + catalog (dev/testing) ----------------------------
   await seedDemoCatalog();
 
+  // --- Concierge system merchant (import-a-gift service) -----------------
+  await seedConcierge();
+
   // --- App settings: landing page CRM content -----------------------------
   await prisma.appSetting.upsert({
     where: { key: 'landing.content' },
@@ -229,6 +232,47 @@ async function seedDemoCatalog() {
     });
   }
   console.log(`  demo merchant: ${email} (${DEMO_PRODUCTS.length} products)`);
+}
+
+/**
+ * The concierge service (import-a-gift) attaches every DRAFT/ACTIVE product
+ * it creates to this single system merchant account — see
+ * apps/api/src/modules/concierge/concierge.service.ts's
+ * CONCIERGE_MERCHANT_EMAIL constant, which must match this email.
+ */
+async function seedConcierge() {
+  const email = process.env.SEED_CONCIERGE_EMAIL ?? 'concierge@genieapps.co';
+  const password = process.env.SEED_CONCIERGE_PASSWORD ?? `Concierge-${randomCode(10)}`;
+
+  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  await prisma.user.upsert({
+    where: { email },
+    update: {},
+    create: {
+      role: 'MERCHANT',
+      firstName: 'genie Concierge',
+      lastName: '(Service)',
+      email,
+      username: 'genie_concierge',
+      referralCode: `GEN${randomCode(6)}`,
+      passwordHash: await hashPassword(password),
+      stateOfResidence: 'Lagos',
+      emailVerifiedAt: new Date(),
+      merchantProfile: {
+        create: {
+          businessName: 'genie Concierge',
+          businessState: 'Lagos',
+          bankName: 'genie Internal',
+          bankAccountNumber: '0000000001',
+          kybStatus: 'VERIFIED',
+        },
+      },
+    },
+  });
+  console.log(existing ? `  concierge merchant: ${email} (already exists)` : `  concierge merchant: ${email}`);
+  console.log(
+    '  → create the first concierge admin with: node packages/db/scripts/create-admin.mjs --email you@genieapps.co --name "Your Name" --role CONCIERGE',
+  );
 }
 
 main()

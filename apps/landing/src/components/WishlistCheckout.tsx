@@ -12,6 +12,8 @@ export type WishlistItem = {
   quantityWanted: number;
   quantityFulfilled: number;
   note: string | null;
+  /** True while a concierge import is still being priced — not buyable yet. */
+  isPending: boolean;
 };
 
 type Breakdown = { wishlistItemId: string; productName: string; amountKobo: string };
@@ -34,7 +36,7 @@ export function WishlistCheckout({
   // buyer looking at their own just-gifted item as if it were still needed.
   const [liveItems, setLiveItems] = useState(items);
   useEffect(() => setLiveItems(items), [items]);
-  const available = liveItems.filter((i) => i.quantityFulfilled < i.quantityWanted);
+  const available = liveItems.filter((i) => i.quantityFulfilled < i.quantityWanted && !i.isPending);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const [ids, setIds] = useState<string[]>([]);
@@ -103,6 +105,8 @@ export function WishlistCheckout({
                 {item.note && <p className="mt-1 line-clamp-2 text-xs text-ink-muted">“{item.note}”</p>}
                 {done ? (
                   <p className="mt-2 text-xs font-semibold text-ink-muted">Gifted 🎉</p>
+                ) : item.isPending ? (
+                  <p className="mt-2 text-xs font-semibold text-accent-500">Being sourced — check back soon</p>
                 ) : (
                   <div className="mt-2 flex items-center gap-2">
                     <button

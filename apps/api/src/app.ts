@@ -31,6 +31,7 @@ import settingsRoutes from './modules/settings/settings.routes';
 import supportRoutes from './modules/support/support.routes';
 import cartRoutes from './modules/cart/cart.routes';
 import messagesRoutes from './modules/messages/messages.routes';
+import conciergeRoutes from './modules/concierge/concierge.routes';
 import { mountStubs } from './modules/stubs';
 
 export function createApp() {
@@ -147,6 +148,7 @@ export function createApp() {
   app.route('/v1/cart', cartRoutes);
   app.route('/v1/messages', messagesRoutes);
   app.route('/v1/public', publicRoutes);
+  app.route('/v1/concierge', conciergeRoutes);
 
   // ── Planned endpoints (501 + documented) — none left; every epic is live.
   mountStubs(app);

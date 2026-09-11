@@ -45,3 +45,9 @@ export async function getSession(): Promise<AdminSession | null> {
 export async function destroySession(): Promise<void> {
   (await cookies()).delete(COOKIE);
 }
+
+/** Roles allowed into the concierge (import-a-gift) section. */
+const CONCIERGE_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'CONCIERGE']);
+export function canAccessConcierge(role: string): boolean {
+  return CONCIERGE_ROLES.has(role);
+}

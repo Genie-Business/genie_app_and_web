@@ -15,6 +15,7 @@ export function categoryForType(type: string): NotificationCategory {
       return 'GIFT';
     case 'event':
     case 'wishlist':
+    case 'concierge':
       return 'EVENT';
     case 'friend':
       return 'FRIEND';
