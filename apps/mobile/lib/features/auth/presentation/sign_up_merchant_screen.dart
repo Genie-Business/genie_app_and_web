@@ -81,6 +81,7 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
   @override
   Widget build(BuildContext context) {
     return GenieFormScaffold(
+      showLogo: true,
       title: 'Register your business',
       subtitle: 'You need a genie merchant confirmation code to continue.',
       primaryAction: FilledButton(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../shared/widgets/genie_mark.dart';
+import '../theme/genie_theme.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/onboarding_screen.dart';
@@ -36,11 +38,28 @@ import '../features/wishlists/presentation/add_wishlist_item_screen.dart';
 import '../features/concierge/presentation/import_gift_screen.dart';
 import '../features/wishlists/presentation/wishlist_screen.dart';
 
+/// Shown while the session restores. Mirrors the native launch screen
+/// (android/.../drawable/launch_background.xml): brand violet, white glyph at
+/// 72dp, dead centre — so the hand-off from native to Flutter doesn't flash.
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
   @override
-  Widget build(BuildContext context) =>
-      const Scaffold(body: Center(child: CircularProgressIndicator()));
+  Widget build(BuildContext context) => const Scaffold(
+        backgroundColor: GenieColors.primary,
+        body: Stack(
+          children: [
+            Center(child: GenieMark(size: 72, color: Colors.white)),
+            Align(
+              alignment: Alignment(0, 0.55),
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 final routerProvider = Provider<GoRouter>((ref) {

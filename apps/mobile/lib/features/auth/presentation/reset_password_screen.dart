@@ -53,6 +53,7 @@ class _State extends ConsumerState<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     if (_done) {
       return GenieFormScaffold(
+        showLogo: true,
         title: 'Password reset',
         subtitle: 'You can now sign in with your new password.',
         primaryAction: FilledButton(
@@ -64,6 +65,7 @@ class _State extends ConsumerState<ResetPasswordScreen> {
     }
 
     return GenieFormScaffold(
+      showLogo: true,
       title: 'Enter your new password',
       subtitle: 'Use the 6-digit code we sent to ${widget.email}.',
       primaryAction: FilledButton(

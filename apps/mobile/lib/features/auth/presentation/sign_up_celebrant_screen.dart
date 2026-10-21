@@ -70,6 +70,7 @@ class _State extends ConsumerState<SignUpCelebrantScreen> {
   @override
   Widget build(BuildContext context) {
     return GenieFormScaffold(
+      showLogo: true,
       title: 'Create your account',
       subtitle: 'You can start building wishlists straight away.',
       primaryAction: FilledButton(

@@ -46,6 +46,7 @@ class _State extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return GenieFormScaffold(
+      showLogo: true,
       title: 'Reset your password',
       subtitle: "Enter your email and we'll send you a reset code.",
       primaryAction: FilledButton(

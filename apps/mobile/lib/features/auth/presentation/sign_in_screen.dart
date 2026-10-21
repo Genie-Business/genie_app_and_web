@@ -50,6 +50,7 @@ class _State extends ConsumerState<SignInScreen> {
     final biometricAvailable = ref.watch(authControllerProvider).biometricAvailable;
 
     return GenieFormScaffold(
+      showLogo: true,
       title: 'Welcome back',
       subtitle: 'Sign in to manage your events and wishlists.',
       primaryAction: Column(

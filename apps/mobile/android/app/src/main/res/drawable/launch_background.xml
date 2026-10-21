@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- genie launch screen: brand violet with the white genie glyph, centred.
+     The glyph is 72dp tall (drawable-*dpi/launch_glyph.png) and the Flutter
+     splash (_SplashScreen in lib/app/router.dart) draws the same thing, so the
+     hand-off to Flutter is seamless. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#6D28D9" />
+        </shape>
+    </item>
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@drawable/launch_glyph" />
+    </item>
 </layer-list>

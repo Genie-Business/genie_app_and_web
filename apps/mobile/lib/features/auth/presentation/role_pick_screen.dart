@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/widgets/genie_mark.dart';
 import '../../../theme/genie_theme.dart';
 
 class RolePickScreen extends StatelessWidget {
@@ -9,7 +10,7 @@ class RolePickScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(title: const GenieLogo(height: 22), centerTitle: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

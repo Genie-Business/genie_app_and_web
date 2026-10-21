@@ -84,6 +84,7 @@ class _State extends ConsumerState<VerifyOtpScreen> {
         ref.watch(authControllerProvider).status == AuthStatus.pendingVerification;
 
     return GenieFormScaffold(
+      showLogo: true,
       title: isResuming ? 'Finish signing up' : 'Verify your email',
       subtitle: 'Enter the 6-digit code we sent to ${widget.email}.',
       primaryAction: FilledButton(

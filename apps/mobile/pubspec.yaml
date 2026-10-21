@@ -38,6 +38,24 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  # Generates the launcher icons from assets/icon/ (config below). Run
+  # `dart run flutter_launcher_icons` after `flutter create` on a fresh checkout
+  # — iOS is regenerated, so its icons aren't committed.
+  flutter_launcher_icons: ^0.14.4
+
+# App icon: the genie glyph in white on brand violet #6D28D9 (matches the web
+# icon). Android gets an adaptive icon (+ Android 13 themed/monochrome layer)
+# and a rounded legacy fallback; iOS gets the full-bleed square.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path_android: "assets/icon/icon-android.png"
+  image_path_ios: "assets/icon/icon-ios.png"
+  adaptive_icon_background: "#6D28D9"
+  adaptive_icon_foreground: "assets/icon/icon-foreground.png"
+  adaptive_icon_monochrome: "assets/icon/icon-foreground.png"
+  remove_alpha_ios: true
+  min_sdk_android: 24
 
 flutter:
   uses-material-design: true

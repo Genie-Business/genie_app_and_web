@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/genie_theme.dart';
+import 'genie_mark.dart';
 
 /// A form-friendly scaffold: title, optional subtitle, scrollable body, and a
 /// pinned primary action at the bottom.
@@ -12,6 +13,7 @@ class GenieFormScaffold extends StatelessWidget {
     this.subtitle,
     this.primaryAction,
     this.showBack = true,
+    this.showLogo = false,
   });
 
   final String title;
@@ -20,10 +22,17 @@ class GenieFormScaffold extends StatelessWidget {
   final Widget? primaryAction;
   final bool showBack;
 
+  /// Put the genie logo in the app bar (used across the signed-out auth flow).
+  final bool showLogo;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(automaticallyImplyLeading: showBack),
+      appBar: AppBar(
+        automaticallyImplyLeading: showBack,
+        title: showLogo ? const GenieLogo(height: 22) : null,
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
