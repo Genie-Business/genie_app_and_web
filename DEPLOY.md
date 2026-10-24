@@ -1,136 +1,117 @@
 # Deploying genie
 
-Two Vercel projects, both from this one repo, each with a different **Root
-Directory**:
+**One Vercel project**, `genie-app-and-web-landing`, **Root Directory `apps/landing`**, serves everything:
 
-| Project | Root Directory | What it serves |
-|---|---|---|
-| `genie-app-and-web-api` | `apps/api` | the REST API (`/v1/*`) + the browser test console (`/console`) |
-| `genie-app-and-web-landing` | `apps/landing` | **two hostnames from one app:** the public site (marketing pages, wishlist pages, legal) and the admin portal on its own host (`admin.getgenie.gift`) |
+| What | Where |
+|---|---|
+| Marketing site (3D pages), wishlist pages, legal | `https://www.getgenie.gift` (the apex `getgenie.gift` redirects to `www`) |
+| REST API (`/v1/*`) | the same host — `https://www.getgenie.gift/v1/health`, `/v1/openapi.json`, … |
+| Admin portal | `https://admin.getgenie.gift` (its own hostname, same app) |
 
-The database is the existing **Neon** project (`ep-withered-flower-zah9wya9`,
-`eu-west-2`). Migrations are run from a laptop (`npm run db:migrate` /
-`migrate deploy`), **not** from Vercel.
+The database is the **Neon** project (`ep-withered-flower-zah9wya9`, `eu-west-2`). Migrations are run
+from a laptop (`npm run db:migrate` / `migrate deploy`), **not** from Vercel.
+
+`apps/landing/vercel.json` builds with `npm run db:generate && turbo run build --filter=@genie/landing`.
+Because the landing app depends on `@genie/api`, turbo first bundles the Hono API (`apps/api` →
+`dist/vercel.mjs`), then `next build` serves it from `src/app/v1/[[...route]]/route.ts`.
+
+How the three surfaces share one app (`apps/landing/src/middleware.ts`):
+
+- **Public host** (anything not in `ADMIN_HOSTS`): `/`, `/product`, `/team` (static 3D pages in
+  `public/site`, see `apps/landing/SITE.md`), `/w/[id]`, `/join`, `/privacy`, `/terms`, `/api/waitlist`,
+  and `/v1/*` (the API, which sets its own tight security headers). `/admin/*` is a 404 here.
+- **Admin host** (`ADMIN_HOSTS`): every path is rewritten under the internal `/admin` route and signed-out
+  visitors are sent to `/login`. Own CSP, `noindex`, and a host-only session cookie.
 
 ---
 
-## genie-api
-
-### 1. Link the project
-
-Either the CLI, or Vercel dashboard → *Add New… → Project* → import
-`Genie-Business/genie_app_and_web` → set **Root Directory** to `apps/api`.
-`apps/api/vercel.json` already sets the build & install commands and routes all
-paths to the Hono function.
-
-### 2. Environment variables
-
-Add these under **Settings → Environment Variables** (all environments).
-Generate the two JWT secrets fresh — do **not** reuse anything:
-
-```bash
-# run this twice, once per secret
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-```
+## Environment variables (Settings → Environment Variables, **Production**)
 
 | Name | Value | Notes |
 |---|---|---|
-| `DATABASE_URL` | Neon **pooled** URL — the `-pooler` host, with `?sslmode=require&pgbouncer=true&connect_timeout=15` | serverless functions must use the pooler |
-| `DIRECT_URL` | Neon **direct** URL — no `-pooler`, `?sslmode=require` | |
-| `JWT_ACCESS_SECRET` | (generated) | ≥ 16 chars — 48+ random bytes strongly preferred |
-| `JWT_REFRESH_SECRET` | (generated, different) | ≥ 16 chars |
-| `APP_ENV` | **`production`** | hardened: no `/console`, no OTP echo. Use `preview` only for a throwaway environment. |
-| `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet |
+| `DATABASE_URL` | Neon **pooled** URL (`-pooler` host, `?sslmode=require`) | used by the API and the admin portal |
+| `DIRECT_URL` | Neon **direct** URL (no `-pooler`) | |
+| `JWT_ACCESS_SECRET` | 48+ random bytes | `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` — rotating it signs everyone out |
+| `JWT_REFRESH_SECRET` | a different 48+ random bytes | |
+| `ADMIN_SESSION_SECRET` | 32+ random chars | the admin portal refuses to run in production without it |
+| `ADMIN_HOSTS` | `admin.getgenie.gift` | comma-separated hostnames that serve the admin instead of the public site |
+| `APP_ENV` | `production` | hardened: no `/console`, no OTP echo |
+| `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet (`anchor` + `ANCHOR_KEY` + `ANCHOR_WEBHOOK_SECRET` to enable) |
 | `KYC_PROVIDER` | `mock` | |
 | `PUSH_PROVIDER` | `log` | no FCM yet |
-| `RESEND_API_KEY` | your Resend key | **required** once `APP_ENV=production` — otherwise no one can verify their email |
-| `EMAIL_FROM` | `genie <onboarding@resend.dev>` | Resend's shared sender only delivers to your own address; verify `genieapps.co` for real users |
-| `APP_PUBLIC_URL` | landing URL (default is already correct) | wishlist + referral links |
-| `CORS_ORIGINS` | *(leave unset)* | defaults to the landing + admin origins; the mobile app sends no Origin and is unaffected |
-| `OTP_ECHO_EMAILS` | *(optional)* `you@x.com,tester@y.com` | echoes the OTP **only** for these exact addresses, even in production — a safe way to run a tiny closed beta before Resend has a verified domain. Never put a real user's address here. |
-| `ADMIN_SESSION_SECRET` (admin project) | 32+ random chars | the admin app now **refuses to start** in production without it |
+| `RESEND_API_KEY` | your Resend key | **required** in production — otherwise nobody can verify their email |
+| `EMAIL_FROM` | `genie <onboarding@resend.dev>` | Resend's shared sender only delivers to your own address; verify a domain for real users |
+| `BLOB_READ_WRITE_TOKEN` | from a Vercel Blob store | connect the store under the project's *Storage* tab |
+| `APP_PUBLIC_URL` | `https://www.getgenie.gift` | wishlist + referral links |
+| `NEXT_PUBLIC_SITE_URL` | `https://www.getgenie.gift` | drives `robots.txt`, `sitemap.xml`, OG tags |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://www.getgenie.gift` | the site calls the API on its own origin; `NEXT_PUBLIC_*` values are baked in at build, so **redeploy** after changing |
+| `CORS_ORIGINS` | *(leave unset)* | defaults to the site, admin and landing `vercel.app` origins; the mobile app sends no Origin and is unaffected |
+| `OTP_ECHO_EMAILS` | *(optional)* `you@x.com,tester@y.com` | echoes the OTP **only** for these exact addresses, even in production — for a tiny closed beta before Resend has a verified domain |
 
-> **Do not set `OTP_DEBUG_ECHO` anywhere that is reachable from the internet.**
-> It echoes every OTP to the caller, which turns "forgot password" into an
-> account-takeover. It exists for a local, offline dev machine only.
+> **Do not set `OTP_DEBUG_ECHO` anywhere internet-reachable.** It echoes every OTP to the caller, which
+> turns "forgot password" into an account takeover. It exists for a local, offline dev machine only.
 
-`NODE_ENV` is set to `production` by Vercel automatically — don't add it.
+`NODE_ENV` is set to `production` by Vercel — don't add it. Environment variables only apply to **new**
+deployments, so redeploy after adding or changing any.
 
-### 3. Resend (so signup OTPs actually arrive)
+## Domains (Settings → Domains)
 
-> On a hardened deploy (`APP_ENV=production`) the OTP is never echoed. Set up
-> Resend, or list a couple of tester addresses in `OTP_ECHO_EMAILS`, so email
-> verification and password reset can complete.
+`www.getgenie.gift` (primary), `getgenie.gift` (redirects to www) and `admin.getgenie.gift`. DNS lives at
+the registrar (Namecheap): `www` and `admin` are CNAMEs to `cname.vercel-dns.com`, the apex is an A record
+Vercel shows you.
 
-1. Sign up at <https://resend.com> (free: 100/day).
-2. **API Keys → Create** → copy into `RESEND_API_KEY`.
-3. Without a verified domain you can only send to the address you signed up
-   with — fine for testing on your own phone. Use
+## Resend (so signup OTPs actually arrive)
+
+On a hardened deploy (`APP_ENV=production`) the OTP is never echoed. Set up Resend, or list a couple of
+tester addresses in `OTP_ECHO_EMAILS`, so email verification and password reset can complete.
+
+1. Sign up at <https://resend.com> (free: 100/day), **API Keys → Create** → `RESEND_API_KEY`.
+2. Without a verified domain you can only send to the address you signed up with. Use
    `EMAIL_FROM=genie <onboarding@resend.dev>`.
-4. To send to any address later: **Domains → Add** `genieapps.co`, add the DNS
-   records, then `EMAIL_FROM=genie <no-reply@genieapps.co>`.
+3. To send to anyone: **Domains → Add** your domain, add the DNS records, then
+   `EMAIL_FROM=genie <no-reply@yourdomain>`.
 
-### 4. Deploy & verify
-
-Push to `main` (or *Redeploy* in the dashboard). Auto-deploys land ~40s
-after a push. Then:
+## Verify a deploy
 
 ```bash
-curl https://genie-app-and-web-api.vercel.app/v1/health
-# {"data":{"status":"ok","env":"preview","db":"up",...}}
+curl https://www.getgenie.gift/v1/health
+# {"data":{"status":"ok","env":"production","db":"up",...}}
 ```
 
-Open `https://genie-app-and-web-api.vercel.app/console` to poke the live API.
+- `https://www.getgenie.gift/` serves the 3D home page; `/admin` is a 404.
+- `https://admin.getgenie.gift/` redirects to `/login`; after signing in the dashboard renders.
+- Submit the waitlist form and confirm a `WaitlistSignup` row (`npm run db:studio`).
 
-> **Gotcha:** the Vercel function entry (`apps/api/api/index.ts`) MUST
-> default-export `{ fetch }`, not a bare function. A bare function is called
-> with the Node `(req, res)` signature, the returned `Response` is dropped,
-> and every request hangs to a 60s `FUNCTION_INVOCATION_TIMEOUT`.
+## Point the mobile app at it
 
-### 5. Point the app at it  ✅ done 2026-08-30
+- Repo **Settings → Secrets and variables → Actions → Variables**: `API_BASE_URL` = `https://www.getgenie.gift`.
+- `.vscode/launch.json` and `apps/mobile/lib/core/env.dart` default to it too. **Rebuild the app** — builds made
+  before the API moved still point at the retired `genie-app-and-web-api.vercel.app`.
 
-- Repo **Settings → Secrets and variables → Actions → Variables**:
-  `API_BASE_URL` = `https://genie-app-and-web-api.vercel.app` (set).
-- `.vscode/launch.json` + `apps/mobile/lib/core/env.dart` default already
-  point there.
+## First admin
 
----
+From `packages/db` on a laptop:
 
-## genie-app-and-web-landing  (public site + admin portal)
+```bash
+node --env-file=../../.env scripts/create-admin.mjs --email you@example.com --name "You" --role SUPER_ADMIN
+```
 
-**Root Directory** `apps/landing`. `apps/landing/vercel.json` runs `db:generate`, then
-`turbo run build --filter=@genie/landing`.
+After that, add people from the portal's **Team** page.
 
-One Next.js app answers on two hostnames (`src/middleware.ts`):
+## Local development
 
-- **Public host** (`genie-app-and-web-landing.vercel.app`, or your marketing domain): `/`, `/product`,
-  `/team` (the 3D static pages — see `apps/landing/SITE.md`), `/w/[id]`, `/join`, `/privacy`,
-  `/terms`, `/api/waitlist`. `/admin/*` is a 404 here.
-- **Admin host** (`ADMIN_HOSTS`, default `admin.getgenie.gift`): every path is rewritten under the
-  internal `/admin` route; signed-out visitors are sent to `/login`. Admin gets its own CSP,
-  `noindex`, and a host-only session cookie that the public host never sees.
+```bash
+npm run dev --workspace @genie/api        # API on http://localhost:8787 (tsx watch, with the /console test UI)
+npm run dev --workspace @genie/landing    # site on http://localhost:3000, admin on http://admin.localhost:3000
+```
 
-| Name | Value |
-|---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | `https://genie-app-and-web-api.vercel.app` |
-| `NEXT_PUBLIC_SITE_URL` | the public site's own URL (drives `robots.txt`, `sitemap.xml`, OG tags) |
-| `DATABASE_URL` | Neon URL for the admin portal's Prisma client (the direct host works fine — it's low traffic) |
-| `DIRECT_URL` | Neon **direct** URL |
-| `ADMIN_SESSION_SECRET` | 32+ random chars: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` — the app **refuses to start the admin** in production without it |
-| `ADMIN_HOSTS` | comma-separated admin hostnames, e.g. `admin.getgenie.gift` (anything else is the public site) |
+Put `DATABASE_URL`, `DIRECT_URL`, `ADMIN_SESSION_SECRET` (and the JWT secrets if you want `/v1` served by the
+landing app locally) in `apps/landing/.env.local` — see `.env.local.example`. By default the site talks to the
+standalone API on `:8787` (`NEXT_PUBLIC_API_BASE_URL`).
 
-**Admin domain:** `admin.getgenie.gift` is added to this project. `getgenie.gift`'s DNS lives at the
-registrar (Namecheap), so create one record there: **CNAME**, host `admin`, value `cname.vercel-dns.com`. Until the domain resolves you can test by adding the
-project's preview hostname to `ADMIN_HOSTS`.
+## Going back to a separate API project
 
-`NODE_ENV=production` is automatic. Create the first admin from a laptop with
-`node --env-file=../../.env scripts/create-admin.mjs --email you@genieapps.co --name "You" --role SUPER_ADMIN`
-(run from `packages/db`); after that add people from the portal's **Team** page.
-
-Verify: the public host serves the 3D home page and `/admin` 404s; the admin host redirects to
-`/login`, and after signing in the dashboard renders.
-
-**Local dev:** `npm run dev --workspace @genie/landing` → public site at http://localhost:3000,
-admin at http://admin.localhost:3000 (browsers resolve `*.localhost` to your machine). Put
-`DATABASE_URL`, `DIRECT_URL` and `ADMIN_SESSION_SECRET` in `apps/landing/.env.local`
-(see `.env.local.example`).
+`apps/api/vercel.json` and `apps/api/api/index.ts` still describe a standalone API deployment (Root Directory
+`apps/api`). It isn't used now, but it's the way to split the API out again if it ever needs its own scaling,
+limits or domain: create a project from `apps/api`, set the same variables, and point `NEXT_PUBLIC_API_BASE_URL`
+and the mobile `API_BASE_URL` at it.

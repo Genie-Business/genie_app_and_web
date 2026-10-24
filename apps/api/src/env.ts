@@ -57,7 +57,7 @@ const schema = z.object({
    * links. Defaults to the deployed landing site so a shared link works out of
    * the box; override for local dev (`APP_PUBLIC_URL=http://localhost:3000`).
    */
-  APP_PUBLIC_URL: z.string().url().default('https://genie-app-and-web-landing.vercel.app'),
+  APP_PUBLIC_URL: z.string().url().default('https://www.getgenie.gift'),
   /**
    * Comma-separated allowed browser origins. Defaults to the genie web
    * surfaces; the mobile app sends no Origin so CORS never applies to it.
@@ -66,7 +66,7 @@ const schema = z.object({
   CORS_ORIGINS: z
     .string()
     .default(
-      'https://genie-app-and-web-landing.vercel.app,https://admin.getgenie.gift',
+      'https://www.getgenie.gift,https://getgenie.gift,https://genie-app-and-web-landing.vercel.app,https://admin.getgenie.gift',
     ),
 });
 

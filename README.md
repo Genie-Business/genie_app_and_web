@@ -11,7 +11,7 @@ merchants list, fulfil and get settled. Payments run through **Anchor**.
 
 | Path | What | Deploys to |
 |---|---|---|
-| `apps/api` | Hono + TypeScript API | Vercel (functions) |
+| `apps/api` | Hono + TypeScript API (bundled into the landing app and served at `/v1/*`) | Vercel, via `apps/landing` |
 | `apps/landing` | Next.js: the public site (3D marketing pages, wishlist pages) **and** the admin portal, on its own hostname | Vercel |
 | `apps/mobile` | Flutter app | App Store / Play Store |
 | `packages/db` | Prisma schema, client, migrations, seed | — |
@@ -100,7 +100,7 @@ API integration suites auto-skip when `DATABASE_URL` is unset/unreachable.
 
 ## Deployment
 
-Two Vercel projects, root directories `apps/api` and `apps/landing` (the landing project also serves the admin portal on its own hostname — see `DEPLOY.md`).
+One Vercel project (`apps/landing`) serves the site, the API (`/v1/*`) and the admin portal (its own hostname) — see `DEPLOY.md`.
 Env vars are listed in `.env.example`; set the same set (minus dev defaults) in
 each project. Provision **Neon** Postgres and **Vercel Blob**. Point the mobile
 app's `API_BASE_URL` at the deployed API. Enable Anchor by setting

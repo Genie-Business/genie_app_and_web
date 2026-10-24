@@ -7,7 +7,7 @@
 class Env {
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://genie-app-and-web-api.vercel.app',
+    defaultValue: 'https://www.getgenie.gift',
   );
 
   static const String appEnv = String.fromEnvironment(

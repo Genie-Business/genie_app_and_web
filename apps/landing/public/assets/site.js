@@ -11,7 +11,7 @@ const STORES = {
   apk: '',      // optional direct Android download, e.g. '/assets/genie.apk'
 };
 
-const WAITLIST = ['/api/waitlist', 'https://genie-app-and-web-api.vercel.app/v1/waitlist'];
+const WAITLIST = ['/api/waitlist'];
 
 const canvas = document.getElementById('bee');
 const secs = [...document.querySelectorAll('main > section')];

@@ -93,6 +93,10 @@ const nextConfig = {
     '@prisma/adapter-neon',
     '@neondatabase/serverless',
     'ws',
+    // The API bundle (@genie/api) keeps these external — pino spawns a worker thread for transports.
+    'pino',
+    'pino-pretty',
+    'thread-stream',
   ],
   outputFileTracingRoot: new URL('../../', import.meta.url).pathname,
 
@@ -110,7 +114,8 @@ const nextConfig = {
     return [{ source: '/faq', destination: '/product#faq', permanent: true }];
   },
   headers: async () => [
-    { source: '/(.*)', missing: onAdminHost, headers: siteHeaders },
+    // /v1/* is the JSON API, which sets its own (much tighter) security headers.
+    { source: '/((?!v1/).*)', missing: onAdminHost, headers: siteHeaders },
     { source: '/(.*)', has: onAdminHost, headers: adminHeaders },
     {
       source: '/assets/(.*)',
