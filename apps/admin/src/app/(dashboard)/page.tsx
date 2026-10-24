@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { prisma } from '@genie/db';
 import { can, guard, ROLE_LABEL, type AdminRoleName } from '@/lib/rbac';
+import { CONCIERGE_EMAIL } from '@/lib/constants';
 import { formatKobo, formatKoboCompact, fmtDateTime, fullName, titleCase } from '@/lib/format';
 import { A, Empty, Forbidden, PageHeader, Pill, SectionTitle, Stat, StatusPill } from '@/components/ui';
 import { BarChart } from '@/components/bar-chart';
 
 export const dynamic = 'force-dynamic';
 
-const CONCIERGE_EMAIL = 'concierge@genieapps.co';
 const DAY = 86_400_000;
 
 /** One failing query (e.g. a table that hasn't been migrated yet) shouldn't blank the dashboard. */
@@ -244,10 +244,10 @@ export default async function DashboardPage() {
         <>
           <SectionTitle>Money</SectionTitle>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Order volume" value={formatKoboCompact(paidOrders?._sum.totalKobo)} hint={`${paidOrders?._count ?? 0} paid orders`} href="/orders" />
-            <Stat label="Fees collected" value={formatKoboCompact(paidOrders?._sum.feeKobo)} hint="gifter-side fees" href="/transactions" />
-            <Stat label="Commission" value={formatKoboCompact(paidOrders?._sum.commissionKobo)} hint="merchant-side" href="/fees" />
-            <Stat label="Gifts sent" value={giftsPaid.toLocaleString('en-NG')} hint={paidOrders ? formatKobo(paidOrders._sum.totalKobo) : undefined} />
+            <Stat label="Order volume" value={formatKoboCompact(paidOrders?._sum.totalKobo ?? 0)} hint={`${paidOrders?._count ?? 0} paid orders`} href="/orders" />
+            <Stat label="Fees collected" value={formatKoboCompact(paidOrders?._sum.feeKobo ?? 0)} hint="gifter-side fees" href="/transactions" />
+            <Stat label="Commission" value={formatKoboCompact(paidOrders?._sum.commissionKobo ?? 0)} hint="merchant-side" href="/fees" />
+            <Stat label="Gifts sent" value={giftsPaid.toLocaleString('en-NG')} hint={formatKobo(paidOrders?._sum.totalKobo ?? 0)} />
           </div>
         </>
       )}

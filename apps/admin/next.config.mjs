@@ -41,7 +41,10 @@ const nextConfig = {
         { key: 'X-Frame-Options', value: 'DENY' },
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
-        { key: 'Referrer-Policy', value: 'no-referrer' },
+        // Not `no-referrer`: browsers then send `Origin: null` on form posts and Next's
+        // Server Actions handler throws on it (new URL('null')), 500ing every action incl. sign-in.
+        // `same-origin` still sends nothing to other sites.
+        { key: 'Referrer-Policy', value: 'same-origin' },
         { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
         {
           key: 'Strict-Transport-Security',

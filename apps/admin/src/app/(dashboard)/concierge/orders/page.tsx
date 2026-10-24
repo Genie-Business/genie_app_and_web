@@ -2,12 +2,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { prisma, type DeliveryStatus } from '@genie/db';
 import { audit } from '@/lib/audit';
+import { CONCIERGE_EMAIL } from '@/lib/constants';
 import { guard, guardWrite } from '@/lib/rbac';
 import { Forbidden } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
-const CONCIERGE_EMAIL = 'concierge@genieapps.co';
 
 function formatKobo(kobo: bigint): string {
   return `₦${(Number(kobo) / 100).toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;

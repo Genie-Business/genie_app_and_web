@@ -72,7 +72,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         <PageHeader title="Transactions" subtitle="Money moving through genie." />
         {tabs}
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <Stat label="Awaiting payout" value={formatKoboCompact(owed._sum.netAmountKobo)} hint="pending + processing" />
+          <Stat label="Awaiting payout" value={formatKoboCompact(owed._sum.netAmountKobo ?? 0)} hint="pending + processing" />
         </div>
         <FilterBar
           q={q}
@@ -146,8 +146,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
       <PageHeader title="Transactions" subtitle="Money moving through genie." />
       {tabs}
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Stat label="Completed volume" value={formatKoboCompact(completed._sum.amountKobo)} hint={`${completed._count} transactions`} />
-        <Stat label="Fees on completed" value={formatKoboCompact(completed._sum.feeKobo)} />
+        <Stat label="Completed volume" value={formatKoboCompact(completed._sum.amountKobo ?? 0)} hint={`${completed._count} transactions`} />
+        <Stat label="Fees on completed" value={formatKoboCompact(completed._sum.feeKobo ?? 0)} />
       </div>
       <FilterBar
         q={q}
