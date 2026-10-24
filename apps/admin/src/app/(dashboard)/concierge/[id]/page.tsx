@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { prisma, type DeliveryOption } from '@genie/db';
-import { canAccessConcierge, getSession } from '@/lib/session';
+import { audit } from '@/lib/audit';
+import { guard, guardWrite } from '@/lib/rbac';
+import { Forbidden } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,19 +20,20 @@ function parseDeliveryOption(v: FormDataEntryValue | null): DeliveryOption {
 
 async function markInReview(id: string) {
   'use server';
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) return;
-  await prisma.conciergeRequest.updateMany({
+  const session = await guardWrite('concierge');
+  if (!session) return;
+  const { count } = await prisma.conciergeRequest.updateMany({
     where: { id, status: 'NEW' },
     data: { status: 'IN_REVIEW', claimedByAdminId: session.sub },
   });
+  if (count) await audit(session, 'concierge.claim', 'ConciergeRequest', id);
   redirect(`/concierge/${id}`);
 }
 
 async function activate(id: string, formData: FormData) {
   'use server';
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) return;
+  const session = await guardWrite('concierge');
+  if (!session) return;
 
   const request = await prisma.conciergeRequest.findUniqueOrThrow({ where: { id } });
   if (request.status !== 'NEW' && request.status !== 'IN_REVIEW') return;
@@ -94,14 +97,17 @@ async function activate(id: string, formData: FormData) {
       },
     });
   });
+  await audit(session, 'concierge.activate', 'ConciergeRequest', id, {
+    after: { priceKobo, stock, categoryId, productId: request.productId },
+  });
 
   redirect('/concierge');
 }
 
 async function reject(id: string, formData: FormData) {
   'use server';
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) return;
+  const session = await guardWrite('concierge');
+  if (!session) return;
   const reason = String(formData.get('reason') ?? '').trim();
   if (!reason) throw new Error('Give a reason so the celebrant knows why.');
 
@@ -127,15 +133,14 @@ async function reject(id: string, formData: FormData) {
       },
     });
   });
+  await audit(session, 'concierge.reject', 'ConciergeRequest', id, { after: { reason } });
 
   redirect('/concierge');
 }
 
 export default async function ConciergeReviewPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) {
-    return <div className="card text-sm text-error-fg">You don&apos;t have access to the concierge section.</div>;
-  }
+  const session = await guard('concierge');
+  if (!session) return <Forbidden />;
   const { id } = await params;
 
   const request = await prisma.conciergeRequest.findUnique({

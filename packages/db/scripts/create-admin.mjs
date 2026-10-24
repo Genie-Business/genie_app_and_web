@@ -1,7 +1,7 @@
 /**
- * Create (or update the role of) an admin-portal account. There's no
- * admin-user-management UI yet, so this is the only way to provision one —
- * in particular the first CONCIERGE account for the import-a-gift service.
+ * Create (or update the role of) an admin-portal account. Use this to bootstrap
+ * the very first SUPER_ADMIN; after that, admins are added from the portal's
+ * Team page (which also handles roles, resets and deactivation).
  *
  * Usage (from packages/db, or anywhere with DATABASE_URL/DIRECT_URL set):
  *   node --env-file=../../.env scripts/create-admin.mjs --email you@genieapps.co --name "Your Name" --role CONCIERGE

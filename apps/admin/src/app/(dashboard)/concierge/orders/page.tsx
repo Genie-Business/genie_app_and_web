@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { prisma, type DeliveryStatus } from '@genie/db';
-import { canAccessConcierge, getSession } from '@/lib/session';
+import { audit } from '@/lib/audit';
+import { guard, guardWrite } from '@/lib/rbac';
+import { Forbidden } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +18,8 @@ function formatKobo(kobo: bigint): string {
  *  layer with apps/api), matching how every other admin page already works. */
 async function updateDelivery(orderId: string, status: DeliveryStatus) {
   'use server';
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) return;
+  const session = await guardWrite('concierge');
+  if (!session) return;
 
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { delivery: true, gift: true } });
   if (!order) return;
@@ -61,15 +63,17 @@ async function updateDelivery(orderId: string, status: DeliveryStatus) {
       });
     }
   });
+  await audit(session, `concierge.delivery.${status.toLowerCase()}`, 'Order', orderId, {
+    before: { delivery: order.delivery?.status ?? null },
+    after: { delivery: status },
+  });
 
   redirect('/concierge/orders');
 }
 
 export default async function ConciergeOrdersPage() {
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) {
-    return <div className="card text-sm text-error-fg">You don&apos;t have access to the concierge section.</div>;
-  }
+  const session = await guard('concierge');
+  if (!session) return <Forbidden />;
 
   const concierge = await prisma.user.findUnique({ where: { email: CONCIERGE_EMAIL }, select: { id: true } });
   const orders = concierge

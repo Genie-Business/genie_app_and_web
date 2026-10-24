@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@genie/db';
-import { canAccessConcierge, getSession } from '@/lib/session';
+import { guard } from '@/lib/rbac';
+import { Forbidden } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,12 +28,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function ConciergePage() {
-  const session = await getSession();
-  if (!session || !canAccessConcierge(session.role)) {
-    return (
-      <div className="card text-sm text-error-fg">You don&apos;t have access to the concierge section.</div>
-    );
-  }
+  const session = await guard('concierge');
+  if (!session) return <Forbidden />;
 
   const requests = await prisma.conciergeRequest.findMany({
     orderBy: { createdAt: 'desc' },
