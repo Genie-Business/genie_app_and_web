@@ -11,8 +11,7 @@
   "workspaces": [
     "packages/*",
     "apps/api",
-    "apps/landing",
-    "apps/admin"
+    "apps/landing"
   ],
   "scripts": {
     "dev": "turbo run dev",
