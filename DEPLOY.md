@@ -1,13 +1,12 @@
 # Deploying genie
 
-Three Vercel projects, all from this one repo, each with a different **Root
+Two Vercel projects, both from this one repo, each with a different **Root
 Directory**:
 
 | Project | Root Directory | What it serves |
 |---|---|---|
-| `genie-api` | `apps/api` | the REST API (`/v1/*`) + the browser test console (`/console`) |
-| `genie-landing` | `apps/landing` | the marketing / waitlist site |
-| `genie-admin` | `apps/admin` | the internal admin portal |
+| `genie-app-and-web-api` | `apps/api` | the REST API (`/v1/*`) + the browser test console (`/console`) |
+| `genie-app-and-web-landing` | `apps/landing` | **two hostnames from one app:** the public site (marketing pages, wishlist pages, legal) and the admin portal on its own host (`admin.genieapps.co`) |
 
 The database is the existing **Neon** project (`ep-withered-flower-zah9wya9`,
 `eu-west-2`). Migrations are run from a laptop (`npm run db:migrate` /
@@ -97,37 +96,41 @@ Open `https://genie-app-and-web-api.vercel.app/console` to poke the live API.
 
 ---
 
-## genie-landing
+## genie-app-and-web-landing  (public site + admin portal)
 
-**Root Directory** `apps/landing`. `apps/landing/vercel.json` sets the build
-(`turbo run build --filter=@genie/landing`). No database access — it proxies
-the waitlist POST to the API.
+**Root Directory** `apps/landing`. `apps/landing/vercel.json` runs `db:generate`, then
+`turbo run build --filter=@genie/landing`.
+
+One Next.js app answers on two hostnames (`src/middleware.ts`):
+
+- **Public host** (`genie-app-and-web-landing.vercel.app`, or your marketing domain): `/`, `/product`,
+  `/team` (the 3D static pages — see `apps/landing/SITE.md`), `/w/[id]`, `/join`, `/privacy`,
+  `/terms`, `/api/waitlist`. `/admin/*` is a 404 here.
+- **Admin host** (`ADMIN_HOSTS`, default `admin.genieapps.co`): every path is rewritten under the
+  internal `/admin` route; signed-out visitors are sent to `/login`. Admin gets its own CSP,
+  `noindex`, and a host-only session cookie that the public host never sees.
 
 | Name | Value |
 |---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | `https://genie-app-and-web-api.vercel.app` |
-| `NEXT_PUBLIC_SITE_URL` | the landing's own URL, e.g. `https://genie-landing.vercel.app` — set after the first deploy, then redeploy (drives `robots.txt`, `sitemap.xml`, OG tags) |
-
-Verify: open the site, submit the waitlist form, confirm a `WaitlistSignup`
-row (`npm run db:studio`). Check `/robots.txt` and `/sitemap.xml`.
-
-## genie-admin
-
-**Root Directory** `apps/admin`. `apps/admin/vercel.json` runs
-`db:generate` then `turbo run build --filter=@genie/admin`. Server-only
-(Prisma via the Neon adapter — no query-engine binary).
-
-| Name | Value |
-|---|---|
-| `DATABASE_URL` | Neon **pooled** URL (same as the API's) |
+| `NEXT_PUBLIC_SITE_URL` | the public site's own URL (drives `robots.txt`, `sitemap.xml`, OG tags) |
+| `DATABASE_URL` | Neon URL for the admin portal's Prisma client (the direct host works fine — it's low traffic) |
 | `DIRECT_URL` | Neon **direct** URL |
-| `ADMIN_SESSION_SECRET` | generate: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
+| `ADMIN_SESSION_SECRET` | 32+ random chars: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` — the app **refuses to start the admin** in production without it |
+| `ADMIN_HOSTS` | comma-separated admin hostnames, e.g. `admin.genieapps.co` (anything else is the public site) |
 
-`NODE_ENV=production` is automatic. Log in at `/login` with the seeded admin
-`admin@genieapps.co` — the password was printed once by `npm run db:seed`.
-Lost it? Re-run the seed with `SEED_ADMIN_PASSWORD=<something>` set (the seed
-leaves an existing admin's password unchanged, so first delete the row or
-set the password via a one-off script).
+**Admin domain:** Vercel → this project → *Settings → Domains* → add `admin.genieapps.co`, then add
+the DNS record Vercel shows at your registrar. Until the domain resolves you can test by adding the
+project's preview hostname to `ADMIN_HOSTS`.
 
-Verify: `/` redirects to `/login` when signed out; after login the dashboard
-shell renders.
+`NODE_ENV=production` is automatic. Create the first admin from a laptop with
+`node --env-file=../../.env scripts/create-admin.mjs --email you@genieapps.co --name "You" --role SUPER_ADMIN`
+(run from `packages/db`); after that add people from the portal's **Team** page.
+
+Verify: the public host serves the 3D home page and `/admin` 404s; the admin host redirects to
+`/login`, and after signing in the dashboard renders.
+
+**Local dev:** `npm run dev --workspace @genie/landing` → public site at http://localhost:3000,
+admin at http://admin.localhost:3000 (browsers resolve `*.localhost` to your machine). Put
+`DATABASE_URL`, `DIRECT_URL` and `ADMIN_SESSION_SECRET` in `apps/landing/.env.local`
+(see `.env.local.example`).

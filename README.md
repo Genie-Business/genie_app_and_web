@@ -12,8 +12,7 @@ merchants list, fulfil and get settled. Payments run through **Anchor**.
 | Path | What | Deploys to |
 |---|---|---|
 | `apps/api` | Hono + TypeScript API | Vercel (functions) |
-| `apps/landing` | Next.js consumer landing page + waitlist | Vercel |
-| `apps/admin` | Next.js admin portal (M1: login + shell) | Vercel |
+| `apps/landing` | Next.js: the public site (3D marketing pages, wishlist pages) **and** the admin portal, on its own hostname | Vercel |
 | `apps/mobile` | Flutter app | App Store / Play Store |
 | `packages/db` | Prisma schema, client, migrations, seed | — |
 | `packages/contracts` | Zod request/response schemas (shared) | — |
@@ -57,8 +56,7 @@ connection strings into `.env`. Docker Postgres also works.
 
 ```bash
 npm run dev   --workspace @genie/api        # http://localhost:8787/v1/health
-npm run dev   --workspace @genie/landing    # http://localhost:3000
-npm run dev   --workspace @genie/admin      # http://localhost:3001
+npm run dev   --workspace @genie/landing    # http://localhost:3000  (admin: http://admin.localhost:3000)
 npm run openapi                             # writes apps/api/openapi.json
 ```
 
@@ -102,7 +100,7 @@ API integration suites auto-skip when `DATABASE_URL` is unset/unreachable.
 
 ## Deployment
 
-Three Vercel projects, root directories `apps/api`, `apps/landing`, `apps/admin`.
+Two Vercel projects, root directories `apps/api` and `apps/landing` (the landing project also serves the admin portal on its own hostname — see `DEPLOY.md`).
 Env vars are listed in `.env.example`; set the same set (minus dev defaults) in
 each project. Provision **Neon** Postgres and **Vercel Blob**. Point the mobile
 app's `API_BASE_URL` at the deployed API. Enable Anchor by setting

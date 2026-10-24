@@ -66,7 +66,7 @@ const schema = z.object({
   CORS_ORIGINS: z
     .string()
     .default(
-      'https://genie-app-and-web-landing.vercel.app,https://genie-app-and-web-admin.vercel.app',
+      'https://genie-app-and-web-landing.vercel.app,https://admin.genieapps.co',
     ),
 });
 

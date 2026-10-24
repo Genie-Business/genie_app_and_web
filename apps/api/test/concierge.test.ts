@@ -99,7 +99,7 @@ d('Concierge service (import a gift)', () => {
     ).data;
 
     // Simulate what the admin portal's Activate action does directly via Prisma
-    // (that flow lives in apps/admin, a separate Next.js app with no API surface).
+    // (that flow lives in the admin portal under apps/landing, which has no API surface).
     const category = await prisma.category.findFirstOrThrow();
     await prisma.$transaction([
       prisma.product.update({
