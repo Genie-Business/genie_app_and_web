@@ -143,8 +143,10 @@ const parseFly = (s) => {
   const [x, y, sc, yaw, pitch, roll] = s.split(',').map(Number);
   return { x, y, s: sc, yaw, pitch, roll };
 };
-const kd = secs.map((s) => parseFly(s.dataset.fly || '0,0,1,120,6,0'));
-const km = secs.map((s) => parseFly(s.dataset.flyM || s.dataset.fly || '0,0,.7,120,6,0'));
+// data-follow (0–1): how strongly the gift tracks the pointer while that section is on screen.
+const followOf = (el) => { const f = parseFloat(el.dataset.follow); return Number.isFinite(f) ? f : .5; };
+const kd = secs.map((s) => ({ ...parseFly(s.dataset.fly || '0,0,1,120,6,0'), f: followOf(s) }));
+const km = secs.map((s) => ({ ...parseFly(s.dataset.flyM || s.dataset.fly || '0,0,.7,120,6,0'), f: followOf(s) }));
 let topsCache = [];
 const measure = () => { topsCache = secs.map((s) => s.getBoundingClientRect().top + scrollY); };
 measure();

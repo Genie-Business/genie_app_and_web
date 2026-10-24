@@ -54,6 +54,9 @@ domain at it. Signups land in the admin dashboard's **Waitlist** page.
 - The three pages are plain HTML. Each `<section>` carries `data-fly="x,y,scale,yaw,pitch,roll"`
   (desktop) and `data-fly-m` (mobile) — where the gift sits while that section is on screen
   (`x`/`y` are fractions of half the viewport; negative `y` is lower).
+- `data-follow` (0–1) on a `<section>` sets how strongly the gift tracks the pointer while that
+  section is on screen: it drifts toward the cursor, turns to face it and leans into it. The
+  hero and download sections use `1`; card-heavy sections use `.3` so it only nudges.
 - **Team**: there are no named people yet. When you have names and photos, replace the
   "teams behind every gift" cards in `team.html` with person cards.
 - **FAQs** live in `product.html` (and the matching `FAQPage` JSON-LD in `<head>` — keep them in sync).
