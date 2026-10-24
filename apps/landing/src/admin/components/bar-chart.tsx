@@ -16,10 +16,13 @@ export function BarChart({
   const plotW = W - padL - padR;
   const plotH = height - padT - padB;
 
-  const peak = Math.max(1, ...data.map((d) => d.value));
-  // A clean top gridline: 4, 5, 10, 20, 50 … rather than an arbitrary max.
-  const mag = 10 ** Math.floor(Math.log10(peak));
-  const top = [1, 2, 5, 10].map((m) => m * mag).find((v) => v >= peak) ?? peak;
+  // Floor of 4 keeps the ticks whole numbers (0 / 2 / 4) on an empty or tiny series.
+  const peak = Math.max(4, ...data.map((d) => d.value));
+  // Top gridline from an all-even "nice" ladder so the midline is a whole number too.
+  const NICE = [4, 6, 8, 10, 12, 16, 20, 30, 40, 60, 80, 100];
+  let scale = 1;
+  while (peak > 100 * scale) scale *= 10;
+  const top = (NICE.find((v) => v * scale >= peak) ?? 100) * scale;
   const slot = plotW / data.length;
   const barW = Math.min(24, slot - 10);
   const y = (v: number) => padT + plotH - (v / top) * plotH;

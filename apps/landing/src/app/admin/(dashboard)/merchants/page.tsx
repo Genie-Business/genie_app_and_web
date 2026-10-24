@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma, type KybStatus, type Prisma } from '@genie/db';
 import { audit } from '@/admin/lib/audit';
 import { canWrite, guard, guardWrite } from '@/admin/lib/rbac';
+import { CONCIERGE_EMAIL } from '@/admin/lib/constants';
 import { PAGE_SIZE, fmtDate, one, pageArgs } from '@/admin/lib/format';
 import {
   A, Empty, FilterBar, Forbidden, PageHeader, Pager, Person, Pill, SectionTitle, StatusPill, Table, Td, Th, Thead, Tr, Field, ghostBtn, dangerBtn,
@@ -12,19 +13,19 @@ export const dynamic = 'force-dynamic';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
-// No 0/O/1/I/L — these get read out over the phone.
+// No 0/O/1/I/L — these get read out over the phone. Same GENIE-XXXXXX shape as the seeded codes.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode(): string {
-  const bytes = randomBytes(8);
-  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+  const bytes = randomBytes(6);
+  return `GENIE-${Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('')}`;
 }
 
 async function setKyb(userId: string, status: KybStatus) {
   'use server';
   const session = await guardWrite('merchants');
   if (!session) return;
-  const profile = await prisma.merchantProfile.findUnique({ where: { userId } });
-  if (!profile || profile.kybStatus === status) return;
+  const profile = await prisma.merchantProfile.findUnique({ where: { userId }, include: { user: { select: { email: true } } } });
+  if (!profile || profile.kybStatus === status || profile.user.email === CONCIERGE_EMAIL) return;
 
   await prisma.$transaction([
     prisma.merchantProfile.update({ where: { userId }, data: { kybStatus: status } }),
@@ -222,7 +223,10 @@ export default async function MerchantsPage({ searchParams }: { searchParams: SP
                   <StatusPill status={m.kybStatus} />
                 </Td>
                 <Td right>
-                  {writer && (
+                  {m.user.email === CONCIERGE_EMAIL ? (
+                    <Pill tone="info">System account</Pill>
+                  ) : (
+                    writer && (
                     <div className="flex justify-end gap-2">
                       {m.kybStatus !== 'VERIFIED' && (
                         <form action={setKyb.bind(null, m.user.id, 'VERIFIED')}>
@@ -235,6 +239,7 @@ export default async function MerchantsPage({ searchParams }: { searchParams: SP
                         </form>
                       )}
                     </div>
+                    )
                   )}
                 </Td>
               </Tr>

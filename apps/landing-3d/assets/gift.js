@@ -223,6 +223,7 @@ export function initGift({ canvas, kd, km, tops }) {
     return {
       x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) + m * -.22, s: lerp(a.s, b.s, t) * (1 + m * .12),
       yaw: lerpAngle(a.yaw, b.yaw, t), pitch: lerp(a.pitch, b.pitch, t), roll: lerp(a.roll, b.roll, t), moving: m,
+      f: lerp(a.f ?? .5, b.f ?? .5, t),
     };
   }
 
@@ -244,6 +245,8 @@ export function initGift({ canvas, kd, km, tops }) {
   let prevX = cur.x, prevY = cur.y;
   const lidBase = parts.lid.position.y;
   const tmp = new THREE.Vector3();
+  const leanE = new THREE.Euler();
+  const leanQ = new THREE.Quaternion();
 
   function frame() {
     requestAnimationFrame(frame);
@@ -255,6 +258,7 @@ export function initGift({ canvas, kd, km, tops }) {
     const k = 1 - Math.exp(-dt * 3.2);
     cur.x = lerp(cur.x, tg.x, k); cur.y = lerp(cur.y, tg.y, k); cur.s = lerp(cur.s, tg.s, k);
     cur.pitch = lerp(cur.pitch, tg.pitch, k); cur.roll = lerp(cur.roll, tg.roll, k);
+    cur.f = lerp(cur.f ?? tg.f, tg.f, k);
     cur.yaw = lerpAngle(cur.yaw, tg.yaw, 1 - Math.exp(-dt * 2.6));
     cur.moving = tg.moving;
     const vx = (cur.x - prevX) / dt, vy = (cur.y - prevY) / dt;
@@ -266,16 +270,21 @@ export function initGift({ canvas, kd, km, tops }) {
     const halfH = Math.tan((camera.fov * DEG) / 2) * camera.position.z;
     const halfW = halfH * camera.aspect;
     const hover = Math.sin(t * 2.1) * .045 + Math.sin(t * 3.7) * .015;
+    // Pointer influence, per section: the gift drifts toward the cursor, turns to face it and leans into it.
+    const fx = mouse.sx * cur.f, fy = mouse.sy * cur.f;
     flight.position.set(
-      cur.x * halfW + Math.sin(t * 1.3) * .04 + mouse.sx * .12,
-      cur.y * halfH + hover * halfH * .5 + mouse.sy * .08,
+      cur.x * halfW + Math.sin(t * 1.3) * .08 + fx * halfW * .2,
+      cur.y * halfH + hover * halfH * 1.1 + fy * halfH * .16,
       Math.sin(t * .9) * .15,
     );
     const S = halfH * 2 * .34 * cur.s; // the gift ≈ a third of the viewport height
     flight.scale.setScalar(S);
-    flight.rotation.set(0, -(cur.yaw + mouse.sx * 12) * DEG, 0);
+    flight.rotation.set(0, (-cur.yaw + fx * 24) * DEG, 0);
+    // camera-space lean: front face tips up toward a high cursor, top leans toward a sideways one
+    leanQ.setFromEuler(leanE.set(-fy * 16 * DEG, 0, -fx * 9 * DEG));
+    flight.quaternion.premultiply(leanQ);
 
-    const pitch = cur.pitch - clamp(vy * 22, -28, 28) + Math.sin(t * 2.1 + 1) * 3 + mouse.sy * 6;
+    const pitch = cur.pitch - clamp(vy * 22, -28, 28) + Math.sin(t * 2.1 + 1) * 3;
     const roll = cur.roll + clamp(vx * 18, -30, 30) + Math.sin(t * 1.7) * 4;
     giftRoot.rotation.set(roll * DEG, 0, pitch * DEG, 'YZX');
 
