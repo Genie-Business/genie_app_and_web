@@ -6,7 +6,7 @@ Directory**:
 | Project | Root Directory | What it serves |
 |---|---|---|
 | `genie-app-and-web-api` | `apps/api` | the REST API (`/v1/*`) + the browser test console (`/console`) |
-| `genie-app-and-web-landing` | `apps/landing` | **two hostnames from one app:** the public site (marketing pages, wishlist pages, legal) and the admin portal on its own host (`admin.genieapps.co`) |
+| `genie-app-and-web-landing` | `apps/landing` | **two hostnames from one app:** the public site (marketing pages, wishlist pages, legal) and the admin portal on its own host (`admin.getgenie.gift`) |
 
 The database is the existing **Neon** project (`ep-withered-flower-zah9wya9`,
 `eu-west-2`). Migrations are run from a laptop (`npm run db:migrate` /
@@ -106,7 +106,7 @@ One Next.js app answers on two hostnames (`src/middleware.ts`):
 - **Public host** (`genie-app-and-web-landing.vercel.app`, or your marketing domain): `/`, `/product`,
   `/team` (the 3D static pages — see `apps/landing/SITE.md`), `/w/[id]`, `/join`, `/privacy`,
   `/terms`, `/api/waitlist`. `/admin/*` is a 404 here.
-- **Admin host** (`ADMIN_HOSTS`, default `admin.genieapps.co`): every path is rewritten under the
+- **Admin host** (`ADMIN_HOSTS`, default `admin.getgenie.gift`): every path is rewritten under the
   internal `/admin` route; signed-out visitors are sent to `/login`. Admin gets its own CSP,
   `noindex`, and a host-only session cookie that the public host never sees.
 
@@ -117,10 +117,10 @@ One Next.js app answers on two hostnames (`src/middleware.ts`):
 | `DATABASE_URL` | Neon URL for the admin portal's Prisma client (the direct host works fine — it's low traffic) |
 | `DIRECT_URL` | Neon **direct** URL |
 | `ADMIN_SESSION_SECRET` | 32+ random chars: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` — the app **refuses to start the admin** in production without it |
-| `ADMIN_HOSTS` | comma-separated admin hostnames, e.g. `admin.genieapps.co` (anything else is the public site) |
+| `ADMIN_HOSTS` | comma-separated admin hostnames, e.g. `admin.getgenie.gift` (anything else is the public site) |
 
-**Admin domain:** Vercel → this project → *Settings → Domains* → add `admin.genieapps.co`, then add
-the DNS record Vercel shows at your registrar. Until the domain resolves you can test by adding the
+**Admin domain:** `admin.getgenie.gift` is added to this project. `getgenie.gift`'s DNS lives at the
+registrar (Namecheap), so create one record there: **CNAME**, host `admin`, value `cname.vercel-dns.com`. Until the domain resolves you can test by adding the
 project's preview hostname to `ADMIN_HOSTS`.
 
 `NODE_ENV=production` is automatic. Create the first admin from a laptop with

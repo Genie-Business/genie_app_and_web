@@ -10,7 +10,7 @@ const apiOrigin = (() => {
 
 // One app serves two sites on two hostnames (see src/middleware.ts): the public site and the
 // admin portal. They get different security headers, so header rules are scoped by host.
-const adminHosts = (process.env.ADMIN_HOSTS ?? 'admin.genieapps.co,admin.localhost')
+const adminHosts = (process.env.ADMIN_HOSTS ?? 'admin.getgenie.gift,admin.localhost')
   .split(',')
   .map((h) => h.trim())
   .filter(Boolean);

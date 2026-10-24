@@ -7,14 +7,14 @@ import type { NextRequest } from 'next/server';
  *  - Public host(s) (the default): the marketing site, wishlist pages, legal pages.
  *    `/admin/*` must not exist here — it's the same code, but only the admin host may reach it.
  *  - Admin host(s) (`ADMIN_HOSTS`, comma-separated): every path is rewritten under `/admin`
- *    (so the browser sees admin.genieapps.co/users while the route is /admin/users), and anyone
+ *    (so the browser sees admin.getgenie.gift/users while the route is /admin/users), and anyone
  *    without a session cookie is bounced to /login. The cookie is host-only, so it never reaches
  *    the public host. Full JWT verification happens in the admin layout (Node runtime).
  */
 const COOKIE = 'genie_admin_session';
 
 function adminHosts(): string[] {
-  return (process.env.ADMIN_HOSTS ?? 'admin.genieapps.co,admin.localhost')
+  return (process.env.ADMIN_HOSTS ?? 'admin.getgenie.gift,admin.localhost')
     .split(',')
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean);
