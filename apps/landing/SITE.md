@@ -23,11 +23,16 @@ public/assets/
 ## Event photos
 
 The decorative cut-outs are event photos in polaroid-style cards (`.snap`), kept in `public/assets/events/`:
-`birthday.jpg`, `celebration.jpg`, `surprise.jpg`, `corporate.jpg` (all ~640px wide JPEGs). Each card is a
-`<figure class="snap …"><img …><figcaption>Label</figcaption></figure>` inside a `.flower.snaps--*` wrapper that carries the
-scroll parallax (`data-speed` / `data-rot`). To change a photo, drop a new file in that folder and edit the `src`, `alt` and
-caption in the page (`public/site/*.html`); `object-position` on the `<img>` controls the crop. There are no wedding or baby
-shower photos yet — add `wedding.jpg` / `baby-shower.jpg` and point a card at them.
+`birthday.jpg`, `celebration.jpg`, `surprise.jpg`, `corporate.jpg`, `wedding.jpg`, `baby-shower.jpg` (~640px wide JPEGs, no
+embedded metadata). Each card is a `<figure class="snap …"><img …><figcaption>Label</figcaption></figure>` inside a
+`.flower.snaps--*` wrapper that carries the scroll parallax (`data-speed` / `data-rot`). To change a photo, drop a new file in
+that folder and edit the `src`, `alt` and caption in the page (`public/site/*.html`); `object-position` on the `<img>` controls
+the crop. Re-encode photos (no EXIF/XMP) and prefer real photography over generated images.
+
+Photo sources: `wedding.jpg` is [Pexels photo 32223290](https://www.pexels.com/photo/traditional-african-wedding-in-kano-nigeria-32223290/)
+and `baby-shower.jpg` is [Pexels photo 5860254](https://www.pexels.com/photo/photo-of-mother-and-pregnant-daughter-during-the-baby-shower-5860254/),
+both under the [Pexels licence](https://www.pexels.com/license/) (free for commercial use, no attribution required; credit is on each
+Pexels page). `birthday`, `celebration` and `surprise` are the app's onboarding photos; `corporate` is the team photo.
 
 ## Point "Get the app" at the real stores
 
