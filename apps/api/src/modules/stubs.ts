@@ -20,7 +20,7 @@ export function mountStubs(app: OpenAPIHono<AppEnv>) {
       path,
       tags: [tag],
       summary,
-      description: 'Planned for a later milestone — currently returns 501.',
+      description: 'Planned for a later milestone. Currently returns 501.',
       'x-genie-status': 'planned',
       responses: {
         501: { description: 'Not implemented yet', content: { 'application/json': { schema: ErrorSchema } } },
@@ -34,7 +34,7 @@ export function mountStubs(app: OpenAPIHono<AppEnv>) {
         {
           error: {
             code: 'not_implemented',
-            message: `${summary} — coming in a later milestone.`,
+            message: `${summary} (coming in a later milestone).`,
             requestId: c.get('requestId'),
           },
         },

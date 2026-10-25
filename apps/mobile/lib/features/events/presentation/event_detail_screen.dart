@@ -84,7 +84,7 @@ class EventDetailScreen extends ConsumerWidget {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: Text('No wishlists yet — add one to start picking gifts.',
+                  child: Text('No wishlists yet. Add one to start picking gifts.',
                       style: TextStyle(color: GenieColors.inkMuted)),
                 ),
               )

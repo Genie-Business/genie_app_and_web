@@ -167,8 +167,8 @@ export async function maybeRewardReferral(refereeUserId: string): Promise<void> 
     await notify({
       userId: referral.referrerId,
       type: 'referral.rewarded',
-      title: 'Referral reward 🎉',
-      body: `${referee?.firstName ?? 'Someone you referred'} made their first gift — ₦${(
+      title: 'Referral reward',
+      body: `${referee?.firstName ?? 'Someone you referred'} made their first gift. ₦${(
         Number(config.referrerKobo) / 100
       ).toLocaleString()} is in your wallet.`,
       payload: { referralId: referral.id },
@@ -186,7 +186,7 @@ export async function maybeRewardReferral(refereeUserId: string): Promise<void> 
     await notify({
       userId: refereeUserId,
       type: 'referral.rewarded',
-      title: 'Welcome bonus 🎁',
+      title: 'Welcome bonus',
       body: `₦${(Number(config.refereeKobo) / 100).toLocaleString()} welcome bonus is in your wallet.`,
       payload: { referralId: referral.id },
     });

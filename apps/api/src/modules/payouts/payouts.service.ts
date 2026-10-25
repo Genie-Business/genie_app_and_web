@@ -60,7 +60,7 @@ export async function withdrawToBank(userId: string, input: Withdraw) {
   if (balance < amount) {
     throw conflict(
       'insufficient_funds',
-      `Your wallet has ₦${(Number(balance) / 100).toLocaleString()} — you can't withdraw ₦${(Number(amount) / 100).toLocaleString()}.`,
+      `Your wallet has ₦${(Number(balance) / 100).toLocaleString()}. You can't withdraw ₦${(Number(amount) / 100).toLocaleString()}.`,
     );
   }
 
@@ -142,7 +142,7 @@ export async function withdrawToBank(userId: string, input: Withdraw) {
     logger.info({ reference, status: result.status }, 'withdrawal sent');
     return { reference, status: result.status, netAmountKobo: amount };
   } catch (err) {
-    logger.error({ err, reference }, 'withdrawal failed — reversing');
+    logger.error({ err, reference }, 'withdrawal failed, reversing');
     await prisma.$transaction(async (tx) => {
       await postEntry(
         {
@@ -152,7 +152,7 @@ export async function withdrawToBank(userId: string, input: Withdraw) {
           reason: 'REVERSAL',
           refType: 'Payout',
           refId: reference,
-          narration: `Reversal — withdrawal ${reference} failed`,
+          narration: `Reversal: withdrawal ${reference} failed`,
           idempotencyKey: `withdrawal-reversal:${reference}`,
         },
         tx,

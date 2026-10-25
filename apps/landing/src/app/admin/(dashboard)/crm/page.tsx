@@ -64,7 +64,7 @@ export default async function CrmPage({ searchParams }: { searchParams: SP }) {
     <div>
       <PageHeader
         title="Waitlist"
-        subtitle="People who asked to be told when genie launches — from the website and landing pages."
+        subtitle="People who asked to be told when genie launches, from the website and landing pages."
         actions={
           <a href={exportHref} className="btn">
             Download CSV

@@ -59,7 +59,7 @@ router.openapi(
       action: 'category.requested',
       metadata: { name: body.name, note: body.note ?? null },
     });
-    return c.json({ data: { message: 'Thanks — we’ll review this category request.' } }, 202);
+    return c.json({ data: { message: 'Thanks, we’ll review this category request.' } }, 202);
   },
 );
 

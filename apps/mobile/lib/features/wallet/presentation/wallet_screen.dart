@@ -97,7 +97,7 @@ class _AddFundsSheetState extends State<_AddFundsSheet> {
         children: [
           Text('Add funds', style: GenieTheme.display(20)),
           const SizedBox(height: 4),
-          const Text('Preview build — no real payment is taken.',
+          const Text('Preview build: no real payment is taken.',
               style: TextStyle(color: GenieColors.inkMuted, fontSize: 12)),
           const SizedBox(height: 16),
           Wrap(

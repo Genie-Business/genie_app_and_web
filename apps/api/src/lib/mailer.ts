@@ -21,7 +21,7 @@ export type Mail = {
 export async function sendMail(mail: Mail): Promise<void> {
   const env = getEnv();
   if (!env.RESEND_API_KEY) {
-    logger.info({ to: mail.to, subject: mail.subject, body: mail.text ?? mail.html }, '📧 [dev mail]');
+    logger.info({ to: mail.to, subject: mail.subject, body: mail.text ?? mail.html }, '[dev mail]');
     return;
   }
   try {
@@ -43,14 +43,14 @@ export async function sendMail(mail: Mail): Promise<void> {
       const detail = await res.text().catch(() => '');
       logger.error(
         { status: res.status, detail, to: mail.to, subject: mail.subject, body: mail.text ?? mail.html },
-        'Resend send failed — mail logged instead',
+        'Resend send failed, mail logged instead',
       );
       return;
     }
   } catch (err) {
     logger.error(
       { err, to: mail.to, subject: mail.subject, body: mail.text ?? mail.html },
-      'Resend request threw — mail logged instead',
+      'Resend request threw, mail logged instead',
     );
   }
 }

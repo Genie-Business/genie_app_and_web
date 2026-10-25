@@ -35,7 +35,7 @@ async function setKyb(userId: string, status: KybStatus) {
         channel: 'IN_APP',
         category: 'SYSTEM',
         type: 'merchant.kyb',
-        title: status === 'VERIFIED' ? 'Your business is verified ✅' : 'Business verification update',
+        title: status === 'VERIFIED' ? 'Your business is verified' : 'Business verification update',
         body:
           status === 'VERIFIED'
             ? 'You can now list products and receive payouts.'
@@ -131,7 +131,7 @@ export default async function MerchantsPage({ searchParams }: { searchParams: SP
 
       <div className="card">
         <h2 className="font-display text-base font-bold">Invite codes</h2>
-        <p className="mt-1 text-sm text-ink-muted">Give a code to a merchant — they enter it as the confirmation code when signing up. Each works once.</p>
+        <p className="mt-1 text-sm text-ink-muted">Give a code to a merchant. They enter it as the confirmation code when signing up. Each works once.</p>
         {writer && (
           <form action={createInvite} className="mt-4 flex flex-wrap items-end gap-3">
             <Field label="How many">

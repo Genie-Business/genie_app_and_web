@@ -41,7 +41,7 @@ function titleFor(action: string, meta: Record<string, unknown> | null): string 
     case 'account.verified':
       return 'You verified your email';
     case 'event.created':
-      return `You created an event${meta?.name ? ` — ${meta.name}` : ''}`;
+      return `You created an event${meta?.name ? `: ${meta.name}` : ''}`;
     case 'event.deleted':
       return 'You deleted an event';
     case 'wallet.funded':

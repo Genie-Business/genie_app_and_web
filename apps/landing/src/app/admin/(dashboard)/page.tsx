@@ -187,7 +187,7 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-3">
             {conciergeQueue.length === 0 ? (
-              <Empty>Nothing waiting — new imports will show up here.</Empty>
+              <Empty>Nothing waiting. New imports will show up here.</Empty>
             ) : (
               <div className="card divide-y divide-[var(--genie-border)] p-0">
                 {conciergeQueue.map((r) => (

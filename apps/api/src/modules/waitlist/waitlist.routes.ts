@@ -31,7 +31,7 @@ router.openapi(
     const email = body.email.toLowerCase();
     const existing = await prisma.waitlistSignup.findUnique({ where: { email } });
     if (existing) {
-      return c.json({ data: { message: "You're already on the list — we'll be in touch." } }, 200);
+      return c.json({ data: { message: "You're already on the list. We'll be in touch." } }, 200);
     }
     await prisma.waitlistSignup.create({
       data: { email, source: body.source, referrer: body.referrer },

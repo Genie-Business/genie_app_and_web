@@ -47,7 +47,7 @@ class _State extends ConsumerState<AddWishlistItemScreen> {
     final requested = await context.push<bool>('/wishlists/${widget.wishlistId}/import');
     if (requested == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Got it — we'll add it to the wishlist once it's priced."),
+        content: Text("Got it, we'll add it to the wishlist once it's priced."),
       ));
     }
   }

@@ -56,7 +56,7 @@ export default async function ConciergePage() {
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-ink-muted">
         Needs review ({needsReview.length})
       </h2>
-      <RequestTable rows={needsReview} empty="Nothing waiting — new imports will show up here." />
+      <RequestTable rows={needsReview} empty="Nothing waiting. New imports will show up here." />
 
       <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-ink-muted">
         History

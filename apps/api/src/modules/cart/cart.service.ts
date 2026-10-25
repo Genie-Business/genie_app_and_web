@@ -168,7 +168,7 @@ export async function checkout(userId: string, method: 'WALLET' | 'BANK_TRANSFER
   }
 
   if (result.status === 'NOTHING_GIFTABLE') {
-    const detail = skipped.map((s) => `“${s.productName}” — ${s.reason.replace(/\.$/, '').toLowerCase()}`).join('; ');
+    const detail = skipped.map((s) => `“${s.productName}”: ${s.reason.replace(/\.$/, '').toLowerCase()}`).join('; ');
     throw conflict(
       'nothing_giftable',
       `None of your cart items can be gifted any more (${detail}). They've been removed from your cart.`,

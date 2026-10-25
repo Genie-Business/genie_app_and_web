@@ -44,7 +44,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         subtitle={
           <>
             {user.role === 'MERCHANT' ? 'Merchant' : 'Celebrant'} · <StatusPill status={user.status} />
-            {user.status === 'DELETED' && user.deletionReason ? ` — ${user.deletionReason}` : ''}
+            {user.status === 'DELETED' && user.deletionReason ? `: ${user.deletionReason}` : ''}
           </>
         }
         actions={
@@ -90,7 +90,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               {user.kycVerifications.map((k) => (
                 <div key={k.id} className="flex gap-3">
                   <dt className="w-28 shrink-0 text-ink-muted">{k.level.replace('_', ' ')}</dt>
-                  <dd><StatusPill status={k.status} /> {k.rejectionReason && <span className="text-xs text-ink-muted">— {k.rejectionReason}</span>}</dd>
+                  <dd><StatusPill status={k.status} /> {k.rejectionReason && <span className="text-xs text-ink-muted">{k.rejectionReason}</span>}</dd>
                 </div>
               ))}
             </dl>

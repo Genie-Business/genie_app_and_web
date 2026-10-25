@@ -341,7 +341,7 @@ export async function refresh(refreshToken: string, device: DeviceCtx) {
       where: { userId: stored.userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
-    logger.warn({ userId: stored.userId, deviceId: stored.deviceId }, 'refresh token reuse — sessions revoked');
+    logger.warn({ userId: stored.userId, deviceId: stored.deviceId }, 'refresh token reuse, sessions revoked');
     throw unauthorized('Your session was ended for security. Please sign in again.');
   }
 
@@ -377,7 +377,7 @@ export async function logout(refreshToken: string): Promise<void> {
 export async function forgotPassword(rawEmail: string): Promise<{ verificationCode?: string }> {
   const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findFirst({ where: { email, status: 'ACTIVE' } });
-  if (!user) return {}; // silent — no enumeration
+  if (!user) return {}; // silent: no enumeration
   const code = await issueOtp(email, 'PASSWORD_RESET', user.id);
   await sendMail({ ...otpEmail(code, 'reset'), to: email });
   return { verificationCode: otpEchoEnabled(email) ? code : undefined };

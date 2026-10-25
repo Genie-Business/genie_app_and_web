@@ -37,7 +37,7 @@ const _slides = [
   _Slide(
     line1: 'A little bit of',
     line2: 'magic',
-    body: 'Send an anonymous gift — revealed only when it arrives.',
+    body: 'Send an anonymous gift, revealed only when it arrives.',
     image: 'assets/onboarding/couple.jpg',
   ),
   _Slide(

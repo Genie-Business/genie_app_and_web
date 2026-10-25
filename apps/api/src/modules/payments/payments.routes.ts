@@ -106,7 +106,7 @@ router.openapi(
     method: 'post',
     path: '/_mock/settle',
     tags: ['Payments'],
-    summary: 'DEV ONLY — simulate an inbound bank transfer for a reference',
+    summary: 'DEV ONLY: simulate an inbound bank transfer for a reference',
     description:
       'Only available when PAYMENTS_PROVIDER=mock. Drives the same code path as a real `payin.received` webhook so the add-funds flow can be tested end-to-end without Anchor.',
     request: {
@@ -165,7 +165,7 @@ router.openapi(
     path: '/cards',
     tags: ['Payments'],
     summary: 'Add a (provider-tokenised) card',
-    description: 'The card is tokenised by the payment provider on the client — genie never receives the PAN, CVV or PIN.',
+    description: 'The card is tokenised by the payment provider on the client. genie never receives the PAN, CVV or PIN.',
     security: [{ bearerAuth: [] }],
     request: { body: jsonBody(G.addCardBody) },
     responses: { 201: jsonResponse('Card added', intentSchema), ...commonErrorResponses },

@@ -23,7 +23,7 @@ export function GetTheApp({ heading, sub }: { heading: string; sub: string }) {
           Google Play
         </a>
       </div>
-      <p className="mt-3 text-xs text-ink-muted">Launching soon — join the waitlist on the home page.</p>
+      <p className="mt-3 text-xs text-ink-muted">Launching soon. Join the waitlist on the home page.</p>
     </div>
   );
 }

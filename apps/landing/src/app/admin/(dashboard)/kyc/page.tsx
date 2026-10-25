@@ -13,7 +13,7 @@ async function decide(id: string, formData: FormData) {
   if (!session) return;
   const approve = formData.get('decision') === 'approve';
   const reason = String(formData.get('reason') ?? '').trim().slice(0, 300);
-  if (!approve && !reason) throw new Error('Give a reason — it is shown to the user so they know what to fix.');
+  if (!approve && !reason) throw new Error('Give a reason. It is shown to the user so they know what to fix.');
 
   const kyc = await prisma.kycVerification.findUnique({ where: { id } });
   if (!kyc || kyc.status !== 'PENDING') return;
@@ -34,7 +34,7 @@ async function decide(id: string, formData: FormData) {
         channel: 'IN_APP',
         category: 'SYSTEM',
         type: approve ? 'kyc.approved' : 'kyc.rejected',
-        title: approve ? 'You’re verified ✅' : 'We couldn’t verify your identity',
+        title: approve ? 'You’re verified' : 'We couldn’t verify your identity',
         body: approve ? 'Your identity check is complete.' : reason,
       },
     }),
@@ -71,7 +71,7 @@ export default async function KycPage() {
       <PageHeader title="KYC reviews" subtitle="Identity checks waiting for a decision. Oldest first." />
 
       {pending.length === 0 ? (
-        <Empty>Nothing to review — you&apos;re all caught up.</Empty>
+        <Empty>Nothing to review. You&apos;re all caught up.</Empty>
       ) : (
         <div className="space-y-3">
           {pending.map((k) => (
@@ -114,7 +114,7 @@ export default async function KycPage() {
             <div key={k.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
               <div>
                 <A href={`/users/${k.user.id}`}>{fullName(k.user)}</A>
-                {k.rejectionReason && <span className="ml-2 text-xs text-ink-muted">— {k.rejectionReason}</span>}
+                {k.rejectionReason && <span className="ml-2 text-xs text-ink-muted">Reason: {k.rejectionReason}</span>}
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-ink-muted">{fmtDateTime(k.reviewedAt)}</span>

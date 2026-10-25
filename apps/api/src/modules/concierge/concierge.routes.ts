@@ -22,7 +22,7 @@ router.openapi(
     security: [{ bearerAuth: [] }],
     request: { body: jsonBody(C.createConciergeRequestBody) },
     responses: {
-      201: jsonResponse('Request created — added to the wishlist as pending', dataObj),
+      201: jsonResponse('Request created and added to the wishlist as pending', dataObj),
       ...commonErrorResponses,
     },
   }),

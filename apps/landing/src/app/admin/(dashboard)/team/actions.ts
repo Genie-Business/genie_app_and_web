@@ -57,7 +57,7 @@ export async function resetAdminPassword(_prev: CredentialResult, formData: Form
   });
   await audit(session, 'admin.password_reset', 'AdminUser', target.id, { after: { email: target.email } });
   revalidatePath('/admin/team');
-  return { ok: true, email: target.email, password, note: 'Temporary password — share it once, privately.' };
+  return { ok: true, email: target.email, password, note: 'Temporary password. Share it once, privately.' };
 }
 
 /** Never leave the portal without an active super admin. */

@@ -181,7 +181,7 @@ export async function updateDelivery(
     await notify({
       userId: order.buyerUserId,
       type: 'order.delivery',
-      title: input.status === 'DELIVERED' ? 'Gift delivered 🎉' : 'Gift on its way 🚚',
+      title: input.status === 'DELIVERED' ? 'Gift delivered' : 'Gift on its way',
       body:
         input.status === 'DELIVERED'
           ? `${label} has been delivered.`

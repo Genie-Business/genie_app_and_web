@@ -120,7 +120,7 @@ class _ImportGiftScreenState extends ConsumerState<ImportGiftScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              "We'll review it and add it to your wishlist as pending — you'll be notified once it's ready to share.",
+              "We'll review it and add it to your wishlist as pending. You'll be notified once it's ready to share.",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.black45, fontSize: 12),
             ),

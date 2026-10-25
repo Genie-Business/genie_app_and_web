@@ -53,7 +53,7 @@ async function updateDelivery(orderId: string, status: DeliveryStatus) {
           channel: 'IN_APP',
           category: 'GIFT',
           type: 'order.delivery',
-          title: status === 'DELIVERED' ? 'Gift delivered 🎉' : 'Gift on its way 🚚',
+          title: status === 'DELIVERED' ? 'Gift delivered' : 'Gift on its way',
           body:
             status === 'DELIVERED'
               ? `${order.orderNumber} has been delivered.`
@@ -99,7 +99,7 @@ export default async function ConciergeOrdersPage() {
 
       {!concierge ? (
         <div className="card mt-6 text-sm text-error-fg">
-          The concierge system account doesn&apos;t exist yet — run the seed script
+          The concierge system account doesn&apos;t exist yet. Run the seed script
           (<code>npm run seed --workspace @genie/db</code>) after applying the concierge migration.
         </div>
       ) : orders.length === 0 ? (

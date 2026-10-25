@@ -9,7 +9,7 @@ function Result({ state }: { state: CredentialResult }) {
   return (
     <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
       <div>
-        <span className="text-emerald-700">{state.email}</span> — temporary password:
+        <span className="text-emerald-700">{state.email}</span>: temporary password
       </div>
       <code className="mt-1 block select-all break-all rounded bg-white px-2 py-1.5 font-mono text-sm">{state.password}</code>
       <div className="mt-1 text-xs text-emerald-800">{state.note} It won’t be shown again.</div>

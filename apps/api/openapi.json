@@ -2492,7 +2492,7 @@
         "tags": [
           "Payments"
         ],
-        "summary": "DEV ONLY — simulate an inbound bank transfer for a reference",
+        "summary": "DEV ONLY: simulate an inbound bank transfer for a reference",
         "description": "Only available when PAYMENTS_PROVIDER=mock. Drives the same code path as a real `payin.received` webhook so the add-funds flow can be tested end-to-end without Anchor.",
         "requestBody": {
           "content": {
@@ -2659,7 +2659,7 @@
           "Payments"
         ],
         "summary": "Add a (provider-tokenised) card",
-        "description": "The card is tokenised by the payment provider on the client — genie never receives the PAN, CVV or PIN.",
+        "description": "The card is tokenised by the payment provider on the client. genie never receives the PAN, CVV or PIN.",
         "security": [
           {
             "bearerAuth": []
@@ -5696,7 +5696,7 @@
         "tags": [
           "Gifts"
         ],
-        "summary": "Pay for a wishlist gift — wallet or bank transfer (US0016/US0019)",
+        "summary": "Pay for a wishlist gift with the wallet or a bank transfer (US0016/US0019)",
         "security": [
           {
             "bearerAuth": []
@@ -10272,7 +10272,7 @@
         "tags": [
           "Public"
         ],
-        "summary": "View a shared wishlist (no auth) — for friends following a link",
+        "summary": "View a shared wishlist (no auth), for friends following a link",
         "parameters": [
           {
             "schema": {
@@ -10888,7 +10888,7 @@
         },
         "responses": {
           "201": {
-            "description": "Request created — added to the wishlist as pending",
+            "description": "Request created and added to the wishlist as pending",
             "content": {
               "application/json": {
                 "schema": {

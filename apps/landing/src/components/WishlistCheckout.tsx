@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Gift } from 'lucide-react';
 import { formatKobo } from '@/lib/money';
 import { site } from '@/lib/site';
 
@@ -96,7 +97,7 @@ export function WishlistCheckout({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={item.productImageUrl} alt={item.productName} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-ink-muted">🎁</div>
+                  <div className="flex h-full w-full items-center justify-center text-ink-muted"><Gift className="h-6 w-6" aria-hidden="true" /></div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -104,9 +105,9 @@ export function WishlistCheckout({
                 <p className="mt-0.5 text-sm text-ink-secondary">{formatKobo(item.unitPriceKobo)}</p>
                 {item.note && <p className="mt-1 line-clamp-2 text-xs text-ink-muted">“{item.note}”</p>}
                 {done ? (
-                  <p className="mt-2 text-xs font-semibold text-ink-muted">Gifted 🎉</p>
+                  <p className="mt-2 text-xs font-semibold text-ink-muted">Gifted</p>
                 ) : item.isPending ? (
-                  <p className="mt-2 text-xs font-semibold text-accent-500">Being sourced — check back soon</p>
+                  <p className="mt-2 text-xs font-semibold text-accent-500">Being sourced. Check back soon</p>
                 ) : (
                   <div className="mt-2 flex items-center gap-2">
                     <button
@@ -313,8 +314,8 @@ function CheckoutDialog({
             </h2>
             <p className="mt-1 text-sm text-ink-secondary">
               {quotedTotal
-                ? `${formatKobo(quotedTotal)} total — item price, transaction fee and delivery included.`
-                : `${formatKobo(itemsSubtotal.toString())} for the ${chosen.length === 1 ? 'item' : 'items'}, plus a transaction fee and delivery — the exact total is on the next step.`}
+                ? `${formatKobo(quotedTotal)} total, with item price, transaction fee and delivery included.`
+                : `${formatKobo(itemsSubtotal.toString())} for the ${chosen.length === 1 ? 'item' : 'items'}, plus a transaction fee and delivery. The exact total is on the next step.`}
             </p>
             {error && <p className="mt-3 text-sm text-error">{error}</p>}
             <div className="mt-4 space-y-3">
@@ -323,7 +324,7 @@ function CheckoutDialog({
               <Field label="Phone (optional)" value={phone} onChange={setPhone} placeholder="0801 234 5678" />
               <label className="flex items-center gap-2 text-sm text-ink">
                 <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} />
-                Keep it a surprise — {celebrantFirstName || 'they'} won&apos;t see it&apos;s from me until it arrives
+                Keep it a surprise: {celebrantFirstName || 'they'} won&apos;t see it&apos;s from me until it arrives
               </label>
               <textarea
                 value={message}
@@ -361,12 +362,12 @@ function CheckoutDialog({
 
         {step === 'done' && (
           <div className="py-6 text-center">
-            <p className="text-4xl">🎁</p>
+            <Gift className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
             <h2 className="mt-3 font-display text-xl font-bold text-ink">Gift on its way</h2>
             <p className="mt-2 text-sm text-ink-secondary">
               Thank you! {celebrantFirstName || 'They'} will get{' '}
               {chosen.length === 1 ? (chosen[0]?.productName ?? "this gift") : `your ${chosen.length} gifts`}
-              {anon ? ' — as a surprise' : ''}. A receipt is on the way to your email.
+              {anon ? ', as a surprise' : ''}. A receipt is on the way to your email.
             </p>
             <button
               type="button"
@@ -446,7 +447,7 @@ function PayStep({
       <div className="mt-4 flex items-center justify-center gap-2 text-sm text-ink-secondary">
         <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
         {status === 'EXPIRED'
-          ? 'This request expired — close and start again.'
+          ? 'This request expired. Close and start again.'
           : `Waiting for your transfer… (${status.toLowerCase()})`}
       </div>
 

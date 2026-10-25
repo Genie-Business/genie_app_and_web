@@ -35,7 +35,7 @@ export default async function AuditPage({ searchParams }: { searchParams: SP }) 
 
   return (
     <div>
-      <PageHeader title="Audit log" subtitle="Every change made from this portal — who did what, and when." />
+      <PageHeader title="Audit log" subtitle="Every change made from this portal: who did what, and when." />
       <FilterBar
         q={q}
         placeholder="Search action or record id"

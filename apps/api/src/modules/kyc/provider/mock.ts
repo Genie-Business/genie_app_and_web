@@ -21,7 +21,7 @@ export class MockKycProvider implements KycProvider {
       return { status: 'REJECTED', providerRef, reason: 'Your BVN details could not be matched. Please check and retry.' };
     }
     const status = input.bvn?.endsWith('9999') ? 'PENDING' : 'APPROVED';
-    logger.info({ userId: input.userId, status }, '🪪 [mock KYC]');
+    logger.info({ userId: input.userId, status }, '[mock KYC]');
     return { status, providerRef };
   }
 }

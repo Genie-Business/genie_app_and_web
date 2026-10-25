@@ -20,7 +20,7 @@ const FEES: Array<{ key: FeeKey; title: string; who: string; help: string; fallb
     key: 'LOGISTICS_FEE',
     title: 'Delivery (logistics) fee',
     who: 'Paid by the gifter, only for delivered items',
-    help: 'A flat amount per delivered gift — pickup items are free.',
+    help: 'A flat amount per delivered gift. Pickup items are free.',
     fallback: { type: 'FLAT', value: 150_000 },
   },
   {
@@ -41,7 +41,7 @@ async function saveFee(key: FeeKey, formData: FormData) {
   const type: FeeType = formData.get('type') === 'FLAT' ? 'FLAT' : 'PERCENT';
   const raw = Number(String(formData.get('value') ?? '').replace(/,/g, ''));
   if (!Number.isFinite(raw) || raw < 0) throw new Error('Enter a valid amount.');
-  if (type === 'PERCENT' && raw > 50) throw new Error('A percentage above 50% looks like a typo — nothing was saved.');
+  if (type === 'PERCENT' && raw > 50) throw new Error('A percentage above 50% looks like a typo. Nothing was saved.');
   // Flat fees are typed in naira but stored in kobo (what the API charges with).
   const value = type === 'FLAT' ? Number(koboFromNaira(formData.get('value'))) : raw;
   const minRaw = String(formData.get('min') ?? '').trim();

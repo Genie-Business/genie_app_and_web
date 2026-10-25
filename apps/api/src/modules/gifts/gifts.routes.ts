@@ -37,7 +37,7 @@ router.openapi(
     method: 'post',
     path: '/',
     tags: ['Gifts'],
-    summary: 'Pay for a wishlist gift — wallet or bank transfer (US0016/US0019)',
+    summary: 'Pay for a wishlist gift with the wallet or a bank transfer (US0016/US0019)',
     security: [{ bearerAuth: [] }],
     request: { body: jsonBody(G.payForGiftBody) },
     responses: {

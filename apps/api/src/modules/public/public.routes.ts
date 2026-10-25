@@ -24,7 +24,7 @@ router.openapi(
     method: 'get',
     path: '/wishlists/{id}',
     tags: ['Public'],
-    summary: 'View a shared wishlist (no auth) — for friends following a link',
+    summary: 'View a shared wishlist (no auth), for friends following a link',
     request: { params: z.object({ id: z.string() }) },
     responses: {
       200: jsonResponse('Public wishlist', z.object({ data: z.record(z.unknown()) })),

@@ -63,7 +63,7 @@ export async function rateLimit(key: string, rule: RateLimitRule): Promise<void>
     count = rows[0]?.count ?? 1;
     resetAt = rows[0]?.expiresAt?.getTime() ?? resetAt;
   } catch (err) {
-    logger.warn({ err, key }, 'rate-limit DB unavailable — using in-memory fallback');
+    logger.warn({ err, key }, 'rate-limit DB unavailable, using in-memory fallback');
     count = memHit(key, rule);
   }
 

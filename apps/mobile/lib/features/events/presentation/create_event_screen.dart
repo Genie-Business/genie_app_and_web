@@ -163,7 +163,7 @@ class _RecurrenceField extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, top: 6),
           child: Text(
             value == 'ANNUAL'
-                ? 'Birthdays and anniversaries — the wishlist rolls forward to next year automatically.'
+                ? 'Birthdays and anniversaries: the wishlist rolls forward to next year automatically.'
                 : 'A single occasion.',
             style: Theme.of(context).textTheme.bodySmall,
           ),

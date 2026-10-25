@@ -48,7 +48,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: SP })
 
   return (
     <div>
-      <PageHeader title="Orders" subtitle="Every order across merchants — each gift that’s paid becomes one." />
+      <PageHeader title="Orders" subtitle="Every order across merchants. Each gift that’s paid becomes one." />
       <FilterBar
         q={q}
         placeholder="Order number, merchant or buyer email"

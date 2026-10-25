@@ -132,7 +132,7 @@ if (loader) {
   Promise.all([
     document.fonts ? document.fonts.ready : Promise.resolve(),
     new Promise((r) => setTimeout(r, 900)),
-    new Promise((r) => { const im = new Image(); im.onload = im.onerror = r; im.src = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261016_130303_301c35dd-e2d1-4b40-a396-2b53f884d787.png'; }),
+    new Promise((r) => { const im = new Image(); im.onload = im.onerror = r; im.src = '/assets/bg-light.jpg'; }),
   ]).then(reveal);
 } else {
   document.body.classList.add('loaded');

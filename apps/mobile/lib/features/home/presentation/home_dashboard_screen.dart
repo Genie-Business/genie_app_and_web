@@ -37,7 +37,7 @@ class HomeDashboardScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           Text(
-            firstName.isEmpty ? 'Welcome back' : 'Hi, $firstName 👋',
+            firstName.isEmpty ? 'Welcome back' : 'Hi, $firstName',
             style: GenieTheme.display(22),
           ),
           const SizedBox(height: 16),

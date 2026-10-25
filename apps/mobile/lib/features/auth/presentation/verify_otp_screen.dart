@@ -118,7 +118,7 @@ class _State extends ConsumerState<VerifyOtpScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Text(
-              'Preview build — we filled the code in for you.',
+              'Preview build: we filled the code in for you.',
               style: TextStyle(fontSize: 12, color: GenieColors.inkMuted),
             ),
           ),

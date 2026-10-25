@@ -8,7 +8,7 @@ export class LogPushSender implements PushSender {
   async send(tokens: string[], message: PushMessage): Promise<PushResult> {
     logger.info(
       { tokens: tokens.length, title: message.title, body: message.body, data: message.data },
-      '🔔 [dev push]',
+      '[dev push]',
     );
     return { sent: tokens.length, failed: 0, invalidTokens: [] };
   }

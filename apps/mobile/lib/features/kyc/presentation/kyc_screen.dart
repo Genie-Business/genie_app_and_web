@@ -62,7 +62,7 @@ class _StatusBanner extends StatelessWidget {
         c = GenieColors.accent;
         icon = Icons.hourglass_top_rounded;
         title = 'Under review';
-        body = 'We\'re checking your documents — this usually takes a few minutes.';
+        body = 'We\'re checking your documents. This usually takes a few minutes.';
       case 'REJECTED':
         c = GenieColors.error;
         icon = Icons.error_outline_rounded;
@@ -243,7 +243,7 @@ class _SubmitFormState extends ConsumerState<_SubmitForm> {
           maxLength: 11,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(
-            labelText: 'BVN (optional — speeds up the check)',
+            labelText: 'BVN (optional, speeds up the check)',
             counterText: '',
           ),
         ),

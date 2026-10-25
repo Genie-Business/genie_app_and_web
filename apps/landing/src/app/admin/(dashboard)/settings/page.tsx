@@ -67,7 +67,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <SectionTitle>Change password</SectionTitle>
       {flash && <Notice tone={flash[0]}>{flash[1]}</Notice>}
-      {admin?.mustChangePassword && !flash && <Notice>You&apos;re on a temporary password — set your own below.</Notice>}
+      {admin?.mustChangePassword && !flash && <Notice>You&apos;re on a temporary password. Set your own below.</Notice>}
       <form action={changePassword} className="card space-y-4">
         <Field label="Current password">
           <input name="current" type="password" autoComplete="current-password" required className="input" />

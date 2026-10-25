@@ -175,7 +175,7 @@ class _WishlistView extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               open == 0
-                  ? 'Every item has been gifted 🎉'
+                  ? 'Every item has been gifted'
                   : '$open of ${w.items.length} still need a gift',
               style: const TextStyle(
                   color: GenieColors.primary, fontSize: 12, fontWeight: FontWeight.w600),
@@ -196,7 +196,7 @@ class _WishlistView extends ConsumerWidget {
         builder: (ctx) => AlertDialog(
           title: const Text('Sign in to send this gift'),
           content: const Text(
-              'Create a free genie account to gift from a friend’s wishlist — or open the link in a browser to pay as a guest.'),
+              'Create a free genie account to gift from a friend’s wishlist, or open the link in a browser to pay as a guest.'),
           actions: [
             TextButton(onPressed: () => ctx.pop(false), child: const Text('Not now')),
             FilledButton(onPressed: () => ctx.pop(true), child: const Text('Get started')),
@@ -261,7 +261,7 @@ class _ItemRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     item.fulfilled
-                        ? 'Gifted 🎉'
+                        ? 'Gifted'
                         : '${formatKobo(item.unitPriceKobo)}'
                             '${item.quantityWanted > 1 ? '  ·  wants ${item.quantityWanted}' : ''}',
                     style: TextStyle(
@@ -342,7 +342,7 @@ class _GiftSheetState extends ConsumerState<_GiftSheet> {
       if (!mounted) return;
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(status == 'PENDING' ? 'Gift created — awaiting payment' : 'Gift sent 🎁')),
+        SnackBar(content: Text(status == 'PENDING' ? 'Gift created, awaiting payment' : 'Gift sent')),
       );
     } on ApiException catch (e) {
       if (mounted) {

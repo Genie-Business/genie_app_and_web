@@ -20,7 +20,7 @@ function load(): Promise<Handler> {
   loaded ??= import('@genie/api/vercel')
     .then((m) => m.fetchHandler as Handler)
     .catch((err) => {
-      loaded = undefined; // don't cache a failure — a fixed env var should work on the next request
+      loaded = undefined; // don't cache a failure: a fixed env var should work on the next request
       throw err;
     });
   return loaded;

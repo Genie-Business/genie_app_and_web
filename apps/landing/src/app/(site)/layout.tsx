@@ -13,18 +13,18 @@ const unbounded = Unbounded({
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
-  title: { default: `${site.name} — ${site.tagline}`, template: `%s · ${site.name}` },
+  title: { default: `${site.name} | ${site.tagline}`, template: `%s · ${site.name}` },
   description: site.description,
   keywords: ['gift', 'wishlist', 'Nigeria', 'birthday', 'wedding registry', 'anonymous gift', 'Naira'],
   openGraph: {
-    title: `${site.name} — ${site.tagline}`,
+    title: `${site.name} | ${site.tagline}`,
     description: site.description,
     url: site.url,
     siteName: site.name,
     locale: 'en_NG',
     type: 'website',
   },
-  twitter: { card: 'summary', title: `${site.name} — ${site.tagline}`, description: site.description },
+  twitter: { card: 'summary', title: `${site.name} | ${site.tagline}`, description: site.description },
 };
 
 export const viewport: Viewport = {

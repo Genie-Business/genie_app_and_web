@@ -91,7 +91,7 @@ async function activate(id: string, formData: FormData) {
         channel: 'IN_APP',
         category: 'EVENT',
         type: 'concierge.activated',
-        title: 'Your imported gift is ready 🎁',
+        title: 'Your imported gift is ready',
         body: `"${request.name}" is now on your wishlist and ready to be gifted.`,
         payload: { conciergeRequestId: id, productId: request.productId },
       },
@@ -128,7 +128,7 @@ async function reject(id: string, formData: FormData) {
         category: 'EVENT',
         type: 'concierge.rejected',
         title: "We couldn't source that gift",
-        body: `"${request.name}" — ${reason}`,
+        body: `"${request.name}": ${reason}`,
         payload: { conciergeRequestId: id },
       },
     });
@@ -165,7 +165,7 @@ export default async function ConciergeReviewPage({ params }: { params: Promise<
       <h1 className="font-display text-2xl font-bold">{request.name}</h1>
       <p className="mt-1 text-sm text-ink-muted">
         Requested by {request.requestedBy.firstName} {request.requestedBy.lastName} ({request.requestedBy.email})
-        {item ? <> for &ldquo;{item.wishlist.event.name} — {item.wishlist.name}&rdquo;</> : ' — wishlist item removed'}
+        {item ? <> for &ldquo;{item.wishlist.event.name}, {item.wishlist.name}&rdquo;</> : ', wishlist item removed'}
       </p>
 
       <div className="card mt-5 space-y-2 text-sm">
@@ -223,10 +223,10 @@ export default async function ConciergeReviewPage({ params }: { params: Promise<
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-medium text-ink-secondary">Photo URL(s) — one per line, optional</span>
+              <span className="text-xs font-medium text-ink-secondary">Photo URL(s), one per line, optional</span>
               <textarea name="imageUrls" rows={2} className="input mt-1" placeholder="https://…" />
             </label>
-            <button type="submit" className="btn">Activate — make it giftable</button>
+            <button type="submit" className="btn">Activate and make it giftable</button>
           </form>
 
           <form action={reject.bind(null, id)} className="card mt-4 space-y-3">
@@ -249,7 +249,7 @@ export default async function ConciergeReviewPage({ params }: { params: Promise<
       )}
       {!decided && !item && (
         <div className="card mt-5 text-sm text-error-fg">
-          The celebrant removed this item from their wishlist — there&apos;s nothing to activate. Reject it to close it out.
+          The celebrant removed this item from their wishlist. There&apos;s nothing to activate. Reject it to close it out.
           <form action={reject.bind(null, id)} className="mt-3 space-y-3">
             <input type="hidden" name="reason" value="The wishlist item was removed before review." />
             <button type="submit" className="btn">Close request</button>

@@ -5,7 +5,7 @@ import { GetTheApp } from '@/components/GetTheApp';
 
 export const metadata: Metadata = {
   title: 'You’re invited to genie',
-  description: 'A friend invited you to genie — the wishlist app for people who love giving.',
+  description: 'A friend invited you to genie, the wishlist app for people who love giving.',
   robots: { index: false },
 };
 

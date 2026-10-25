@@ -226,7 +226,7 @@ async function finalizeGift(opts: {
           giftId: gift.id,
           orderId: order.id,
           paymentIntentId: opts.paymentIntentId,
-          narration: `Gift for ${item.wishlist.event.user.firstName} — ${item.product.name}`,
+          narration: `Gift for ${item.wishlist.event.user.firstName}: ${item.product.name}`,
         },
       });
 
@@ -258,7 +258,7 @@ async function finalizeGift(opts: {
     await notify({
       userId: celebrantId,
       type: 'gift.received',
-      title: input.isAnonymous ? 'A secret gift appeared 🎁' : `${gifterName} sent you a gift 🎁`,
+      title: input.isAnonymous ? 'A secret gift appeared' : `${gifterName} sent you a gift`,
       body: input.isAnonymous
         ? `An anonymous gift was added to "${item.wishlist.name}". It'll be revealed when it arrives.`
         : `${gifterName} gifted you ${item.product.name}.`,
@@ -268,7 +268,7 @@ async function finalizeGift(opts: {
       userId: merchantId,
       type: 'order.new',
       title: 'New order',
-      body: `${item.product.name} ×${input.quantity} — ${order.orderNumber}`,
+      body: `${item.product.name} ×${input.quantity} · ${order.orderNumber}`,
       payload: { orderId: order.id },
     });
     if (gifterUserId) {

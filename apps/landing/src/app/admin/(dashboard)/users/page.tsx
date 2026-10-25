@@ -47,7 +47,7 @@ export default async function UsersPage({ searchParams }: { searchParams: SP }) 
 
   return (
     <div>
-      <PageHeader title="Users" subtitle="Everyone who has signed up in the app — celebrants and merchants." />
+      <PageHeader title="Users" subtitle="Everyone who has signed up in the app: celebrants and merchants." />
       <FilterBar
         q={q}
         placeholder="Search name, email, username, phone"

@@ -109,7 +109,7 @@ export default async function SupportThreadPage({ params }: { params: Promise<{ 
       {writer && (
         <div className="mt-6">
           {closed ? (
-            <div className="card text-sm text-ink-muted">This conversation is closed — the user would need to start a new one.</div>
+            <div className="card text-sm text-ink-muted">This conversation is closed. The user would need to start a new one.</div>
           ) : (
             <form action={reply.bind(null, id)} className="card space-y-3">
               <textarea name="body" rows={4} required maxLength={4000} placeholder="Write a reply…" className="input" />

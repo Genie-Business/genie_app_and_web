@@ -18,7 +18,7 @@ export async function uploadBlob(
   if (size > 8 * 1024 * 1024) throw badRequest('File too large (max 8MB).');
 
   if (!env.BLOB_READ_WRITE_TOKEN) {
-    logger.warn({ key, size }, 'BLOB_READ_WRITE_TOKEN not set — returning stub URL');
+    logger.warn({ key, size }, 'BLOB_READ_WRITE_TOKEN not set, returning stub URL');
     return { url: `https://blob.local/stub/${encodeURIComponent(key)}`, pathname: key };
   }
 

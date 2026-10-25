@@ -7,7 +7,7 @@ export default function TermsPage() {
       <p className="mt-4 text-ink-secondary">
         This is a placeholder. The launch version will set out the agreement between genie and its
         users and merchants: acceptable use, gifting and refunds, merchant obligations and
-        settlement, genie fees and commission, dispute resolution, and liability — reviewed by a
+        settlement, genie fees and commission, dispute resolution, and liability. It will be reviewed by a
         lawyer licensed in Nigeria.
       </p>
     </>

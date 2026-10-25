@@ -101,7 +101,7 @@ class MessagesScreen extends ConsumerWidget {
 
     if (friends.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a friend first — you can only message friends.')),
+        const SnackBar(content: Text('Add a friend first. You can only message friends.')),
       );
       return;
     }

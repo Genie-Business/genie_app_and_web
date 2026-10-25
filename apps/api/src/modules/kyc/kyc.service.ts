@@ -113,7 +113,7 @@ export async function submitLevel1(
   } catch (err) {
     if (!(err instanceof KycNotConfiguredError)) throw err;
     // No bureau configured — leave it PENDING for an admin to review manually.
-    logger.warn({ userId }, 'KYC provider not configured — submission left PENDING');
+    logger.warn({ userId }, 'KYC provider not configured, submission left PENDING');
     result = { status: 'PENDING' as const, providerRef: null, reason: undefined };
   }
 
@@ -140,7 +140,7 @@ export async function submitLevel1(
     type: `kyc.${result.status.toLowerCase()}`,
     title:
       result.status === 'APPROVED'
-        ? 'Identity verified ✅'
+        ? 'Identity verified'
         : result.status === 'REJECTED'
           ? 'Identity check failed'
           : 'Identity check under review',
@@ -149,7 +149,7 @@ export async function submitLevel1(
         ? 'Your Level 1 verification is complete.'
         : result.status === 'REJECTED'
           ? (result.reason ?? 'We could not verify your details. You can submit again.')
-          : "We're reviewing your documents — this usually takes a few minutes.",
+          : "We're reviewing your documents. This usually takes a few minutes.",
     category: 'SYSTEM',
     payload: { level: 'LEVEL_1' },
   });

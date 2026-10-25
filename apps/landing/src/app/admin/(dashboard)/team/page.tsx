@@ -12,7 +12,7 @@ const ROLE_HELP: Record<AdminRoleName, string> = {
   ADMIN: 'Everything except managing admins & super admins.',
   SUPPORT: 'Users, KYC, support inbox, events, products (read-only catalogue).',
   FINANCE: 'Orders, transactions, payouts, fees, referrals.',
-  CONCIERGE: 'The concierge desk — price, source and fulfil imported gifts.',
+  CONCIERGE: 'The concierge desk: price, source and fulfil imported gifts.',
 };
 
 function manageable(actor: string, target: string): boolean {
