@@ -50,6 +50,26 @@ body.on-dark .badge b { color: #d9ccff; }
 section { position: relative; min-height: 100vh; height: 100vh; overflow: hidden; }
 .flower { position: absolute; pointer-events: none; user-select: none; will-change: transform; }
 
+/* EVENT PHOTOS — polaroid-style cards (birthdays, celebrations, surprises, corporate) in the old flower slots.
+   The wrapper (.flower) carries the scroll parallax; the tilt lives on the cards inside it. */
+.snap { position: relative; margin: 0; padding: 7px; background: #fff; border-radius: 22px; aspect-ratio: 4 / 5;
+  box-shadow: 0 28px 54px rgba(60,30,140,.28), 0 4px 14px rgba(60,30,140,.12); }
+.snap img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
+.snap figcaption { position: absolute; left: 16px; bottom: 16px; padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,.94); color: var(--violet);
+  font: 600 clamp(10px, .82vw, 13px)/1 "Poppins", system-ui, sans-serif; letter-spacing: .04em; }
+.snaps--hero .snap { position: absolute; }
+.snaps--hero .snap--a { left: 0; bottom: 0; width: 56%; transform: rotate(-6deg); }
+.snaps--hero .snap--b { left: 42%; bottom: 14%; width: 48%; transform: rotate(5deg); }
+.snaps--hang .snap--one { transform: rotate(4deg); transform-origin: 50% 0; }
+.snaps--hang .snap--one::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 2px; height: 70vh; margin-left: -1px; background: linear-gradient(to top, rgba(91,59,209,.5), rgba(91,59,209,0)); }
+.snaps--hang .snap--one::after { content: ""; position: absolute; left: 50%; top: -5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--violet); box-shadow: 0 0 0 3px #fff; }
+.snaps--iris .snap--one { transform: rotate(6deg); }
+.snaps--passion .snap--one { transform: rotate(-5deg); }
+.dk .snap { background: rgba(255,255,255,.96); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; max-width: 460px; position: relative; z-index: 3; }
+.chips span { padding: 7px 14px; border-radius: 999px; border: 1.5px solid rgba(91,59,209,.28); background: rgba(255,255,255,.55); color: var(--violet); font-size: 12.5px; font-weight: 600; letter-spacing: .01em; }
+
 /* HERO */
 .hero { background: #e4e0fa url(https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261016_130303_301c35dd-e2d1-4b40-a396-2b53f884d787.png) center/cover no-repeat; overflow: visible; z-index: 3; }
 .hero h1 { position: absolute; left: 0; right: 0; top: 15.5vh; text-align: center; font-weight: 800; font-size: clamp(42px, 6.25vw, 112px); line-height: 1.04; letter-spacing: -.035em; color: var(--ink); text-shadow: 0 0 40px rgba(255,255,255,.35); will-change: transform; z-index: 2; }
@@ -67,7 +87,7 @@ section { position: relative; min-height: 100vh; height: 100vh; overflow: hidden
 .join i svg { width: 9px; height: 9px; }
 .join:hover i { transform: translateX(4px); }
 .join--sm { margin-top: 26px; }
-.hero .flower--cosmos { width: clamp(420px, 64vw, 1100px); left: -14vw; bottom: -24vw; transform-origin: 60% 40%; filter: drop-shadow(0 30px 40px rgba(80,50,160,.18)); z-index: 1; }
+.hero .snaps--hero { left: 5vw; bottom: 6vh; width: 32vw; height: 36vw; z-index: 1; }
 
 /* SHARED TYPE */
 .num { font-weight: 600; line-height: .8; letter-spacing: -.06em; font-size: clamp(110px, 15vw, 250px); color: var(--num); }
@@ -84,7 +104,7 @@ section { position: relative; min-height: 100vh; height: 100vh; overflow: hidden
 
 /* SECTION 01 */
 .s1 { background: linear-gradient(180deg, #e4e0fa 0%, #ece9fc 100%); z-index: 2; }
-.s1 .flower--hang { width: clamp(380px, 46vw, 820px); left: -9vw; top: -14vw; transform-origin: 50% 0%; }
+.s1 .snaps--hang { left: 12vw; top: 11vh; width: 15vw; }
 .s1 .num { position: absolute; left: 6vw; top: 50vh; }
 .s1 .text { position: absolute; left: 50vw; top: 41vh; width: min(520px, 44vw); }
 
@@ -95,11 +115,11 @@ section { position: relative; min-height: 100vh; height: 100vh; overflow: hidden
 .s2 .text { position: absolute; left: 6vw; top: 22vh; width: min(500px, 46vw); }
 .s2 .title { margin-top: 22px; }
 .s2 .copy { color: rgba(240,234,255,.82); }
-.s2 .flower--iris { width: clamp(380px, 46vw, 820px); right: -8vw; bottom: -20vw; transform-origin: 30% 30%; filter: drop-shadow(0 40px 60px rgba(20,0,60,.45)); z-index: 2; }
+.s2 .snaps--iris { right: 5vw; bottom: 9vh; width: 17vw; z-index: 2; }
 
 /* SECTION 03 */
 .s3 { background: linear-gradient(180deg, #ece9fc 0%, #e7e3fb 100%); z-index: 1; }
-.s3 .flower--passion { width: clamp(360px, 42vw, 760px); left: -10vw; top: 6vh; transform-origin: 40% 50%; }
+.s3 .snaps--passion { left: 6vw; top: 15vh; width: 20vw; }
 .s3 .text { position: absolute; left: 54vw; top: 26vh; width: min(500px, 40vw); }
 .s3 .title { margin-top: 24px; }
 
@@ -158,7 +178,7 @@ section.auto { height: auto; min-height: 100vh; }
 .pg { position: relative; display: flex; flex-direction: column; justify-content: center; min-height: 100vh; padding: 13vh 6vw 8vh; }
 .pg--r { padding-left: 46vw; }
 .pg--g { padding-right: 30vw; }
-.s1.auto .flower--hang { width: clamp(260px, 28vw, 520px); top: -11vw; } /* leaves a gutter the gift can fly in */
+.s1.auto .snaps--hang { left: 52vw; top: 9vh; width: 12vw; } /* small and clear of the left-aligned headings */
 .pg .title { max-width: 720px; }
 .pg .copy { max-width: 460px; }
 .grid { display: grid; gap: clamp(14px, 1.6vw, 24px); }
@@ -209,11 +229,15 @@ section.auto { height: auto; min-height: 100vh; }
   .nav__cta { padding: 9px 16px; font-size: 13.5px; margin-right: 0; }
   .hero h1 { top: 14vh; }
   .hero__side { top: auto; bottom: 14vh; right: 18px; width: 62vw; }
-  .hero .flower--cosmos { width: 110vw; left: -38vw; bottom: -55vw; }
+  .hero .snaps--hero { left: 4vw; bottom: 5vh; width: 28vw; height: 36vw; }
+  .hero .snap--a { width: 100%; }
+  .hero .snap--b { display: none; }
+  .snaps--hang { width: 26vw !important; left: 6vw !important; }
+  .s2 .snaps--iris { display: none; } /* the dark download section is all content on a phone */
   .s1 .num { top: 16vh; left: auto; right: 6vw; }
   .s1 .text, .s3 .text { left: 18px; right: 18px; width: auto; top: auto; bottom: 10vh; }
   .s2 .text { left: 18px; right: 18px; width: auto; top: 14vh; }
-  .s3 .flower--passion { width: 90vw; }
+  .s3 .snaps--passion { width: 36vw; left: 4vw; top: 13vh; }
   .vid .text { left: 18px; right: 18px; width: auto; top: auto; bottom: 12vh; transform: none; }
   .foot { height: auto; min-height: 100vh; display: flex; flex-direction: column; gap: 34px; padding: 14vh 18px 96px; }
   .foot .cta, .foot .brand, .foot .cols { position: static; width: auto; }

@@ -20,6 +20,15 @@ public/assets/
 (The older Next pages at `src/app/(site)/page.tsx` and `faq/` are no longer reachable — `/` and
 `/faq` are rewritten/redirected to the pages above. Delete them whenever you like.)
 
+## Event photos
+
+The decorative cut-outs are event photos in polaroid-style cards (`.snap`), kept in `public/assets/events/`:
+`birthday.jpg`, `celebration.jpg`, `surprise.jpg`, `corporate.jpg` (all ~640px wide JPEGs). Each card is a
+`<figure class="snap …"><img …><figcaption>Label</figcaption></figure>` inside a `.flower.snaps--*` wrapper that carries the
+scroll parallax (`data-speed` / `data-rot`). To change a photo, drop a new file in that folder and edit the `src`, `alt` and
+caption in the page (`public/site/*.html`); `object-position` on the `<img>` controls the crop. There are no wedding or baby
+shower photos yet — add `wedding.jpg` / `baby-shower.jpg` and point a card at them.
+
 ## Point "Get the app" at the real stores
 
 Everything on the site leads to the **download** section at the bottom of each page. Until the app
