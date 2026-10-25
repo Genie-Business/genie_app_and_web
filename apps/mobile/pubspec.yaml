@@ -1,7 +1,7 @@
 name: genie
 description: "genie — the wishlist app for people who love giving."
 publish_to: "none"
-version: 0.1.0+2
+version: 0.1.0+3
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
