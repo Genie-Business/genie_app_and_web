@@ -7,7 +7,7 @@ scroll, and every page ends in a download section. The rest of the app — `/w/[
 pages, `/join`, `/privacy`, `/terms`, the app-link files and `/api/waitlist` — is ordinary Next.js.
 
 ```
-public/site/index.html      home
+public/site/index.html      home (incl. the concierge section, #concierge)
 public/site/product.html    how it works, features, concierge, sell on genie, FAQs
 public/site/team.html       story, values, the teams behind genie
 public/assets/
