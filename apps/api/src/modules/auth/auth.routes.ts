@@ -81,46 +81,82 @@ router.openapi(
   },
 );
 
-// ── POST /auth/register/merchant ─────────────────────────────────────────
+// ── POST /auth/register/merchant/code — email the merchant a code ─────────
 router.openapi(
   createRoute({
     method: 'post',
-    path: '/register/merchant',
+    path: '/register/merchant/code',
     tags: ['Auth'],
-    summary: 'Register a merchant account (US0004)',
-    request: { body: jsonBody(C.registerMerchantBody) },
+    summary: 'Email a merchant a code to confirm their address (step 1 of sign-up)',
+    request: { body: jsonBody(C.merchantSignupCodeBody) },
     responses: {
-      201: jsonResponse(
-        'Merchant account created; verification code sent',
-        z.object({
-          data: z.object({
-            userId: z.string(),
-            email: z.string(),
-            emailVerificationRequired: z.literal(true),
-            message: z.string(),
-            verificationCode: z.string().optional(),
-          }),
-        }),
+      200: jsonResponse(
+        'Code sent',
+        z.object({ data: z.object({ message: z.string(), verificationCode: z.string().optional() }) }),
+      ),
+      409: jsonResponse('Email already registered', z.object({ error: z.record(z.unknown()) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid('json');
+    await rateLimit(`merchant-code-ip:${clientIp(c)}`, RULES.merchantCodeIp);
+    await rateLimit(`merchant-code:${body.email.toLowerCase()}`, RULES.otpRequest);
+    const { verificationCode } = await service.requestMerchantSignupCode(body.email);
+    return c.json(
+      {
+        data: {
+          message: 'We sent a 6-digit code to that email.',
+          ...(verificationCode ? { verificationCode } : {}),
+        },
+      },
+      200,
+    );
+  },
+);
+
+// ── POST /auth/register/merchant/verify — exchange the code for a signup token ──
+router.openapi(
+  createRoute({
+    method: 'post',
+    path: '/register/merchant/verify',
+    tags: ['Auth'],
+    summary: 'Confirm the emailed code and receive a signup token (step 2 of sign-up)',
+    request: { body: jsonBody(C.merchantSignupVerifyBody) },
+    responses: {
+      200: jsonResponse(
+        'Email confirmed',
+        z.object({ data: z.object({ signupToken: z.string(), expiresIn: z.number().int() }) }),
       ),
       ...commonErrorResponses,
     },
   }),
   async (c) => {
     const body = c.req.valid('json');
+    await rateLimit(`merchant-otp:${body.email.toLowerCase()}`, RULES.otpVerify);
+    return c.json({ data: await service.verifyMerchantSignupCode(body.email, body.code) }, 200);
+  },
+);
+
+// ── POST /auth/register/merchant ─────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'post',
+    path: '/register/merchant',
+    tags: ['Auth'],
+    summary: 'Register a merchant account with a verified email (US0004, step 3 of sign-up)',
+    request: { body: jsonBody(C.registerMerchantBody) },
+    responses: {
+      201: jsonResponse('Merchant account created and signed in', authResultSchema),
+      409: jsonResponse('Email or username already taken', z.object({ error: z.record(z.unknown()) })),
+      ...commonErrorResponses,
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid('json');
     await rateLimit(`register:${clientIp(c)}`, RULES.register);
-    const { userId, email, verificationCode } = await service.registerMerchant(body);
-    return c.json(
-      {
-        data: {
-          userId,
-          email,
-          emailVerificationRequired: true as const,
-          message: 'Check your email for a 6-digit verification code.',
-          ...(verificationCode ? { verificationCode } : {}),
-        },
-      },
-      201,
-    );
+    const { tokens, user } = await service.registerMerchant(body, device(c, body));
+    return c.json({ data: { user: await toMeResponse(user.id), tokens } }, 201);
   },
 );
 
@@ -309,7 +345,8 @@ router.get('/_dev/otp/:email', (c) => {
   const purpose = (c.req.query('purpose') ?? 'EMAIL_VERIFY') as
     | 'EMAIL_VERIFY'
     | 'PASSWORD_RESET'
-    | 'ACCOUNT_DELETE';
+    | 'ACCOUNT_DELETE'
+    | 'MERCHANT_SIGNUP';
   const code = service.peekOtp(email, purpose);
   if (code == null) throw notFound('No peekable code (APP_ENV must be "local").');
   return c.json({ data: { email, purpose, code } }, 200);

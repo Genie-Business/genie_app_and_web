@@ -308,12 +308,231 @@
         }
       }
     },
+    "/v1/auth/register/merchant/code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Email a merchant a code to confirm their address (step 1 of sign-up)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Code sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "verificationCode": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register/merchant/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Confirm the emailed code and receive a signup token (step 2 of sign-up)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.+_-]*[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "email",
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "signupToken": {
+                          "type": "string"
+                        },
+                        "expiresIn": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "signupToken",
+                        "expiresIn"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/register/merchant": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Register a merchant account (US0004)",
+        "summary": "Register a merchant account with a verified email (US0004, step 3 of sign-up)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -325,10 +544,10 @@
                     "minLength": 1,
                     "maxLength": 140
                   },
-                  "confirmationCode": {
+                  "signupToken": {
                     "type": "string",
-                    "minLength": 4,
-                    "maxLength": 40
+                    "minLength": 20,
+                    "maxLength": 2000
                   },
                   "email": {
                     "type": "string",
@@ -382,18 +601,31 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 120
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "deviceName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 120
                   }
                 },
                 "required": [
                   "businessName",
-                  "confirmationCode",
+                  "signupToken",
                   "email",
                   "username",
                   "password",
                   "businessPhone",
                   "businessState",
                   "bankName",
-                  "bankAccountNumber"
+                  "bankAccountNumber",
+                  "deviceId"
                 ]
               }
             }
@@ -401,7 +633,7 @@
         },
         "responses": {
           "201": {
-            "description": "Merchant account created; verification code sent",
+            "description": "Merchant account created and signed in",
             "content": {
               "application/json": {
                 "schema": {
@@ -410,30 +642,40 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "userId": {
-                          "type": "string"
+                        "user": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
-                        "email": {
-                          "type": "string"
-                        },
-                        "emailVerificationRequired": {
-                          "type": "boolean",
-                          "enum": [
-                            true
+                        "tokens": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            },
+                            "accessTokenExpiresIn": {
+                              "type": "number"
+                            },
+                            "tokenType": {
+                              "type": "string",
+                              "enum": [
+                                "Bearer"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "accessToken",
+                            "refreshToken",
+                            "accessTokenExpiresIn",
+                            "tokenType"
                           ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "verificationCode": {
-                          "type": "string"
                         }
                       },
                       "required": [
-                        "userId",
-                        "email",
-                        "emailVerificationRequired",
-                        "message"
+                        "user",
+                        "tokens"
                       ]
                     }
                   },
@@ -460,6 +702,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email or username already taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6646,7 +6907,7 @@
           "Banks"
         ],
         "summary": "Look up the account name for a bank and account number",
-        "description": "Signed-in merchants send their bearer token. During merchant sign-up (no account yet) send the `confirmationCode` instead; it must be valid and unused.",
+        "description": "Signed-in merchants send their bearer token. During merchant sign-up (no account yet) send the `signupToken` you got from confirming your email instead.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6661,10 +6922,10 @@
                     "type": "string",
                     "pattern": "^\\d{10}$"
                   },
-                  "confirmationCode": {
+                  "signupToken": {
                     "type": "string",
-                    "minLength": 4,
-                    "maxLength": 40
+                    "minLength": 20,
+                    "maxLength": 2000
                   }
                 },
                 "required": [

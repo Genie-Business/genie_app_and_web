@@ -74,3 +74,21 @@ export function otpEmail(code: string, purpose: 'verify' | 'reset' | 'delete'): 
     </div>`,
   };
 }
+
+export function merchantCodeEmail(code: string): Mail {
+  return {
+    to: '',
+    subject: `Your genie merchant code: ${code}`,
+    text: `Use this code to confirm your email and continue setting up your genie merchant account:
+
+${code}
+
+This code expires in 10 minutes. If you didn't ask for it, you can ignore this email.`,
+    html: `<div style="font-family:Inter,Arial,sans-serif;max-width:440px;margin:auto">
+      <h2 style="color:#6D28D9">genie</h2>
+      <p style="color:#3F394E">Use this code to confirm your email and continue setting up your genie merchant account:</p>
+      <p style="font-size:32px;letter-spacing:6px;font-weight:700;color:#2B1153">${code}</p>
+      <p style="color:#716A81;font-size:13px">This code expires in 10 minutes. If you didn't ask for it, ignore this email.</p>
+    </div>`,
+  };
+}

@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { prisma, type KybStatus, type Prisma } from '@genie/db';
 import { audit } from '@/admin/lib/audit';
@@ -6,19 +5,12 @@ import { canWrite, guard, guardWrite } from '@/admin/lib/rbac';
 import { CONCIERGE_EMAIL } from '@/admin/lib/constants';
 import { PAGE_SIZE, fmtDate, one, pageArgs } from '@/admin/lib/format';
 import {
-  A, Empty, FilterBar, Forbidden, PageHeader, Pager, Person, Pill, SectionTitle, StatusPill, Table, Td, Th, Thead, Tr, Field, ghostBtn, dangerBtn,
+  A, Empty, FilterBar, Forbidden, PageHeader, Pager, Person, Pill, StatusPill, Table, Td, Th, Thead, Tr, ghostBtn,
 } from '@/admin/components/ui';
 
 export const dynamic = 'force-dynamic';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
-
-// No 0/O/1/I/L — these get read out over the phone. Same GENIE-XXXXXX shape as the seeded codes.
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-function newCode(): string {
-  const bytes = randomBytes(6);
-  return `GENIE-${Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('')}`;
-}
 
 async function setKyb(userId: string, status: KybStatus) {
   'use server';
@@ -50,35 +42,6 @@ async function setKyb(userId: string, status: KybStatus) {
   revalidatePath('/admin/merchants');
 }
 
-async function createInvite(formData: FormData) {
-  'use server';
-  const session = await guardWrite('merchants');
-  if (!session) return;
-  const days = Math.trunc(Number(formData.get('days') ?? 0));
-  const count = Math.min(20, Math.max(1, Math.trunc(Number(formData.get('count') ?? 1)) || 1));
-  const expiresAt = days > 0 ? new Date(Date.now() + days * 86_400_000) : null;
-
-  for (let i = 0; i < count; i++) {
-    const code = newCode();
-    const row = await prisma.merchantInviteCode.create({
-      data: { code, singleUse: true, expiresAt, createdByAdminId: session.sub },
-    });
-    await audit(session, 'merchant.invite.create', 'MerchantInviteCode', row.id, { after: { expiresAt } });
-  }
-  revalidatePath('/admin/merchants');
-}
-
-async function revokeInvite(id: string) {
-  'use server';
-  const session = await guardWrite('merchants');
-  if (!session) return;
-  const code = await prisma.merchantInviteCode.findUnique({ where: { id } });
-  if (!code || code.usedByUserId) return;
-  await prisma.merchantInviteCode.delete({ where: { id } });
-  await audit(session, 'merchant.invite.revoke', 'MerchantInviteCode', id, { before: { code: code.code } });
-  revalidatePath('/admin/merchants');
-}
-
 export default async function MerchantsPage({ searchParams }: { searchParams: SP }) {
   const session = await guard('merchants');
   if (!session) return <Forbidden />;
@@ -102,7 +65,7 @@ export default async function MerchantsPage({ searchParams }: { searchParams: SP
       : {}),
   };
 
-  const [total, merchants, codes] = await Promise.all([
+  const [total, merchants] = await Promise.all([
     prisma.merchantProfile.count({ where }),
     prisma.merchantProfile.findMany({
       where,
@@ -113,80 +76,15 @@ export default async function MerchantsPage({ searchParams }: { searchParams: SP
         user: { select: { id: true, email: true, status: true, _count: { select: { productsAsMerchant: true, ordersAsMerchant: true } } } },
       },
     }),
-    prisma.merchantInviteCode.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 12,
-      include: { merchantProfile: { select: { businessName: true } } },
-    }),
   ]);
-
-  const now = Date.now();
 
   return (
     <div>
       <PageHeader
         title="Merchants"
-        subtitle="Sellers on genie. Merchants join with a one-time invite code from you, then you approve their business."
+        subtitle="Sellers on genie. They confirm their email in the app, then wait here for you to approve their business. Approval is what lets them list products and receive payouts."
       />
 
-      <div className="card">
-        <h2 className="font-display text-base font-bold">Invite codes</h2>
-        <p className="mt-1 text-sm text-ink-muted">Give a code to a merchant. They enter it as the confirmation code when signing up. Each works once.</p>
-        {writer && (
-          <form action={createInvite} className="mt-4 flex flex-wrap items-end gap-3">
-            <Field label="How many">
-              <input name="count" type="number" min={1} max={20} defaultValue={1} className="input w-24" />
-            </Field>
-            <Field label="Expires in (days)" hint="Blank = never">
-              <input name="days" type="number" min={1} max={365} placeholder="—" className="input w-32" />
-            </Field>
-            <button className="btn">Generate</button>
-          </form>
-        )}
-        {codes.length > 0 && (
-          <div className="mt-4">
-            <Table min={560}>
-              <Thead>
-                <Th>Code</Th>
-                <Th>Status</Th>
-                <Th>Created</Th>
-                <Th>Expires</Th>
-                <Th right />
-              </Thead>
-              <tbody>
-                {codes.map((c) => {
-                  const expired = !c.usedByUserId && c.expiresAt && c.expiresAt.getTime() < now;
-                  return (
-                    <Tr key={c.id}>
-                      <Td><span className="font-mono text-sm font-semibold tracking-wider">{c.code}</span></Td>
-                      <Td>
-                        {c.usedByUserId ? (
-                          <Pill tone="neutral">Used by {c.merchantProfile?.businessName ?? 'a merchant'}</Pill>
-                        ) : expired ? (
-                          <Pill tone="bad">Expired</Pill>
-                        ) : (
-                          <Pill tone="good">Available</Pill>
-                        )}
-                      </Td>
-                      <Td muted>{fmtDate(c.createdAt)}</Td>
-                      <Td muted>{c.expiresAt ? fmtDate(c.expiresAt) : 'Never'}</Td>
-                      <Td right>
-                        {writer && !c.usedByUserId && (
-                          <form action={revokeInvite.bind(null, c.id)}>
-                            <button className={dangerBtn}>Revoke</button>
-                          </form>
-                        )}
-                      </Td>
-                    </Tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </div>
-        )}
-      </div>
-
-      <SectionTitle>All merchants</SectionTitle>
       <FilterBar
         q={q}
         placeholder="Search business, email, phone"

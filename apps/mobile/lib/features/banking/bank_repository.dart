@@ -40,11 +40,12 @@ class BankRepository {
   }
 
   /// Ask the bank who owns [accountNumber]. While signing up there is no session
-  /// yet, so [confirmationCode] (and `auth: false`) identifies the merchant instead.
+  /// yet, so the [signupToken] from confirming the email (with `auth: false`)
+  /// identifies the merchant instead.
   Future<ResolvedAccount> resolve({
     required String bankCode,
     required String accountNumber,
-    String? confirmationCode,
+    String? signupToken,
     bool auth = true,
   }) async {
     final data = await _api.post<Map<String, dynamic>>(
@@ -53,7 +54,7 @@ class BankRepository {
       body: {
         'bankCode': bankCode,
         'accountNumber': accountNumber,
-        if (confirmationCode != null) 'confirmationCode': confirmationCode,
+        if (signupToken != null) 'signupToken': signupToken,
       },
     );
     return ResolvedAccount.fromJson(data);

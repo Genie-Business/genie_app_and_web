@@ -62,9 +62,17 @@ export const registerCelebrantBody = z.object({
 export type RegisterCelebrantBody = z.infer<typeof registerCelebrantBody>;
 
 // ── Merchant registration (US0004) ───────────────────────────────────────
+// Two steps before the account exists: the merchant asks for a code to be emailed
+// to them, then enters it; the server answers with a short-lived signup token that
+// proves they own the address. Registration (and the bank-name lookup during it)
+// carries that token instead of any admin-issued invite code.
+export const merchantSignupCodeBody = z.object({ email: emailSchema });
+export const merchantSignupVerifyBody = z.object({ email: emailSchema, code: otpCodeSchema });
+export const merchantSignupTokenSchema = z.string().min(20).max(2000);
+
 export const registerMerchantBody = z.object({
   businessName: z.string().trim().min(1).max(140),
-  confirmationCode: z.string().trim().min(4).max(40),
+  signupToken: merchantSignupTokenSchema,
   email: emailSchema,
   username: usernameSchema,
   password: passwordSchema,
@@ -78,6 +86,7 @@ export const registerMerchantBody = z.object({
   bankAccountNumber: z.string().trim().regex(/^\d{10}$/, 'Enter a valid 10-digit account number.'),
   /** Only used when the name lookup is unavailable; a looked-up name always wins. */
   bankAccountName: z.string().trim().min(1).max(120).optional(),
+  ...deviceInfo,
 });
 export type RegisterMerchantBody = z.infer<typeof registerMerchantBody>;
 

@@ -12,8 +12,13 @@ import { prisma, type OtpPurpose, type User } from '@genie/db';
 import type { auth as authContracts } from '@genie/contracts';
 import { getEnv, otpPepper } from '../../env';
 import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../../lib/errors';
-import { hashRefreshToken, signAccessToken } from '../../lib/jwt';
-import { otpEmail, sendMail } from '../../lib/mailer';
+import {
+  hashRefreshToken,
+  signAccessToken,
+  signMerchantSignupToken,
+  verifyMerchantSignupToken,
+} from '../../lib/jwt';
+import { merchantCodeEmail, otpEmail, sendMail } from '../../lib/mailer';
 import { logger } from '../../lib/logger';
 import { recordActivity } from '../activities/activities.service';
 import { settleBankDetails } from '../banks/banks.service';
@@ -218,22 +223,50 @@ export async function registerCelebrant(input: RegisterCelebrant) {
   return { userId: user.id, email, verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
-/** The merchant invite code `code`, if it exists, is unused and hasn't expired. */
-export async function findUsableInviteCode(code: string | undefined) {
-  const trimmed = code?.trim();
-  if (!trimmed) return null;
-  const invite = await prisma.merchantInviteCode.findUnique({ where: { code: trimmed } });
-  if (!invite || invite.usedByUserId || (invite.expiresAt && invite.expiresAt.getTime() < Date.now())) return null;
-  return invite;
+/**
+ * Step 1 of merchant sign-up: email a 6-digit code to the address the merchant
+ * typed, so we know it is theirs before an account exists.
+ */
+export async function requestMerchantSignupCode(rawEmail: string) {
+  const email = normalizeEmail(rawEmail);
+  const taken = await prisma.user.findFirst({ where: { email, status: 'ACTIVE' }, select: { id: true } });
+  if (taken) throw conflict('email_taken', 'An account with this email already exists.');
+
+  const code = await issueOtp(email, 'MERCHANT_SIGNUP');
+  await sendMail({ ...merchantCodeEmail(code), to: email });
+  logger.info('merchant signup code sent');
+  return { email, verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
-export async function registerMerchant(input: RegisterMerchant) {
+/** Step 2: the merchant enters the code; we hand back a short-lived proof of the email. */
+export async function verifyMerchantSignupCode(rawEmail: string, code: string) {
+  const email = normalizeEmail(rawEmail);
+  await consumeOtp(email, 'MERCHANT_SIGNUP', code);
+  const { token, expiresIn } = await signMerchantSignupToken(email);
+  return { signupToken: token, expiresIn };
+}
+
+/** The email a signup token vouches for, or a 400 the app can show. */
+export async function emailFromSignupToken(token: string): Promise<string> {
+  try {
+    return (await verifyMerchantSignupToken(token)).email;
+  } catch {
+    throw badRequest('Your email confirmation has expired. Verify your email again to continue.');
+  }
+}
+
+/**
+ * Step 3: create the merchant. The signup token proves the email, so the account
+ * is created already verified and signed in; admins approve the business
+ * afterwards (kybStatus), which is what unlocks listing and payouts.
+ */
+export async function registerMerchant(input: RegisterMerchant, device: DeviceCtx) {
   const email = normalizeEmail(input.email);
+  if ((await emailFromSignupToken(input.signupToken)) !== email) {
+    throw badRequest('That email does not match the one you verified. Verify it again to continue.');
+  }
   const username = input.username.trim();
   await assertEmailAndUsernameFree(email, username);
-
-  const invite = await findUsableInviteCode(input.confirmationCode);
-  if (!invite) throw badRequest('That confirmation code is invalid or has already been used.');
 
   // With a bank code the account name is looked up here, not taken from the app.
   const bank = await settleBankDetails({
@@ -246,58 +279,52 @@ export async function registerMerchant(input: RegisterMerchant) {
   const passwordHash = await hashPassword(input.password);
   const referralCode = await uniqueReferralCode();
 
-  const user = await prisma.$transaction(async (tx) => {
-    const created = await tx.user.create({
-      data: {
-        role: 'MERCHANT',
-        firstName: input.businessName.trim(),
-        lastName: '(Merchant)',
-        email,
-        username,
-        referralCode,
-        phone: input.businessPhone,
-        passwordHash,
-        stateOfResidence: input.businessState,
-        lga: input.lga ?? null,
-        country: input.country,
-        merchantProfile: {
-          create: {
-            businessName: input.businessName.trim(),
-            businessPhone: input.businessPhone,
-            businessState: input.businessState,
-            bankName: bank.bankName,
-            bankAccountNumber: input.bankAccountNumber,
-            bankAccountName: bank.accountName,
-            inviteCodeId: invite.id,
-          },
+  const user = await prisma.user.create({
+    data: {
+      role: 'MERCHANT',
+      firstName: input.businessName.trim(),
+      lastName: '(Merchant)',
+      email,
+      username,
+      referralCode,
+      phone: input.businessPhone,
+      passwordHash,
+      emailVerifiedAt: new Date(),
+      stateOfResidence: input.businessState,
+      lga: input.lga ?? null,
+      country: input.country,
+      merchantProfile: {
+        create: {
+          businessName: input.businessName.trim(),
+          businessPhone: input.businessPhone,
+          businessState: input.businessState,
+          bankName: bank.bankName,
+          bankAccountNumber: input.bankAccountNumber,
+          bankAccountName: bank.accountName,
         },
       },
-    });
-    // Seed the settlement account so the merchant doesn't have to enter it twice.
-    if (bank.accountName) {
-      await tx.payoutAccount.create({
-        data: {
-          merchantId: created.id,
-          bankName: bank.bankName,
-          bankCode: bank.bankCode,
-          accountNumber: input.bankAccountNumber,
-          accountName: bank.accountName,
-          isVerified: bank.verified,
-        },
-      });
-    }
-    await tx.merchantInviteCode.update({
-      where: { id: invite.id },
-      data: { usedByUserId: created.id, usedAt: new Date() },
-    });
-    return created;
+      // Seed the settlement account so the merchant doesn't have to enter it twice.
+      ...(bank.accountName
+        ? {
+            payoutAccount: {
+              create: {
+                bankName: bank.bankName,
+                bankCode: bank.bankCode,
+                accountNumber: input.bankAccountNumber,
+                accountName: bank.accountName,
+                isVerified: bank.verified,
+              },
+            },
+          }
+        : {}),
+    },
   });
 
   await recordActivity({ userId: user.id, category: 'ACCOUNT', action: 'account.registered', metadata: { role: 'MERCHANT' } });
-  const code = await issueOtp(email, 'EMAIL_VERIFY', user.id);
-  await sendMail({ ...otpEmail(code, 'verify'), to: email });
+  await recordActivity({ userId: user.id, category: 'ACCOUNT', action: 'account.verified' });
+  const tokens = await issueTokens(user, device);
   logger.info({ userId: user.id }, 'merchant registered');
-  return { userId: user.id, email, verificationCode: otpEchoEnabled(email) ? code : undefined };
+  return { tokens, user };
 }
 
 // ── Email verification ───────────────────────────────────────────────────

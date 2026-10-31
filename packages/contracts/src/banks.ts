@@ -8,11 +8,11 @@ export type Bank = z.infer<typeof bankSchema>;
 
 // ── Name enquiry ─────────────────────────────────────────────────────────
 // Anonymous callers (merchant sign-up, before an account exists) must send the
-// confirmation code they are signing up with; signed-in merchants don't.
+// signup token they got by verifying their email; signed-in merchants don't.
 export const resolveAccountBody = z.object({
   bankCode: bankCodeSchema,
   accountNumber: accountNumberSchema,
-  confirmationCode: z.string().trim().min(4).max(40).optional(),
+  signupToken: z.string().min(20).max(2000).optional(),
 });
 export type ResolveAccountBody = z.infer<typeof resolveAccountBody>;
 

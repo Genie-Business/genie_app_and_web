@@ -88,7 +88,6 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
 
     <div data-pane="merch" class="hide">
       <label>Business name</label><input id="m_biz" value="Ada Cakes"/>
-      <label>Merchant confirmation code</label><input id="m_code" placeholder="GENIE-XXXXXX"/>
       <div class="row"><div><label>Email</label><input id="m_email"/></div>
         <div><label>Username</label><input id="m_user"/></div></div>
       <div class="row"><div><label>Business phone</label><input id="m_phone" value="+2348011112222"/></div>
@@ -96,8 +95,7 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
       <div class="row"><div><label>Bank name</label><input id="m_bank" value="GTBank"/></div>
         <div><label>Account number</label><input id="m_acct" value="0123456789"/></div></div>
       <label>Password</label><input id="m_pass" value="Abcdef1!"/>
-      <div style="margin-top:12px"><button id="m_go">Create merchant &amp; verify</button>
-        <button class="ghost sm" id="m_invite">get a code</button></div>
+      <div style="margin-top:12px"><button id="m_go">Create merchant (emails a code, verifies it)</button></div>
     </div>
 
     <div data-pane="signin" class="hide">
@@ -449,22 +447,21 @@ $('#c_go').onclick = async () => {
     setSession(res); msg('#authMsg','Signed in as '+res.user.username, true);
   }catch(e){ msg('#authMsg', e.message, false); }
 };
-$('#m_invite').onclick = async () => {
-  // there's no public endpoint for this; hint the user
-  msg('#authMsg','Run  npm run db:seed  — it prints 5 GENIE-XXXXXX invite codes.', false);
-};
 $('#m_go').onclick = async () => {
   try{
     msg('#authMsg','',true);
     const email = $('#m_email').value || ('cakes+'+rnd()+'@example.com'); $('#m_email').value=email;
     const user = $('#m_user').value || ('cakes_'+rnd()); $('#m_user').value=user;
-    await api('/v1/auth/register/merchant', {auth:false, method:'POST', body:{
-      businessName:$('#m_biz').value, confirmationCode:$('#m_code').value, email, username:user,
+    // 1) email a code  2) read it back (dev only) and trade it for a signup token  3) register
+    await api('/v1/auth/register/merchant/code', {auth:false, method:'POST', body:{ email }});
+    const code = await verifyFlow(email, 'MERCHANT_SIGNUP');
+    const ok = await api('/v1/auth/register/merchant/verify', {auth:false, method:'POST', body:{ email, code }});
+    const res = await api('/v1/auth/register/merchant', {auth:false, method:'POST', body:{
+      businessName:$('#m_biz').value, signupToken:ok.signupToken, email, username:user,
       businessPhone:$('#m_phone').value, businessState:$('#m_state').value,
       bankName:$('#m_bank').value, bankAccountNumber:$('#m_acct').value, password:$('#m_pass').value,
+      deviceId:device(),
     }});
-    const code = await verifyFlow(email);
-    const res = await api('/v1/auth/verify-email', {auth:false, method:'POST', body:{ email, code, deviceId:device() }});
     setSession(res); msg('#authMsg','Signed in as merchant '+res.user.username, true);
   }catch(e){ msg('#authMsg', e.message, false); }
 };

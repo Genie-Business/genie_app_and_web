@@ -159,7 +159,15 @@ class AuthController extends Notifier<AuthState> {
 
   /// Returns the echoed verification code on non-production deployments, or null.
   Future<String?> registerCelebrant(Map<String, dynamic> body) => _repo.registerCelebrant(body);
-  Future<String?> registerMerchant(Map<String, dynamic> body) => _repo.registerMerchant(body);
+  Future<String?> requestMerchantCode(String email) => _repo.requestMerchantCode(email);
+  Future<String> verifyMerchantCode({required String email, required String code}) =>
+      _repo.verifyMerchantCode(email: email, code: code);
+
+  /// Creates the merchant account and signs them in; the router takes it from there.
+  Future<void> registerMerchant(Map<String, dynamic> body) async {
+    final result = await _repo.registerMerchant({...body, 'deviceId': await _deviceId()});
+    await _applyResult(result);
+  }
   Future<String?> resendOtp(String email, {String purpose = 'EMAIL_VERIFY'}) =>
       _repo.resendOtp(email, purpose: purpose);
   Future<void> forgotPassword(String email) => _repo.forgotPassword(email);

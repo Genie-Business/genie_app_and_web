@@ -38,6 +38,7 @@ enum OtpPurpose {
   EMAIL_VERIFY
   PASSWORD_RESET
   ACCOUNT_DELETE
+  MERCHANT_SIGNUP
 }
 
 enum DevicePlatform {

@@ -88,6 +88,8 @@ export const RULES = {
   otpVerify: { limit: 8, windowMs: 15 * 60_000 },
   passwordReset: { limit: 4, windowMs: 30 * 60_000 },
   adminLogin: { limit: 6, windowMs: 15 * 60_000 },
+  // The merchant code mails whatever address it is given, so cap how often one IP can ask.
+  merchantCodeIp: { limit: 10, windowMs: 60 * 60_000 },
   // Account-name lookups reveal who owns an account number, so they are tight.
   bankResolveIp: { limit: 30, windowMs: 15 * 60_000 },
   bankResolveSubject: { limit: 40, windowMs: 60 * 60_000 },

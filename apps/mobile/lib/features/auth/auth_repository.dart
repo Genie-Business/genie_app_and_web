@@ -14,10 +14,26 @@ class AuthRepository {
     return data['verificationCode'] as String?;
   }
 
-  Future<String?> registerMerchant(Map<String, dynamic> body) async {
+  /// Step 1 of merchant sign-up: email a code to [email]. Returns the echoed code
+  /// on non-production deployments, or null.
+  Future<String?> requestMerchantCode(String email) async {
+    final data = await _api.post<Map<String, dynamic>>('/v1/auth/register/merchant/code',
+        body: {'email': email}, auth: false);
+    return data['verificationCode'] as String?;
+  }
+
+  /// Step 2: trade the emailed code for a short-lived token proving the address.
+  Future<String> verifyMerchantCode({required String email, required String code}) async {
+    final data = await _api.post<Map<String, dynamic>>('/v1/auth/register/merchant/verify',
+        body: {'email': email, 'code': code}, auth: false);
+    return data['signupToken'] as String;
+  }
+
+  /// Step 3: create the merchant. The email is already verified, so this signs them in.
+  Future<AuthResult> registerMerchant(Map<String, dynamic> body) async {
     final data = await _api
         .post<Map<String, dynamic>>('/v1/auth/register/merchant', body: body, auth: false);
-    return data['verificationCode'] as String?;
+    return AuthResult.fromJson(data);
   }
 
   Future<AuthResult> verifyEmail({

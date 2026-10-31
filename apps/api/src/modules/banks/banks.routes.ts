@@ -6,7 +6,7 @@ import { clientIp } from '../../lib/client-ip';
 import { badRequest, forbidden } from '../../lib/errors';
 import { rateLimit, RULES } from '../../lib/rate-limit';
 import { optionalAuth } from '../../middleware/auth';
-import { findUsableInviteCode } from '../auth/auth.service';
+import { emailFromSignupToken } from '../auth/auth.service';
 import { listBanks, resolveAccount } from './banks.service';
 
 const router = createRouter();
@@ -32,7 +32,7 @@ router.openapi(
 // ── POST /banks/resolve — who owns this account? ──────────────────────────
 // A name lookup tells the caller who holds an account number, so it is limited
 // to people with a reason to ask: signed-in merchants, or someone mid-sign-up
-// holding a valid, unused confirmation code.
+// who has confirmed their email (they hold a signup token).
 router.use('/resolve', optionalAuth);
 router.openapi(
   createRoute({
@@ -41,7 +41,7 @@ router.openapi(
     tags: ['Banks'],
     summary: 'Look up the account name for a bank and account number',
     description:
-      'Signed-in merchants send their bearer token. During merchant sign-up (no account yet) send the `confirmationCode` instead; it must be valid and unused.',
+      'Signed-in merchants send their bearer token. During merchant sign-up (no account yet) send the `signupToken` you got from confirming your email instead.',
     request: { body: jsonBody(B.resolveAccountBody) },
     responses: {
       200: jsonResponse('The name on the account', z.object({ data: B.resolvedAccountSchema })),
@@ -59,13 +59,14 @@ router.openapi(
       if (user.role !== 'MERCHANT') throw forbidden('Only merchants can look up bank accounts.');
       subject = `user:${user.id}`;
     } else {
-      const invite = await findUsableInviteCode(input.confirmationCode);
-      if (!invite) {
-        // Without this the endpoint would let anyone test guessed confirmation codes.
-        await rateLimit(`bank-resolve:bad-code:${ip}`, RULES.bankResolveBadCode);
-        throw badRequest('Enter a valid confirmation code before checking your bank account.');
+      let email: string | null = null;
+      if (input.signupToken) email = await emailFromSignupToken(input.signupToken).catch(() => null);
+      if (!email) {
+        // Without this the endpoint would let anyone test guessed tokens.
+        await rateLimit(`bank-resolve:bad-token:${ip}`, RULES.bankResolveBadCode);
+        throw badRequest('Confirm your email before checking your bank account.');
       }
-      subject = `invite:${invite.id}`;
+      subject = `signup:${email}`;
     }
     await rateLimit(`bank-resolve:subject:${subject}`, RULES.bankResolveSubject);
 

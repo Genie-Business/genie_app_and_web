@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth as authContracts, banks as bankContracts } from '@genie/contracts';
 import { createApp } from '../src/app';
+import { signMerchantSignupToken } from '../src/lib/jwt';
 import { NG_BANKS } from '../src/modules/banks/banks.data';
 import { __resetBankCache, listBanks, resolveAccount, settleBankDetails } from '../src/modules/banks/banks.service';
 import { __setPaymentProvider, MockPaymentProvider } from '../src/modules/payments/provider';
@@ -190,7 +191,8 @@ describe('contracts', () => {
   it('keeps bankCode optional on merchant registration so older apps still work', () => {
     const merchant = {
       businessName: 'Ada Stores',
-      confirmationCode: 'GENIE-ABC123',
+      signupToken: 'a'.repeat(40),
+      deviceId: 'device-12345',
       email: 'ada@example.com',
       username: 'adastores',
       password: 'Abcdef1!',
@@ -218,7 +220,7 @@ describe('GET /v1/banks and the lookup gate', () => {
     expect(data.find((b) => b.code === '058')).toBeTruthy();
   });
 
-  it('refuses an anonymous lookup with no confirmation code, then throttles the guessing', async () => {
+  it('refuses an anonymous lookup with no signup token, then throttles the guessing', async () => {
     const attempt = () =>
       app.request(
         '/v1/banks/resolve',
@@ -264,10 +266,10 @@ d('bank lookup, registration and settlement (DB)', () => {
     expect((await resolve(ACCOUNT, celebrant.auth)).status).toBe(403);
   });
 
-  it('lets someone mid-sign-up resolve only with a valid, unused confirmation code', async () => {
-    await prisma.merchantInviteCode.create({ data: { code: 'GENIE-GOOD01' } });
-    expect((await resolve({ ...ACCOUNT, confirmationCode: 'GENIE-GOOD01' })).status).toBe(200);
-    expect((await resolve({ ...ACCOUNT, confirmationCode: 'GENIE-WRONG1' })).status).toBe(400);
+  it('lets someone mid-sign-up resolve only with a valid signup token', async () => {
+    const { token } = await signMerchantSignupToken('ada@example.com');
+    expect((await resolve({ ...ACCOUNT, signupToken: token })).status).toBe(200);
+    expect((await resolve({ ...ACCOUNT, signupToken: 'x'.repeat(40) })).status).toBe(400);
     expect((await resolve(ACCOUNT)).status).toBe(400);
   });
 
@@ -279,60 +281,48 @@ d('bank lookup, registration and settlement (DB)', () => {
     expect((await resolve(ACCOUNT, merchant.auth)).status).toBe(503);
   });
 
+  const registration = async (email: string, extra: Record<string, unknown> = {}) => ({
+    businessName: 'Ada Stores',
+    signupToken: (await signMerchantSignupToken(email)).token,
+    email,
+    username: email.split('@')[0],
+    password: 'Abcdef1!',
+    businessPhone: '+2348012345678',
+    businessState: 'Lagos',
+    bankName: ACCOUNT.bankName,
+    bankCode: ACCOUNT.bankCode,
+    bankAccountNumber: ACCOUNT.accountNumber,
+    deviceId: 'device-12345',
+    ...extra,
+  });
+
   it('stores the looked-up name when a merchant registers, and seeds the settlement account', async () => {
-    await prisma.merchantInviteCode.create({ data: { code: 'GENIE-REG001' } });
     const res = await app.request(
       '/v1/auth/register/merchant',
-      post(
-        {
-          businessName: 'Ada Stores',
-          confirmationCode: 'GENIE-REG001',
-          email: 'ada@example.com',
-          username: 'adastores',
-          password: 'Abcdef1!',
-          businessPhone: '+2348012345678',
-          businessState: 'Lagos',
-          bankName: ACCOUNT.bankName,
-          bankCode: ACCOUNT.bankCode,
-          bankAccountNumber: ACCOUNT.accountNumber,
-          bankAccountName: 'Name The App Made Up',
-        },
-        { 'content-type': 'application/json' },
-      ),
+      post(await registration('ada@example.com', { bankAccountName: 'Name The App Made Up' }), {
+        'content-type': 'application/json',
+      }),
     );
     expect(res.status).toBe(201);
+    expect((await body(res)).data.tokens.accessToken).toBeTruthy(); // signed straight in
 
     const user = await prisma.user.findFirstOrThrow({ where: { email: 'ada@example.com' } });
+    expect(user.emailVerifiedAt).not.toBeNull(); // the emailed code already proved the address
     const profile = await prisma.merchantProfile.findUniqueOrThrow({ where: { userId: user.id } });
     expect(profile.bankAccountName).toBe('TEST ACCOUNT 6789');
     const payout = await prisma.payoutAccount.findUniqueOrThrow({ where: { merchantId: user.id } });
     expect(payout).toMatchObject({ accountName: 'TEST ACCOUNT 6789', bankCode: '058', isVerified: true });
   });
 
-  it('rejects registration with an account the bank does not recognise', async () => {
-    await prisma.merchantInviteCode.create({ data: { code: 'GENIE-REG002' } });
+  it('rejects registration with an account the bank does not recognise, creating nothing', async () => {
     const res = await app.request(
       '/v1/auth/register/merchant',
-      post(
-        {
-          businessName: 'Bad Acct',
-          confirmationCode: 'GENIE-REG002',
-          email: 'bad@example.com',
-          username: 'badacct',
-          password: 'Abcdef1!',
-          businessPhone: '+2348012345678',
-          businessState: 'Lagos',
-          bankName: ACCOUNT.bankName,
-          bankCode: ACCOUNT.bankCode,
-          bankAccountNumber: '0000456789',
-        },
-        { 'content-type': 'application/json' },
-      ),
+      post(await registration('bad@example.com', { bankAccountNumber: '0000456789' }), {
+        'content-type': 'application/json',
+      }),
     );
     expect(res.status).toBe(422);
-    // The invite code must not be burnt by a failed attempt.
-    const invite = await prisma.merchantInviteCode.findUniqueOrThrow({ where: { code: 'GENIE-REG002' } });
-    expect(invite.usedByUserId).toBeNull();
+    expect(await prisma.user.count({ where: { email: 'bad@example.com' } })).toBe(0);
   });
 
   it('saves the settlement account with the looked-up name and resets verification on change', async () => {
