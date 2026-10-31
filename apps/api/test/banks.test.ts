@@ -70,6 +70,13 @@ describe('listBanks', () => {
     expect((await listBanks()).length).toBe(NG_BANKS.length);
   });
 
+  it("does not swap in the bundled list for a real provider (its bank codes differ)", async () => {
+    const real = fakeProvider({ banks: new Error('provider down') });
+    Object.defineProperty(real, 'name', { value: 'paystack' });
+    __setPaymentProvider(real);
+    await expect(listBanks()).rejects.toMatchObject({ status: 503, code: 'bank_list_unavailable' });
+  });
+
   it('caches the list between calls', async () => {
     let calls = 0;
     const p = fakeProvider({});

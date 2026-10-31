@@ -39,7 +39,7 @@ class NotificationPref {
     'GIFT': 'Gifts',
     'EVENT': 'Events',
     'FRIEND': 'Friends',
-    'PAYMENT': 'Payments & wallet',
+    'PAYMENT': 'Payments',
     'MESSAGE': 'Messages',
     'SYSTEM': 'Account & security',
   };

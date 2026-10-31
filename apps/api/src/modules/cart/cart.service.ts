@@ -145,7 +145,7 @@ export async function clearCart(userId: string) {
   return getCart(userId);
 }
 
-export async function checkout(userId: string, method: 'WALLET' | 'BANK_TRANSFER') {
+export async function checkout(userId: string) {
   const cart = await openCart(userId);
   if (cart.items.length === 0) throw badRequest('Your cart is empty.');
 
@@ -156,7 +156,7 @@ export async function checkout(userId: string, method: 'WALLET' | 'BANK_TRANSFER
     message: row.message ?? undefined,
   }));
 
-  const result = await payForCart(userId, { lines, method });
+  const result = await payForCart(userId, { lines });
 
   // Anything that could no longer be gifted (someone else already claimed it,
   // it sold out, the event ended) is dropped from the cart so a retry is clean.
@@ -187,7 +187,6 @@ export async function checkout(userId: string, method: 'WALLET' | 'BANK_TRANSFER
       items: lines.length - skipped.length,
       skipped: skipped.length,
       totalKobo: result.totalKobo.toString(),
-      method,
     },
   });
   return result;

@@ -1,10 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { peekOtp } from '../src/modules/auth/auth.service';
-import { ensureWallet } from '../src/modules/payments/wallet.service';
-import { postEntry } from '../src/modules/payments/ledger.service';
 import { hasDb, prisma, resetDb } from './helpers/db';
-import { body, makeCelebrant, post } from './helpers/factory';
+import { body, makeCelebrant, makeMerchant, post } from './helpers/factory';
 
 const dbUp = await hasDb();
 const d = dbUp ? describe : describe.skip;
@@ -81,17 +79,29 @@ d('settings (E011)', () => {
     expect(list.map((s: { deviceId: string }) => s.deviceId)).toEqual(['dev-a']);
   });
 
-  it('blocks deletion while the wallet holds money, then completes it with an OTP', async () => {
-    const u = await makeCelebrant();
-    await ensureWallet(u.user.id);
-    await postEntry({ userId: u.user.id, direction: 'CREDIT', amountKobo: 5_000n, reason: 'FUNDING', idempotencyKey: `t:${u.user.id}` });
+  it('blocks a merchant who is still owed money from deleting, then completes it with an OTP', async () => {
+    const u = await makeMerchant();
+    const owed = await prisma.order.create({
+      data: {
+        orderNumber: `ORD-TEST-${u.user.id.slice(-6)}`,
+        merchantId: u.user.id,
+        status: 'DELIVERED',
+        subtotalKobo: 100_000n,
+        commissionKobo: 5_000n,
+        merchantNetKobo: 95_000n,
+        totalKobo: 120_000n,
+      },
+    });
 
     const blocked = await app.request('/v1/me/delete/request', { method: 'POST', headers: u.auth });
     expect(blocked.status).toBe(400);
-    expect((await body(blocked)).error.message).toContain('Withdraw');
+    expect((await body(blocked)).error.message).toContain('paid out');
 
-    // drain the wallet
-    await postEntry({ userId: u.user.id, direction: 'DEBIT', amountKobo: 5_000n, reason: 'WITHDRAWAL', idempotencyKey: `t2:${u.user.id}` });
+    // once it has been paid out there is nothing owed
+    const payout = await prisma.payout.create({
+      data: { reference: `PO-TEST-${u.user.id.slice(-6)}`, merchantId: u.user.id, amountKobo: 95_000n, netAmountKobo: 95_000n, status: 'PAID' },
+    });
+    await prisma.order.update({ where: { id: owed.id }, data: { payoutId: payout.id } });
 
     const req = await app.request('/v1/me/delete/request', { method: 'POST', headers: u.auth });
     expect(req.status).toBe(200);

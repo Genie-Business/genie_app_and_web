@@ -1,13 +1,12 @@
 import { prisma } from '@genie/db';
 import { logger } from '../../lib/logger';
 import { getPaymentProvider } from './provider';
-import { settleAddFunds } from './payments.service';
-import { settleGiftTransfer } from '../gifts/gifts.service';
+import { settlePaidIntent } from './reconcile.service';
 
 /**
  * Receive, verify and route a provider webhook. Every event is logged to
  * WebhookEvent for idempotency and audit; handlers are no-ops for events genie
- * doesn't consume yet.
+ * doesn't consume.
  */
 export async function handleProviderWebhook(
   rawBody: string,
@@ -61,27 +60,22 @@ export async function handleProviderWebhook(
 }
 
 async function route(eventType: string, payload: unknown) {
-  const attributes = (payload as { data?: { attributes?: Record<string, unknown> } })?.data
-    ?.attributes;
+  const data = (payload as { data?: Record<string, unknown> })?.data;
 
   switch (eventType) {
-    case 'payin.received':
-    case 'payment.received': {
-      const reference = String(attributes?.reference ?? '');
-      const amount = BigInt(Math.round(Number(attributes?.amount ?? 0)));
+    case 'charge.success': {
+      const reference = String(data?.reference ?? '');
       if (!reference) return;
-      // A pay-in reference belongs either to a wallet top-up or a gift transfer.
-      const gift = await settleGiftTransfer(reference, amount);
-      if (!gift.handled) await settleAddFunds(reference, amount);
+      // The webhook only says "look at this payment"; the amount we act on comes
+      // from asking the provider, so a forged or replayed body can't change it.
+      const charge = await getPaymentProvider().verifyCharge(reference);
+      if (charge.status === 'SUCCESS') await settlePaidIntent(reference, charge.amountKobo);
       return;
     }
-    // Events genie will consume in later milestones — acknowledged, not yet acted on.
-    case 'transfer.completed':
+    // Transfer outcomes are applied to payouts (see payouts.service).
+    case 'transfer.success':
     case 'transfer.failed':
-    case 'nip.transfer.successful':
-    case 'nip.transfer.failed':
-    case 'account.credit':
-    case 'account.debit':
+    case 'transfer.reversed':
       logger.info({ eventType }, 'webhook acknowledged (no handler yet)');
       return;
     default:

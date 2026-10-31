@@ -19,21 +19,22 @@ class GiftsRepository {
     return GiftQuote.fromJson(data);
   }
 
-  /// Pay for a gift from the wallet. Returns the raw result (status / intent).
-  Future<Map<String, dynamic>> pay({
+  /// Start paying for a gift. The server answers with a payment [reference] and a
+  /// `checkoutUrl` to send the buyer to; the gift is created once the payment is confirmed.
+  Future<({String reference, String checkoutUrl})> startPayment({
     required String wishlistItemId,
     int quantity = 1,
     bool isAnonymous = false,
     String? message,
-    String method = 'WALLET',
-  }) =>
-      _api.post<Map<String, dynamic>>('/v1/gifts', body: {
-        'wishlistItemId': wishlistItemId,
-        'quantity': quantity,
-        'isAnonymous': isAnonymous,
-        'method': method,
-        if (message != null && message.trim().isNotEmpty) 'message': message.trim(),
-      });
+  }) async {
+    final data = await _api.post<Map<String, dynamic>>('/v1/gifts', body: {
+      'wishlistItemId': wishlistItemId,
+      'quantity': quantity,
+      'isAnonymous': isAnonymous,
+      if (message != null && message.trim().isNotEmpty) 'message': message.trim(),
+    });
+    return (reference: data['reference'] as String, checkoutUrl: data['checkoutUrl'] as String);
+  }
 
   Future<List<ReceivedGift>> received() async {
     final data = await _api.get<List<dynamic>>('/v1/gifts/received');

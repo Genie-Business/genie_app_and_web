@@ -109,7 +109,7 @@ router.openapi(
     security: [{ bearerAuth: [] }],
     responses: {
       200: jsonResponse(
-        'Code sent (or 400 if the wallet is not empty / a settlement is pending)',
+        'Code sent (or 400 if a payout is still owed or in progress)',
         z.object({
           data: z.object({ message: z.string(), verificationCode: z.string().optional() }),
         }),

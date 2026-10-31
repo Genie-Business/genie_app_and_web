@@ -1,34 +1,40 @@
-import { createHmac, randomInt } from 'node:crypto';
 import { makeReference } from '@genie/core';
 import { NG_BANKS, bundledBank } from '../../banks/banks.data';
+import { parseWebhook, paystackSignature } from './paystack';
 import type {
   Bank,
-  BookTransferInput,
-  DynamicVirtualAccount,
-  NipTransferInput,
+  InitializeChargeInput,
+  InitializedCharge,
   PaymentProvider,
-  ProviderCustomer,
-  ProviderDepositAccount,
+  RecipientInput,
   ResolvedAccount,
+  TransferInput,
   TransferResult,
+  VerifiedCharge,
   WebhookVerification,
 } from './types';
-import { AccountNotFoundError, AccountResolutionUnavailableError } from './types';
+import { AccountNotFoundError, AccountResolutionUnavailableError, TransferError } from './types';
 
 /**
  * Deterministic in-memory provider for local dev, tests and preview deploys
- * without an Anchor account. Pair it with `POST /v1/payments/_mock/settle` to
- * simulate an inbound bank transfer landing on a dynamic virtual account.
+ * without a Paystack account. Pair it with `POST /v1/payments/_mock/pay` to
+ * simulate a buyer completing the hosted checkout.
+ *
+ * State lives in this process only, which is fine for dev and tests but means a
+ * multi-instance deploy shouldn't rely on the mock to settle payments.
  */
 export class MockPaymentProvider implements PaymentProvider {
   readonly name = 'mock';
 
-  private customers = new Map<string, string>();
-  private accounts = new Map<string, { id: string; balanceKobo: bigint }>();
-  /** reference -> pending virtual account (so the mock-settle route can find it) */
-  readonly pendingVirtualAccounts = new Map<string, DynamicVirtualAccount & { amountKobo: bigint }>();
+  /** reference -> amount, for charges that have been started */
+  private readonly started = new Map<string, bigint>();
+  /** reference -> amount, for charges the "buyer" has completed */
+  private readonly paid = new Map<string, bigint>();
 
-  private readonly secret = process.env.ANCHOR_WEBHOOK_SECRET || 'mock-webhook-secret';
+  /** Test hook: make the next N transfers fail (e.g. "balance not enough"). */
+  failNextTransfers = 0;
+
+  private readonly secret = process.env.PAYSTACK_SECRET_KEY || 'mock-paystack-secret';
 
   /**
    * Whether name enquiry returns made-up names. On for dev and tests; off in
@@ -41,44 +47,27 @@ export class MockPaymentProvider implements PaymentProvider {
     this.simulateLookups = opts.simulateAccountLookups ?? process.env.NODE_ENV !== 'production';
   }
 
-  async ensureCustomer(input: { userId: string }): Promise<ProviderCustomer> {
-    const existing = this.customers.get(input.userId);
-    const id = existing ?? `mock_cus_${input.userId.slice(-10)}`;
-    this.customers.set(input.userId, id);
-    return { providerCustomerId: id };
-  }
-
-  async ensureDepositAccount(input: { userId: string }): Promise<ProviderDepositAccount> {
-    const key = input.userId;
-    const existing = this.accounts.get(key);
-    const acct = existing ?? { id: `mock_acc_${key.slice(-10)}`, balanceKobo: 0n };
-    this.accounts.set(key, acct);
-    return { providerAccountId: acct.id, virtualNuban: `9${String(randomInt(1e8, 1e9))}` };
-  }
-
-  async createDynamicVirtualAccount(input: {
-    amountKobo: bigint;
-    reference: string;
-    customerName: string;
-    ttlSeconds?: number;
-  }): Promise<DynamicVirtualAccount> {
-    const dva: DynamicVirtualAccount = {
-      reference: input.reference,
-      accountNumber: String(randomInt(1e9, 1e10)),
-      bankName: 'genie Mock Bank',
-      accountName: `GENIE/${input.customerName}`.slice(0, 40),
-      expiresAt: new Date(Date.now() + (input.ttlSeconds ?? 1800) * 1000).toISOString(),
+  async initializeCharge(input: InitializeChargeInput): Promise<InitializedCharge> {
+    this.started.set(input.reference, input.amountKobo);
+    const base = process.env.APP_PUBLIC_URL || 'https://www.getgenie.gift';
+    return {
+      checkoutUrl: `${base}/pay/mock?reference=${encodeURIComponent(input.reference)}`,
+      accessCode: `mock_ac_${input.reference}`,
     };
-    this.pendingVirtualAccounts.set(input.reference, { ...dva, amountKobo: input.amountKobo });
-    return dva;
   }
 
-  async bookTransfer(_input: BookTransferInput): Promise<TransferResult> {
-    return { providerRef: makeReference('MOCKBK'), status: 'PAID' };
+  /** Simulate the buyer finishing checkout. Returns the amount that was "paid". */
+  markPaid(reference: string, amountKobo?: bigint): bigint {
+    const amount = amountKobo ?? this.started.get(reference) ?? 0n;
+    this.paid.set(reference, amount);
+    return amount;
   }
 
-  async nipTransfer(_input: NipTransferInput): Promise<TransferResult> {
-    return { providerRef: makeReference('MOCKNIP'), status: 'PAID' };
+  async verifyCharge(reference: string): Promise<VerifiedCharge> {
+    const paidAmount = this.paid.get(reference);
+    return paidAmount === undefined
+      ? { reference, status: 'PENDING', amountKobo: this.started.get(reference) ?? 0n, currency: 'NGN', paidAt: null }
+      : { reference, status: 'SUCCESS', amountKobo: paidAmount, currency: 'NGN', paidAt: new Date().toISOString() };
   }
 
   async listBanks(): Promise<Bank[]> {
@@ -92,7 +81,7 @@ export class MockPaymentProvider implements PaymentProvider {
   async resolveAccount(input: { bankCode: string; accountNumber: string }): Promise<ResolvedAccount> {
     if (!this.simulateLookups) {
       throw new AccountResolutionUnavailableError(
-        'Account name lookup needs a live payment provider (set PAYMENTS_PROVIDER=anchor and ANCHOR_KEY).',
+        'Account name lookup needs a live payment provider (set PAYMENTS_PROVIDER=paystack and PAYSTACK_SECRET_KEY).',
       );
     }
     if (input.accountNumber.startsWith('0000')) throw new AccountNotFoundError();
@@ -104,44 +93,50 @@ export class MockPaymentProvider implements PaymentProvider {
     };
   }
 
-  async getBalance(providerAccountId: string): Promise<bigint> {
-    for (const acct of this.accounts.values()) if (acct.id === providerAccountId) return acct.balanceKobo;
-    return 0n;
+  async createRecipient(input: RecipientInput): Promise<{ recipientCode: string }> {
+    return { recipientCode: `RCP_mock_${input.bankCode}_${input.accountNumber}` };
   }
 
-  /** Build the signed webhook body the real Anchor provider would receive. */
-  buildSettlementEvent(reference: string): { body: string; signature: string } {
-    const pending = this.pendingVirtualAccounts.get(reference);
+  async transfer(_input: TransferInput): Promise<TransferResult> {
+    if (this.failNextTransfers > 0) {
+      this.failNextTransfers -= 1;
+      throw new TransferError('Your balance is not enough to fulfil this request');
+    }
+    return { providerRef: makeReference('MOCKTRF'), status: 'PAID' };
+  }
+
+  /** Build the signed `charge.success` webhook body the real provider would send. */
+  buildChargeSuccessEvent(reference: string, amountKobo?: bigint): { body: string; signature: string } {
+    const amount = this.markPaid(reference, amountKobo);
     const body = JSON.stringify({
+      event: 'charge.success',
       data: {
-        id: makeReference('EVT'),
-        type: 'payin.received',
-        attributes: {
-          reference,
-          amount: Number(pending?.amountKobo ?? 0n),
-          currency: 'NGN',
-          status: 'COMPLETED',
-        },
+        id: Math.floor(Math.random() * 1e9),
+        reference,
+        status: 'success',
+        amount: Number(amount),
+        currency: 'NGN',
       },
     });
-    const signature = createHmac('sha256', this.secret).update(body).digest('hex');
-    return { body, signature };
+    return { body, signature: paystackSignature(this.secret, body) };
+  }
+
+  /** Build a signed transfer webhook (`transfer.success` / `transfer.failed` / `transfer.reversed`). */
+  buildTransferEvent(
+    event: 'transfer.success' | 'transfer.failed' | 'transfer.reversed',
+    reference: string,
+  ): { body: string; signature: string } {
+    const body = JSON.stringify({
+      event,
+      data: { id: Math.floor(Math.random() * 1e9), reference: reference.toLowerCase(), status: event.split('.')[1] },
+    });
+    return { body, signature: paystackSignature(this.secret, body) };
   }
 
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookVerification {
-    const provided = headers['x-anchor-signature'] ?? headers['x-genie-mock-signature'];
-    const expected = createHmac('sha256', this.secret).update(rawBody).digest('hex');
-    if (!provided || provided !== expected) return { valid: false, reason: 'signature mismatch' };
-    try {
-      const parsed = JSON.parse(rawBody) as { data?: { type?: string; id?: string } };
-      return {
-        valid: true,
-        eventType: parsed.data?.type ?? 'unknown',
-        externalId: parsed.data?.id ?? null,
-        payload: parsed,
-      };
-    } catch {
-      return { valid: false, reason: 'invalid json' };
-    }
+    const provided = headers['x-paystack-signature'];
+    if (!provided) return { valid: false, reason: 'missing x-paystack-signature' };
+    if (provided !== paystackSignature(this.secret, rawBody)) return { valid: false, reason: 'signature mismatch' };
+    return parseWebhook(rawBody);
   }
 }

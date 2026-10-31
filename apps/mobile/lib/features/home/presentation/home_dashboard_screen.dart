@@ -9,16 +9,14 @@ import '../../auth/auth_controller.dart';
 import '../../events/events_repository.dart';
 import '../../gifts/gift_models.dart';
 import '../../gifts/gifts_repository.dart';
-import '../../wallet/wallet_repository.dart';
 
-/// The celebrant home — wallet, invites to gift, upcoming event, recent
-/// gifts and activity, all in one place.
+/// The celebrant home — invites to gift, upcoming event, recent gifts and
+/// activity, all in one place.
 class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
 
   Future<void> _refresh(WidgetRef ref) async {
     ref
-      ..invalidate(walletBalanceProvider)
       ..invalidate(giftInvitationsProvider)
       ..invalidate(eventsListProvider)
       ..invalidate(receivedGiftsProvider)
@@ -41,7 +39,7 @@ class HomeDashboardScreen extends ConsumerWidget {
             style: GenieTheme.display(22),
           ),
           const SizedBox(height: 16),
-          const _WalletCard(),
+          const _GiftCard(),
           const SizedBox(height: 24),
           const _InvitationsSection(),
           const SizedBox(height: 24),
@@ -85,74 +83,37 @@ class _Muted extends StatelessWidget {
       );
 }
 
-// ── Wallet ────────────────────────────────────────────────────────────
-class _WalletCard extends ConsumerWidget {
-  const _WalletCard();
+// ── Gift a friend ─────────────────────────────────────────────────────
+class _GiftCard extends StatelessWidget {
+  const _GiftCard();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final balance = ref.watch(walletBalanceProvider);
-    return Card(
-      color: GenieColors.primary,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.push('/wallet'),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Wallet balance', style: TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(height: 6),
-              balance.when(
-                data: (w) => Text(formatKobo(w.balanceKobo),
-                    style: GenieTheme.display(28).copyWith(color: Colors.white)),
-                loading: () => const SizedBox(
-                    height: 28,
-                    width: 28,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
-                error: (_, __) =>
-                    const Text('—', style: TextStyle(color: Colors.white, fontSize: 24)),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  _WalletAction(
-                    icon: Icons.add,
-                    label: 'Add funds',
-                    onTap: () => context.push('/wallet'),
+  Widget build(BuildContext context) => Card(
+        color: GenieColors.primary,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/gift'),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Send a gift', style: GenieTheme.display(22).copyWith(color: Colors.white)),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Pick something from a friend’s wishlist and pay with your card, bank transfer or USSD.',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  _WalletAction(
-                    icon: Icons.card_giftcard,
-                    label: 'Gift a friend',
-                    onTap: () => context.push('/gift'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WalletAction extends StatelessWidget {
-  const _WalletAction({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-        child: OutlinedButton.icon(
-          onPressed: onTap,
-          icon: Icon(icon, size: 16, color: Colors.white),
-          label: Text(label, style: const TextStyle(color: Colors.white)),
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.white38),
-            padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                const SizedBox(width: 12),
+                const Icon(Icons.card_giftcard, color: Colors.white, size: 36),
+              ],
+            ),
           ),
         ),
       );

@@ -20,9 +20,8 @@ export const updateCartItemBody = z
   .refine((v) => Object.keys(v).length > 0, { message: 'Provide a field to update.' });
 export type UpdateCartItemBody = z.infer<typeof updateCartItemBody>;
 
-export const checkoutCartBody = z.object({
-  method: z.enum(['WALLET', 'BANK_TRANSFER']).default('WALLET'),
-});
+// Nothing to choose any more: checkout always opens the payment provider's hosted page.
+export const checkoutCartBody = z.object({});
 export type CheckoutCartBody = z.infer<typeof checkoutCartBody>;
 
 export const cartItemDto = z.object({

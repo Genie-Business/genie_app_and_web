@@ -36,7 +36,9 @@ How the three surfaces share one app (`apps/landing/src/middleware.ts`):
 | `ADMIN_SESSION_SECRET` | 32+ random chars | the admin portal refuses to run in production without it |
 | `ADMIN_HOSTS` | `admin.getgenie.gift` | comma-separated hostnames that serve the admin instead of the public site |
 | `APP_ENV` | `production` | hardened: no `/console`, no OTP echo |
-| `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet (`anchor` + `ANCHOR_KEY` + `ANCHOR_WEBHOOK_SECRET` to enable). While `mock`, merchants pick their bank from the bundled list but the bank can't confirm the account name, so they type it and it is saved unverified. With `anchor`, `/v1/banks` serves Anchor's list and `/v1/banks/resolve` returns the real name (confirm those two Anchor endpoints against the sandbox first, see `provider/anchor.ts`) |
+| `PAYMENTS_PROVIDER` | `mock` | `mock` simulates payments (no real money). Set `paystack` together with `PAYSTACK_SECRET_KEY` to take real ones. While `mock`, merchants pick their bank from the bundled list but nothing can confirm the account name, so they type it and it is saved unverified |
+| `PAYSTACK_SECRET_KEY` | `sk_test_…` first, `sk_live_…` later | also signs Paystack's webhooks, so keep it secret. Needs the Paystack dashboard set up as described below |
+| `CRON_SECRET` | 32+ random chars | protects the scheduled payout run; Vercel Cron sends it as a bearer token |
 | `KYC_PROVIDER` | `mock` | |
 | `PUSH_PROVIDER` | `log` | no FCM yet |
 | `RESEND_API_KEY` | your Resend key | **required** in production — otherwise nobody can verify their email |
@@ -115,3 +117,14 @@ standalone API on `:8787` (`NEXT_PUBLIC_API_BASE_URL`).
 `apps/api`). It isn't used now, but it's the way to split the API out again if it ever needs its own scaling,
 limits or domain: create a project from `apps/api`, set the same variables, and point `NEXT_PUBLIC_API_BASE_URL`
 and the mobile `API_BASE_URL` at it.
+
+
+## Paystack setup
+
+genie takes every payment into its own Paystack balance and pays merchants out by Paystack Transfer after delivery.
+
+1. **API keys**: Settings > API Keys & Webhooks. Put the test secret key in `PAYSTACK_SECRET_KEY` first; swap in the live key when you go live.
+2. **Webhook URL** (same page): `https://www.getgenie.gift/v1/payments/webhooks/paystack`. Paystack signs each call with your secret key; genie rejects anything unsigned.
+3. **Transfers** (needed for merchant payouts): make sure Transfers is enabled on the account, fund the balance, and turn **off** "Confirm transfers before sending" under Settings > Preferences. With the confirmation on, every payout stops waiting for an OTP that nobody can enter.
+4. **Cron**: set `CRON_SECRET`. The daily payout run uses it.
+5. Flip `PAYMENTS_PROVIDER` to `paystack` and redeploy. Check `/v1/banks`: the list should now be Paystack's.

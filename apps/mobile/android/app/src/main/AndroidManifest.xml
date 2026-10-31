@@ -58,6 +58,12 @@
                 <data android:scheme="https"
                       android:host="www.getgenie.gift"
                       android:pathPrefix="/join"/>
+                <data android:scheme="https"
+                      android:host="www.getgenie.gift"
+                      android:pathPrefix="/pay/done"/>
+                <data android:scheme="https"
+                      android:host="genie-app-and-web-landing.vercel.app"
+                      android:pathPrefix="/pay/done"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

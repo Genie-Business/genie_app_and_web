@@ -68,7 +68,7 @@ class _State extends ConsumerState<DeleteAccountScreen> {
     return GenieFormScaffold(
       title: 'Delete account',
       subtitle:
-          'Withdraw any wallet balance first. Your transaction history is kept, but your profile and wishlists are permanently removed.',
+          'Merchants need their payouts settled first. Your transaction history is kept, but your profile and wishlists are permanently removed.',
       primaryAction: _codeSent
           ? FilledButton(
               style: FilledButton.styleFrom(backgroundColor: GenieColors.error),

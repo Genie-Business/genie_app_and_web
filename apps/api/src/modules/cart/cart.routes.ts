@@ -96,13 +96,13 @@ router.openapi(
     security: [{ bearerAuth: [] }],
     request: { body: jsonBody(C.checkoutCartBody) },
     responses: {
-      201: jsonResponse('Paid (wallet) or a virtual account to pay into', cartObj),
-      409: jsonResponse('Insufficient funds / item not giftable', z.object({ error: z.record(z.unknown()) })),
+      201: jsonResponse('A checkout link to pay on; the gifts are created once the payment is confirmed', cartObj),
+      409: jsonResponse('Item not giftable', z.object({ error: z.record(z.unknown()) })),
       ...commonErrorResponses,
     },
   }),
   async (c) =>
-    c.json(serializeBigInts({ data: await checkout(c.get('user')!.id, c.req.valid('json').method) }), 201),
+    c.json(serializeBigInts({ data: await checkout(c.get('user')!.id) }), 201),
 );
 
 export default router;

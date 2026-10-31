@@ -1,4 +1,4 @@
-import { normalizeEmail, orderNumber, paymentReference, transactionReference } from '@genie/core';
+import { normalizeEmail, orderNumber } from '@genie/core';
 import { prisma, type Prisma } from '@genie/db';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
@@ -6,9 +6,7 @@ import { recordActivity } from '../activities/activities.service';
 import { computeGiftCharge, type GiftCharge } from '../fees/fees.service';
 import { notify } from '../notifications/notify.service';
 import { maybeRewardReferral } from '../referrals/referrals.service';
-import { getBalanceKobo, postEntry } from '../payments/ledger.service';
-import { getPaymentProvider } from '../payments/provider';
-import { ensureWallet } from '../payments/wallet.service';
+import { openCheckout } from '../payments/checkout.service';
 import { nextOccurrence } from '../events/recurrence';
 
 /** A wishlist needs this many items before it can be shared / gifted from. */
@@ -100,15 +98,18 @@ type PayInput = {
   quantity: number;
   isAnonymous: boolean;
   message?: string;
-  method: 'WALLET' | 'BANK_TRANSFER';
 };
 
 /**
  * Money model for a gift:
- *  - gifter pays  subtotal + transactionFee + logisticsFee
- *  - merchant wallet is credited  subtotal − commission  (settled to bank later)
- *  - genie revenue = transactionFee + logisticsFee + commission  (tracked on the
- *    Order/Transaction, not a user wallet — a separate GL account)
+ *  - the gifter pays  subtotal + transactionFee + logisticsFee, through Paystack checkout
+ *  - genie holds that money and owes the merchant  subtotal − commission
+ *    (Order.merchantNetKobo), paid out after delivery (see payouts.service)
+ *  - genie revenue = transactionFee + logisticsFee + commission
+ *
+ * Runs once a payment is confirmed. `idempotencyKey` makes it safe to run twice for
+ * the same payment (a webhook and a status check can race): the second attempt
+ * collides on the Transaction reference, rolls back, and returns null.
  */
 async function finalizeGift(opts: {
   item: ItemFull;
@@ -118,64 +119,21 @@ async function finalizeGift(opts: {
   giftedByName?: string | null;
   input: PayInput;
   charge: GiftCharge;
-  paidFromWallet: boolean;
   /** Real PaymentIntent id for the Gift/Transaction FK (1:1). Omit for cart lines. */
   paymentIntentId?: string;
-  /** Scope for the ledger idempotency keys — defaults to paymentIntentId. */
-  idempotencyScope?: string;
+  idempotencyKey: string;
 }) {
   const { item, gifterUserId, input, charge } = opts;
-  const ledgerScope = opts.idempotencyScope ?? opts.paymentIntentId;
   const merchantId = item.product.merchantId;
   const eventId = item.wishlist.event.id;
 
-  // Provision wallets outside the transaction (provider calls + idempotent).
-  await ensureWallet(merchantId);
-  if (opts.paidFromWallet) {
-    if (!gifterUserId) throw badRequest('Wallet payments require an account.');
-    await ensureWallet(gifterUserId);
-  }
-
-  // The transaction covers only what must move atomically: the two ledger
-  // postings, the order + gift + transaction records, and the fulfilment /
-  // stock counters. Notifications and the activity log are written after — a
-  // failure there must not roll back a paid gift.
-  const { gift, order } = await prisma.$transaction(
+  // The transaction covers only what must move atomically: the order + gift +
+  // transaction records and the fulfilment / stock counters. Notifications and the
+  // activity log are written after — a failure there must not roll back a paid gift.
+  let created: { gift: { id: string }; order: { id: string; orderNumber: string } };
+  try {
+    created = await prisma.$transaction(
     async (tx) => {
-      if (opts.paidFromWallet && gifterUserId) {
-        await postEntry(
-          {
-            userId: gifterUserId,
-            direction: 'DEBIT',
-            amountKobo: charge.gifterPaysKobo,
-            reason: 'GIFT_SENT',
-            refType: 'WishlistItem',
-            refId: item.id,
-            narration: `Gift: ${item.product.name}`,
-            idempotencyKey: ledgerScope
-              ? `gift-debit:${ledgerScope}`
-              : `gift-debit:${gifterUserId}:${item.id}:${Date.now()}`,
-          },
-          tx,
-        );
-      }
-
-      await postEntry(
-        {
-          userId: merchantId,
-          direction: 'CREDIT',
-          amountKobo: charge.merchantReceivesKobo,
-          reason: 'GIFT_RECEIVED',
-          refType: 'WishlistItem',
-          refId: item.id,
-          narration: `Sale: ${item.product.name} ×${input.quantity}`,
-          idempotencyKey: ledgerScope
-            ? `gift-credit:${ledgerScope}`
-            : `gift-credit:${merchantId}:${item.id}:${Date.now()}`,
-        },
-        tx,
-      );
-
       const order = await tx.order.create({
         data: {
           orderNumber: orderNumber(),
@@ -187,6 +145,7 @@ async function finalizeGift(opts: {
           feeKobo: charge.transactionFeeKobo + charge.logisticsFeeKobo,
           commissionKobo: charge.commissionKobo,
           totalKobo: charge.gifterPaysKobo,
+          merchantNetKobo: charge.merchantReceivesKobo,
           deliveryAddress: item.wishlist.event.deliveryAddress,
           items: {
             create: {
@@ -217,7 +176,7 @@ async function finalizeGift(opts: {
 
       await tx.transaction.create({
         data: {
-          reference: transactionReference(),
+          reference: opts.idempotencyKey,
           userId: gifterUserId,
           type: 'GIFT',
           amountKobo: charge.gifterPaysKobo,
@@ -243,6 +202,14 @@ async function finalizeGift(opts: {
     },
     { timeout: 20_000, maxWait: 10_000 },
   );
+  } catch (err) {
+    if ((err as { code?: string }).code === 'P2002') {
+      logger.info({ key: opts.idempotencyKey }, 'gift already finalised');
+      return null;
+    }
+    throw err;
+  }
+  const { gift, order } = created;
 
   // ── Post-commit side effects (best-effort) ────────────────────────────
   const celebrantId = item.wishlist.event.user.id;
@@ -299,6 +266,10 @@ async function finalizeGift(opts: {
   return { gift, order };
 }
 
+/**
+ * Start paying for a single wishlist gift. Returns a Paystack checkout link; the gift
+ * is created when the payment is confirmed (see settleGiftPayment).
+ */
 export async function payForGift(gifterUserId: string, input: PayInput) {
   const item = await loadItem(input.wishlistItemId);
   assertGiftable(item, gifterUserId, input.quantity);
@@ -309,64 +280,21 @@ export async function payForGift(gifterUserId: string, input: PayInput) {
     deliveryOption: item.product.deliveryOption,
   });
 
-  if (input.method === 'WALLET') {
-    await ensureWallet(gifterUserId);
-    const balance = await getBalanceKobo(gifterUserId);
-    if (balance < charge.gifterPaysKobo) {
-      throw conflict(
-        'insufficient_funds',
-        `You need ₦${(Number(charge.gifterPaysKobo) / 100).toLocaleString()} but your wallet has ₦${(Number(balance) / 100).toLocaleString()}. Add funds first.`,
-      );
-    }
-    const { gift, order } = await finalizeGift({ item, gifterUserId, input, charge, paidFromWallet: true });
-    return {
-      status: 'PAID' as const,
-      giftId: gift.id,
-      orderNumber: order.orderNumber,
-      charge,
-    };
-  }
-
-  // BANK_TRANSFER — issue a one-off virtual account; the webhook finalises it.
-  const provider = getPaymentProvider();
-  const reference = paymentReference();
   const gifter = await prisma.user.findUniqueOrThrow({ where: { id: gifterUserId } });
-  const dva = await provider.createDynamicVirtualAccount({
+  const { reference, checkoutUrl } = await openCheckout({
+    purpose: 'GIFT',
+    email: gifter.email,
     amountKobo: charge.gifterPaysKobo,
-    reference,
-    customerName: `${gifter.firstName} ${gifter.lastName}`.trim(),
-    ttlSeconds: 1800,
-  });
-  const intent = await prisma.paymentIntent.create({
-    data: {
-      reference,
-      userId: gifterUserId,
-      purpose: 'GIFT',
-      amountKobo: charge.gifterPaysKobo,
-      provider: provider.name,
-      method: 'BANK_TRANSFER',
-      status: 'PENDING',
-      dynamicVirtualNuban: {
-        accountNumber: dva.accountNumber,
-        bankName: dva.bankName,
-        accountName: dva.accountName,
-      },
-      expiresAt: dva.expiresAt ? new Date(dva.expiresAt) : null,
-      metadata: {
-        wishlistItemId: input.wishlistItemId,
-        quantity: input.quantity,
-        isAnonymous: input.isAnonymous,
-        message: input.message ?? null,
-      },
+    userId: gifterUserId,
+    metadata: {
+      wishlistItemId: input.wishlistItemId,
+      quantity: input.quantity,
+      isAnonymous: input.isAnonymous,
+      message: input.message ?? null,
     },
   });
 
-  return {
-    status: 'PENDING' as const,
-    reference: intent.reference,
-    virtualAccount: { ...dva },
-    charge,
-  };
+  return { status: 'PENDING' as const, reference, checkoutUrl, charge };
 }
 
 // ── Cart checkout (E013) — pay for several wishlist gifts at once ─────────
@@ -402,92 +330,92 @@ async function priceCart(gifterUserId: string, lines: CartLine[]) {
   return { priced, skipped, totalKobo };
 }
 
-export async function payForCart(
-  gifterUserId: string,
-  input: { lines: CartLine[]; method: 'WALLET' | 'BANK_TRANSFER' },
-) {
+export async function payForCart(gifterUserId: string, input: { lines: CartLine[] }) {
   const { priced, skipped, totalKobo } = await priceCart(gifterUserId, input.lines);
 
   if (priced.length === 0) {
-    return {
-      status: 'NOTHING_GIFTABLE' as const,
-      skipped,
-      totalKobo: 0n,
-      gifts: [] as { wishlistItemId: string; giftId: string; orderNumber: string }[],
-    };
+    return { status: 'NOTHING_GIFTABLE' as const, skipped, totalKobo: 0n };
   }
 
-  if (input.method === 'WALLET') {
-    await ensureWallet(gifterUserId);
-    const balance = await getBalanceKobo(gifterUserId);
-    if (balance < totalKobo) {
-      throw conflict(
-        'insufficient_funds',
-        `Your cart totals ₦${(Number(totalKobo) / 100).toLocaleString()} but your wallet has ₦${(Number(balance) / 100).toLocaleString()}. Add funds first.`,
-      );
-    }
-    const results = [];
-    for (const { item, line, charge } of priced) {
-      const { gift, order } = await finalizeGift({
-        item,
-        gifterUserId,
-        input: { ...line, method: 'WALLET' },
-        charge,
-        paidFromWallet: true,
-      });
-      results.push({ wishlistItemId: line.wishlistItemId, giftId: gift.id, orderNumber: order.orderNumber });
-    }
-    return { status: 'PAID' as const, totalKobo, gifts: results, skipped };
-  }
-
-  // BANK_TRANSFER — one virtual account for the whole cart.
-  const provider = getPaymentProvider();
-  const reference = paymentReference();
   const gifter = await prisma.user.findUniqueOrThrow({ where: { id: gifterUserId } });
-  const dva = await provider.createDynamicVirtualAccount({
+  const { reference, checkoutUrl } = await openCheckout({
+    purpose: 'GIFT',
+    email: gifter.email,
     amountKobo: totalKobo,
-    reference,
-    customerName: `${gifter.firstName} ${gifter.lastName}`.trim(),
-    ttlSeconds: 1800,
-  });
-  const intent = await prisma.paymentIntent.create({
-    data: {
-      reference,
-      userId: gifterUserId,
-      purpose: 'GIFT',
-      amountKobo: totalKobo,
-      provider: provider.name,
-      method: 'BANK_TRANSFER',
-      status: 'PENDING',
-      dynamicVirtualNuban: { accountNumber: dva.accountNumber, bankName: dva.bankName, accountName: dva.accountName },
-      expiresAt: dva.expiresAt ? new Date(dva.expiresAt) : null,
-      metadata: {
-        kind: 'cart',
-        items: priced.map(({ line }) => ({
-          wishlistItemId: line.wishlistItemId,
-          quantity: line.quantity,
-          isAnonymous: line.isAnonymous,
-          message: line.message ?? null,
-        })),
-      },
+    userId: gifterUserId,
+    metadata: {
+      kind: 'cart',
+      items: priced.map(({ line }) => ({
+        wishlistItemId: line.wishlistItemId,
+        quantity: line.quantity,
+        isAnonymous: line.isAnonymous,
+        message: line.message ?? null,
+      })),
     },
   });
-  return { status: 'PENDING' as const, reference: intent.reference, virtualAccount: { ...dva }, totalKobo, skipped };
+  return { status: 'PENDING' as const, reference, checkoutUrl, totalKobo, skipped };
 }
 
-/** Called by the payment webhook when a GIFT-purpose transfer lands. */
-export async function settleGiftTransfer(reference: string, paidAmountKobo: bigint) {
+/** An intent that was claimed for settling but never finished (the process died) can be retaken after this. */
+const STALE_CLAIM_MS = 2 * 60_000;
+
+/**
+ * Called once a GIFT payment is confirmed (webhook or status check). Finalises every
+ * gift the payment covers. Idempotent: a repeat, or a concurrent second caller, does
+ * nothing, and a half-finished earlier attempt is completed without duplicating gifts.
+ */
+export async function settleGiftPayment(reference: string, paidAmountKobo: bigint) {
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
-  if (!intent || intent.purpose !== 'GIFT') return { handled: false };
-  if (intent.status === 'COMPLETED') return { handled: true, duplicate: true };
+  if (!intent || intent.purpose !== 'GIFT') return { handled: false as const };
+  if (intent.status === 'COMPLETED') return { handled: true as const, duplicate: true };
 
-  const rawMeta = intent.metadata as Record<string, unknown>;
+  // The provider confirmed what was actually paid; it must cover what we asked for.
+  if (paidAmountKobo < intent.amountKobo) {
+    logger.error(
+      { reference, paidAmountKobo: paidAmountKobo.toString(), expectedKobo: intent.amountKobo.toString() },
+      'gift payment is less than the amount due: not fulfilling',
+    );
+    await prisma.paymentIntent.updateMany({
+      where: { id: intent.id, status: { not: 'COMPLETED' } },
+      data: {
+        status: 'FAILED',
+        metadata: { ...(intent.metadata as object), failure: 'amount_mismatch', paidAmountKobo: paidAmountKobo.toString() },
+      },
+    });
+    return { handled: true as const, duplicate: false, mismatch: true };
+  }
 
-  // Cart checkout (in-app) or guest checkout (a shared link, no account):
-  // finalise every line, then mark the intent complete.
-  if (rawMeta?.kind === 'cart' || rawMeta?.kind === 'guest-cart') {
-    const guest = rawMeta.kind === 'guest-cart';
-    const lines = (rawMeta.items as CartLine[]) ?? [];
+  // Claim it. Only one caller wins; the rest see someone else is already on it.
+  const claimed = await prisma.paymentIntent.updateMany({
+    where: {
+      id: intent.id,
+      OR: [
+        { status: { in: ['PENDING', 'EXPIRED'] } },
+        { status: 'PROCESSING', updatedAt: { lt: new Date(Date.now() - STALE_CLAIM_MS) } },
+      ],
+    },
+    data: { status: 'PROCESSING' },
+  });
+  if (claimed.count === 0) return { handled: true as const, duplicate: true };
+
+  const rawMeta = (intent.metadata ?? {}) as Record<string, unknown>;
+  try {
+    // Cart checkout (in-app) or guest checkout (a shared link, no account): one
+    // line per item. A single-item payment is a cart of one.
+    const kind = rawMeta.kind;
+    const lines: CartLine[] =
+      kind === 'cart' || kind === 'guest-cart'
+        ? ((rawMeta.items as CartLine[]) ?? [])
+        : [
+            {
+              wishlistItemId: String(rawMeta.wishlistItemId),
+              quantity: Number(rawMeta.quantity ?? 1),
+              isAnonymous: Boolean(rawMeta.isAnonymous),
+              message: (rawMeta.message as string | null) ?? undefined,
+            },
+          ];
+    const guest = kind === 'guest-cart';
+
     for (const line of lines) {
       const item = await loadItem(line.wishlistItemId);
       const charge = await computeGiftCharge({
@@ -504,55 +432,24 @@ export async function settleGiftTransfer(reference: string, paidAmountKobo: bigi
           quantity: line.quantity,
           isAnonymous: line.isAnonymous,
           message: line.message ?? undefined,
-          method: 'BANK_TRANSFER',
         },
         charge,
-        paidFromWallet: false,
-        idempotencyScope: `${intent.id}:${line.wishlistItemId}`,
+        // The 1:1 Gift/Transaction link to the intent only makes sense for a single-item payment.
+        paymentIntentId: lines.length === 1 ? intent.id : undefined,
+        idempotencyKey: `GIFT:${intent.id}:${line.wishlistItemId}`,
       });
     }
+
     await prisma.paymentIntent.update({
       where: { id: intent.id },
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
-    return { handled: true, duplicate: false };
+    return { handled: true as const, duplicate: false };
+  } catch (err) {
+    // Put it back so the next confirmation (or status check) retries; finalised lines are skipped.
+    await prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'PROCESSING' }, data: { status: 'PENDING' } });
+    throw err;
   }
-
-  const meta = rawMeta as unknown as {
-    wishlistItemId: string;
-    quantity: number;
-    isAnonymous: boolean;
-    message: string | null;
-  };
-  const item = await loadItem(meta.wishlistItemId);
-  const charge = await computeGiftCharge({
-    unitPriceKobo: item.product.priceKobo,
-    quantity: meta.quantity,
-    deliveryOption: item.product.deliveryOption,
-  });
-  if (paidAmountKobo > 0n && paidAmountKobo < charge.gifterPaysKobo) {
-    logger.warn({ reference, paidAmountKobo: paidAmountKobo.toString() }, 'gift underpaid');
-  }
-
-  await finalizeGift({
-    item,
-    gifterUserId: intent.userId,
-    input: {
-      wishlistItemId: meta.wishlistItemId,
-      quantity: meta.quantity,
-      isAnonymous: meta.isAnonymous,
-      message: meta.message ?? undefined,
-      method: 'BANK_TRANSFER',
-    },
-    charge,
-    paidFromWallet: false,
-    paymentIntentId: intent.id,
-  });
-  await prisma.paymentIntent.update({
-    where: { id: intent.id },
-    data: { status: 'COMPLETED', completedAt: new Date() },
-  });
-  return { handled: true, duplicate: false };
 }
 
 // ── Reads ────────────────────────────────────────────────────────────────
@@ -642,49 +539,17 @@ export async function guestCheckout(wishlistId: string, input: GuestCheckoutInpu
     message: input.message,
   }));
 
-  const provider = getPaymentProvider();
-  const reference = paymentReference();
-  const dva = await provider.createDynamicVirtualAccount({
+  const email = normalizeEmail(input.gifterEmail);
+  const { reference, checkoutUrl } = await openCheckout({
+    purpose: 'GIFT',
+    email,
     amountKobo: totalKobo,
-    reference,
-    customerName: input.gifterName.slice(0, 40),
-    ttlSeconds: 3600,
+    userId: null,
+    guest: { name: input.gifterName, email, phone: input.gifterPhone },
+    metadata: { kind: 'guest-cart', wishlistId, items: lines },
   });
 
-  await prisma.paymentIntent.create({
-    data: {
-      reference,
-      userId: null,
-      guestName: input.gifterName,
-      guestEmail: normalizeEmail(input.gifterEmail),
-      guestPhone: input.gifterPhone,
-      purpose: 'GIFT',
-      amountKobo: totalKobo,
-      provider: provider.name,
-      method: 'BANK_TRANSFER',
-      status: 'PENDING',
-      dynamicVirtualNuban: {
-        accountNumber: dva.accountNumber,
-        bankName: dva.bankName,
-        accountName: dva.accountName,
-      },
-      expiresAt: dva.expiresAt ? new Date(dva.expiresAt) : null,
-      metadata: { kind: 'guest-cart', wishlistId, items: lines },
-    },
-  });
-
-  return {
-    reference,
-    status: 'PENDING' as const,
-    totalKobo,
-    breakdown,
-    virtualAccount: {
-      accountNumber: dva.accountNumber,
-      bankName: dva.bankName,
-      accountName: dva.accountName,
-      expiresAt: dva.expiresAt ?? null,
-    },
-  };
+  return { reference, status: 'PENDING' as const, totalKobo, breakdown, checkoutUrl };
 }
 
 /** Poll a guest checkout's payment status (unauthenticated, by reference). */
@@ -702,6 +567,8 @@ export async function guestPaymentStatus(reference: string) {
     status: intent.status,
     totalKobo: intent.amountKobo,
     expiresAt: intent.expiresAt?.toISOString() ?? null,
+    // So the page the buyer lands on after paying can offer a way back to the list.
+    wishlistId: ((intent.metadata as Record<string, unknown> | null)?.wishlistId as string | undefined) ?? null,
   };
 }
 

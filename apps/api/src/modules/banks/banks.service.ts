@@ -8,10 +8,9 @@ import {
   ProviderNotConfiguredError,
   type Bank,
 } from '../payments/provider/types';
-import { NG_BANKS, bundledBank } from './banks.data';
+import { NG_BANKS } from './banks.data';
 
 const LIVE_TTL_MS = 6 * 60 * 60_000;
-const FALLBACK_TTL_MS = 5 * 60_000; // retry the provider soon after it failed
 
 let cache: { banks: Bank[]; expiresAt: number } | null = null;
 
@@ -21,28 +20,44 @@ export function __resetBankCache() {
 }
 
 /**
- * Banks the app offers in its picker: the payment provider's live list when it
- * has one, otherwise the bundled list. Cached per process.
+ * Banks the app offers in its picker: the payment provider's live list. The bundled
+ * list stands in only for the mock provider; a real provider has its own bank codes
+ * (Paystack's differ from the CBN ones for several fintechs), so offering the bundled
+ * list there would produce accounts that cannot be resolved or paid. If a real
+ * provider's list can't be fetched we keep serving the last good one, or say so.
+ * Cached per process.
  */
 export async function listBanks(): Promise<Bank[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.banks;
 
+  const provider = getPaymentProvider();
   let live: Bank[] = [];
   try {
-    live = await getPaymentProvider().listBanks();
+    live = await provider.listBanks();
   } catch (err) {
-    logger.warn({ err }, 'provider bank list unavailable, using the bundled list');
+    logger.warn({ err }, 'provider bank list unavailable');
   }
 
-  const source = live.length > 0 ? live : [...NG_BANKS];
-  const byCode = new Map(source.map((b) => [b.code, b]));
+  if (live.length === 0) {
+    if (provider.name !== 'mock') {
+      if (cache) return cache.banks; // stale, but real
+      throw new AppError(503, 'bank_list_unavailable', "We can't load the list of banks right now. Please try again in a moment.");
+    }
+    live = [...NG_BANKS];
+  }
+
+  const byCode = new Map(live.map((b) => [b.code, b]));
   const banks = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name));
-  cache = { banks, expiresAt: Date.now() + (live.length > 0 ? LIVE_TTL_MS : FALLBACK_TTL_MS) };
+  cache = { banks, expiresAt: Date.now() + LIVE_TTL_MS };
   return banks;
 }
 
 async function bankNameFor(code: string): Promise<string | undefined> {
-  return (await listBanks()).find((b) => b.code === code)?.name ?? bundledBank(code)?.name;
+  try {
+    return (await listBanks()).find((b) => b.code === code)?.name;
+  } catch {
+    return undefined; // a missing list must not stop an account lookup that otherwise worked
+  }
 }
 
 const NOT_FOUND_MESSAGE =

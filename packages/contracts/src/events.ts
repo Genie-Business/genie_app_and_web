@@ -179,12 +179,8 @@ export const guestCheckoutResultDto = z.object({
   breakdown: z.array(
     z.object({ wishlistItemId: z.string(), productName: z.string(), amountKobo: koboString }),
   ),
-  virtualAccount: z.object({
-    accountNumber: z.string(),
-    bankName: z.string(),
-    accountName: z.string(),
-    expiresAt: z.string().nullable(),
-  }),
+  /** The hosted checkout page to send the guest to. */
+  checkoutUrl: z.string(),
 });
 
 // ── Guest quote — the real, fee-inclusive total before committing to pay ──

@@ -57,7 +57,7 @@ class _StatusBanner extends StatelessWidget {
         c = GenieColors.success;
         icon = Icons.verified_rounded;
         title = 'Verified';
-        body = 'Your identity is confirmed. Higher wallet and gifting limits are unlocked.';
+        body = 'Your identity is confirmed. Higher gifting limits are unlocked.';
       case 'PENDING':
         c = GenieColors.accent;
         icon = Icons.hourglass_top_rounded;

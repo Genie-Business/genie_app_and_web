@@ -310,6 +310,7 @@ model User {
   productsAsMerchant      Product[]                @relation("ProductMerchant")
   ordersAsMerchant        Order[]                  @relation("OrderMerchant")
   payoutAccount           PayoutAccount?
+  discountCredits         DiscountCredit[]
   payouts                 Payout[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
@@ -676,6 +677,11 @@ model Order {
   feeKobo         BigInt      @default(0)
   commissionKobo  BigInt      @default(0)
   totalKobo       BigInt      @default(0)
+  // What genie owes the merchant for this order (subtotal minus commission), paid out
+  // after delivery. Null payoutId = not yet paid.
+  merchantNetKobo BigInt      @default(0)
+  payoutId        String?
+  payout          Payout?     @relation(fields: [payoutId], references: [id])
   deliveryAddress String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -688,6 +694,7 @@ model Order {
   @@index([merchantId])
   @@index([buyerUserId])
   @@index([status])
+  @@index([payoutId])
 }
 
 model OrderItem {
@@ -772,6 +779,10 @@ model PaymentIntent {
   providerRef         String?
   method              PaymentMethod  @default(BANK_TRANSFER)
   status              PaymentStatus  @default(PENDING)
+  // Hosted checkout page (Paystack) the buyer is sent to.
+  checkoutUrl         String?
+  // Referral credit knocked off this purchase; amountKobo is what is actually charged.
+  discountKobo        BigInt         @default(0)
   dynamicVirtualNuban Json?
   metadata            Json?
   expiresAt           DateTime?
@@ -845,6 +856,7 @@ model Payout {
   updatedAt           DateTime     @updatedAt
 
   transaction Transaction?
+  orders      Order[]
 
   @@index([merchantId])
   @@index([status])
@@ -965,6 +977,24 @@ model Referral {
 
   @@index([referrerId])
   @@index([code])
+}
+
+/// Money off a future purchase, earned (for now) through referrals. Not cash: it can only
+/// reduce what the holder pays at checkout, never be withdrawn.
+model DiscountCredit {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amountKobo       BigInt
+  source           String    @default("REFERRAL")
+  referralId       String?
+  // Set while a checkout using this credit is awaiting payment; usedAt once it has completed.
+  reservedIntentId String?
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@unique([referralId, userId])
+  @@index([userId, usedAt])
 }
 
 model Notification {

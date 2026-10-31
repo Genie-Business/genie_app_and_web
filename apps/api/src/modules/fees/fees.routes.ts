@@ -40,7 +40,7 @@ router.openapi(
       serializeBigInts({
         data: {
           commission: s.commission,
-          note: 'Commission is deducted from each sale before it reaches your wallet. The transaction and logistics fees are paid by the gifter.',
+          note: 'Commission is deducted from each sale before your payout. The transaction and logistics fees are paid by the gifter.',
           example: 'On a ₦10,000 item at ' + s.commission.label + ' commission, you receive ₦' +
             (10000 - (s.commission.type === 'PERCENT' ? 10000 * (s.commission.value / 100) : s.commission.value / 100)).toLocaleString(),
         },

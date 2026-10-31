@@ -12,7 +12,6 @@ export const payForGiftBody = z.object({
   quantity: z.number().int().min(1).max(50).default(1),
   isAnonymous: z.boolean().default(false),
   message: z.string().trim().max(280).optional(),
-  method: z.enum(['WALLET', 'BANK_TRANSFER']).default('WALLET'),
 });
 export type PayForGiftBody = z.infer<typeof payForGiftBody>;
 
@@ -62,15 +61,7 @@ export const cardDto = z.object({
   isDefault: z.boolean(),
 });
 
-// ── Withdraw / payouts (E012) ──────────────────────────────────────────
-export const withdrawBody = z.object({
-  amountKobo: z.number().int().min(10000).max(500_000_000), // ₦100 min, ₦5,000,000 max
-  bankName: z.string().trim().min(1).max(120),
-  bankCode: z.string().trim().max(20).optional(),
-  accountNumber: z.string().regex(/^\d{10}$/),
-  accountName: z.string().trim().min(1).max(120),
-});
-
+// ── Payouts (E012) ──────────────────────────────────────────
 export const payoutAccountBody = z.object({
   bankName: z.string().trim().min(1),
   /** With a bank code the server looks up the account name itself. */
@@ -79,5 +70,4 @@ export const payoutAccountBody = z.object({
   /** Only used when the name lookup is unavailable; a looked-up name always wins. */
   accountName: z.string().trim().min(1).max(120).optional(),
 });
-export type WithdrawBody = z.infer<typeof withdrawBody>;
 export type PayoutAccountBody = z.infer<typeof payoutAccountBody>;

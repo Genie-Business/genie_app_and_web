@@ -138,12 +138,6 @@ class _AccountTab extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/messages'),
           ),
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet_outlined),
-            title: const Text('Wallet'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/wallet'),
-          ),
         ],
         if (user?.isMerchant ?? false)
           ListTile(

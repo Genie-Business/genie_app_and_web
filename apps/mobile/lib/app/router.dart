@@ -33,7 +33,7 @@ import '../features/support/presentation/support_thread_screen.dart';
 import '../features/settings/presentation/change_password_screen.dart';
 import '../features/settings/presentation/delete_account_screen.dart';
 import '../features/settings/presentation/edit_username_screen.dart';
-import '../features/wallet/presentation/wallet_screen.dart';
+import '../features/payments/payment_status_screen.dart';
 import '../features/wishlists/presentation/add_wishlist_item_screen.dart';
 import '../features/concierge/presentation/import_gift_screen.dart';
 import '../features/wishlists/presentation/wishlist_screen.dart';
@@ -135,7 +135,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/wishlists/:id/import',
         builder: (_, s) => ImportGiftScreen(wishlistId: s.pathParameters['id']!),
       ),
-      GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
+      // Watching a payment: reached right after opening the payment page, and again by the
+      // /pay/done link the page sends the buyer back to (an app link opens it directly).
+      GoRoute(
+        path: '/pay/status',
+        builder: (_, s) => PaymentStatusScreen(reference: s.uri.queryParameters['reference'] ?? ''),
+      ),
+      GoRoute(
+        path: '/pay/done',
+        builder: (_, s) => PaymentStatusScreen(reference: s.uri.queryParameters['reference'] ?? ''),
+      ),
       GoRoute(
         path: '/gift',
         builder: (_, s) => GiftAFriendScreen(initialLink: s.uri.queryParameters['link']),

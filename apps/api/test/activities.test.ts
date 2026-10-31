@@ -42,7 +42,7 @@ d('activity feed (E009)', () => {
     await recordActivity({ userId: u.user.id, category: 'ACCOUNT', action: 'account.registered' });
     await recordActivity({ userId: u.user.id, category: 'EVENT', action: 'event.created', metadata: { name: 'A' } });
     await recordActivity({ userId: u.user.id, category: 'EVENT', action: 'event.deleted' });
-    await recordActivity({ userId: u.user.id, category: 'TRANSACTION', action: 'wallet.funded', metadata: { amountKobo: '500000' } });
+    await recordActivity({ userId: u.user.id, category: 'TRANSACTION', action: 'gift.paid', metadata: { amountKobo: '500000' } });
 
     const events = await body(await app.request('/v1/activities?category=EVENT', { headers: u.auth }));
     expect(events.data).toHaveLength(2);
@@ -68,19 +68,5 @@ d('activity feed (E009)', () => {
     expect(bFeed.data).toHaveLength(0);
   });
 
-  it('logs wallet.funded when funds are settled', async () => {
-    const u = await makeCelebrant();
-    const intent = (await body(
-      await app.request('/v1/payments/add-funds', post({ amountKobo: 750_00 }, u.auth)),
-    )).data;
-    await app.request('/v1/payments/_mock/settle', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reference: intent.reference }),
-    });
 
-    const feed = await body(await app.request('/v1/activities?action=wallet', { headers: u.auth }));
-    expect(feed.data).toHaveLength(1);
-    expect(feed.data[0].title).toContain('₦750');
-  });
 });

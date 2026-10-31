@@ -1,11 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { __setPaymentProvider } from '../src/modules/payments/provider';
-import { ensureWallet } from '../src/modules/payments/wallet.service';
-import { postEntry } from '../src/modules/payments/ledger.service';
 import { invalidateFeeCache } from '../src/modules/fees/fees.service';
 import { hasDb, prisma, resetDb } from './helpers/db';
 import { body, makeCategory, makeCelebrant, post } from './helpers/factory';
+import { payForGift } from './helpers/pay';
 
 const dbUp = await hasDb();
 const d = dbUp ? describe : describe.skip;
@@ -76,12 +75,7 @@ d('Concierge service (import a gift)', () => {
 
     // Not giftable while pending.
     const gifter = await makeCelebrant();
-    await ensureWallet(gifter.user.id);
-    await postEntry({ userId: gifter.user.id, direction: 'CREDIT', amountKobo: 10_000_00n, reason: 'FUNDING', idempotencyKey: 'ct1' });
-    const payRes = await app.request(
-      '/v1/gifts',
-      post({ wishlistItemId: wl.items[0].id, quantity: 1, method: 'WALLET' }, gifter.auth),
-    );
+    const payRes = await app.request('/v1/gifts', post({ wishlistItemId: wl.items[0].id, quantity: 1 }, gifter.auth));
     expect(payRes.status).toBe(400);
   });
 
@@ -115,12 +109,7 @@ d('Concierge service (import a gift)', () => {
     expect(wl.isShareable).toBe(false); // still only one item
 
     const gifter = await makeCelebrant();
-    await ensureWallet(gifter.user.id);
-    await postEntry({ userId: gifter.user.id, direction: 'CREDIT', amountKobo: 30_000_00n, reason: 'FUNDING', idempotencyKey: 'ct2' });
-    const payRes = await app.request(
-      '/v1/gifts',
-      post({ wishlistItemId: wl.items[0].id, quantity: 1, method: 'WALLET' }, gifter.auth),
-    );
+    const { res: payRes } = await payForGift(app, gifter.auth, { wishlistItemId: wl.items[0].id, quantity: 1 });
     expect(payRes.status).toBe(201);
 
     // Confirm the sale actually landed against the concierge merchant.

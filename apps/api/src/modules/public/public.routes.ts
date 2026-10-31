@@ -8,7 +8,9 @@ import { getEnv } from '../../env';
 import { badRequest } from '../../lib/errors';
 import * as wishlists from '../wishlists/wishlists.service';
 import * as gifts from '../gifts/gifts.service';
-import { settleGiftTransfer } from '../gifts/gifts.service';
+import { settleGiftPayment } from '../gifts/gifts.service';
+import { reconcileIntent } from '../payments/reconcile.service';
+import { getPaymentProvider, MockPaymentProvider } from '../payments/provider';
 import { prisma } from '@genie/db';
 
 /** Unauthenticated endpoints — mounted at /v1/public. */
@@ -64,10 +66,10 @@ router.openapi(
     method: 'post',
     path: '/wishlists/{id}/checkout',
     tags: ['Public'],
-    summary: 'Pay for wishlist items as a guest (bank transfer, no account)',
+    summary: 'Pay for wishlist items as a guest (no account)',
     request: { params: z.object({ id: z.string() }), body: jsonBody(E.guestCheckoutBody) },
     responses: {
-      201: jsonResponse('Transfer instructions', z.object({ data: E.guestCheckoutResultDto })),
+      201: jsonResponse('A checkout link to pay on', z.object({ data: E.guestCheckoutResultDto })),
       409: jsonResponse('Item unavailable', z.object({ error: z.record(z.unknown()) })),
       ...commonErrorResponses,
     },
@@ -94,24 +96,27 @@ router.openapi(
     },
   }),
   async (c) => {
-    const res = await gifts.guestPaymentStatus(c.req.valid('param').reference);
+    const { reference } = c.req.valid('param');
+    await reconcileIntent(reference); // pick up a payment whose webhook is late
+    const res = await gifts.guestPaymentStatus(reference);
     return c.json(serializeBigInts({ data: res }), 200);
   },
 );
 
 // ── POST /public/payments/{reference}/_simulate ────────────────────────
-// Pretends the bank transfer landed. Available only while the payment provider
-// is the in-memory mock (no real money moves) — it disables itself the moment
-// real Anchor keys are configured, on any environment.
+// Pretends the buyer (guest or signed in) finished checkout. Available only while the payment provider is
+// the in-memory mock (no real money moves): it disables itself the moment a real
+// provider is configured, on any environment.
 router.post('/payments/:reference/_simulate', async (c) => {
-  if (getEnv().PAYMENTS_PROVIDER !== 'mock') throw badRequest('Not available.');
+  const provider = getPaymentProvider();
+  if (getEnv().PAYMENTS_PROVIDER !== 'mock' || !(provider instanceof MockPaymentProvider)) {
+    throw badRequest('Not available.');
+  }
   const reference = c.req.param('reference');
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
-  const kind = (intent?.metadata as Record<string, unknown> | null)?.kind;
-  if (!intent || intent.purpose !== 'GIFT' || kind !== 'guest-cart') {
-    throw badRequest('Unknown reference.');
-  }
-  await settleGiftTransfer(reference, intent.amountKobo);
+  if (!intent || intent.purpose !== 'GIFT') throw badRequest('Unknown reference.');
+  provider.markPaid(reference, intent.amountKobo);
+  await settleGiftPayment(reference, intent.amountKobo);
   return c.json({ data: { simulated: true, reference } }, 200);
 });
 

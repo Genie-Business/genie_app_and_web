@@ -44,7 +44,7 @@ export type GiftCharge = {
   gifterPaysKobo: bigint;
   /** merchant-side, deducted from proceeds */
   commissionKobo: bigint;
-  /** what lands in the merchant wallet */
+  /** what genie pays the merchant after delivery */
   merchantReceivesKobo: bigint;
   /** what genie keeps */
   genieRetainsKobo: bigint;

@@ -1,31 +1,17 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { __setPaymentProvider } from '../src/modules/payments/provider';
-import { ensureWallet } from '../src/modules/payments/wallet.service';
-import { getBalanceKobo, postEntry } from '../src/modules/payments/ledger.service';
 import { invalidateReferralCache } from '../src/modules/referrals/referrals.service';
 import { invalidateFeeCache } from '../src/modules/fees/fees.service';
 import { hasDb, prisma, resetDb } from './helpers/db';
 import { body, makeCelebrant, makeMerchant, makeProduct, post } from './helpers/factory';
+import { payForGift } from './helpers/pay';
 
 const dbUp = await hasDb();
 const d = dbUp ? describe : describe.skip;
 if (!dbUp) console.warn('⚠  referrals.test.ts skipped — needs a disposable test DB.');
 
 const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
-let seq = 0;
-
-async function fund(userId: string, kobo: bigint) {
-  await ensureWallet(userId);
-  await postEntry({
-    userId,
-    direction: 'CREDIT',
-    amountKobo: kobo,
-    reason: 'FUNDING',
-    idempotencyKey: `test-fund:${userId}:${(seq += 1)}`,
-  });
-}
-
 async function refer(referrerId: string, code: string) {
   const referee = await makeCelebrant();
   await prisma.user.update({ where: { id: referee.user.id }, data: { referredById: referrerId } });
@@ -91,16 +77,20 @@ d('referrals (E011)', () => {
     expect(r.referees).toHaveLength(2);
   });
 
-  it("rewards the referrer on the referee's first paid gift, once", async () => {
+  it("rewards the referrer with an order discount on the referee's first paid gift, once", async () => {
     const referrer = await makeCelebrant();
     const referee = await refer(referrer.user.id, referrer.user.referralCode);
-    await fund(referee.user.id, 30_000_00n);
 
     const item = await giftableItem(app);
-    const g1 = await app.request('/v1/gifts', post({ wishlistItemId: item, method: 'WALLET' }, referee.auth));
-    expect(g1.status).toBe(201);
+    const g1 = await payForGift(app, referee.auth, { wishlistItemId: item });
+    expect(g1.res.status).toBe(201);
 
-    expect(await getBalanceKobo(referrer.user.id)).toBe(50_000n); // ₦500 reward
+    // The reward is money off a later purchase, not cash.
+    const credits = await prisma.discountCredit.findMany({ where: { userId: referrer.user.id } });
+    expect(credits).toHaveLength(1);
+    expect(credits[0]!.amountKobo).toBe(50_000n); // ₦500 off
+    expect(credits[0]!.source).toBe('REFERRAL');
+    expect(credits[0]!.usedAt).toBeNull();
 
     const row = await prisma.referral.findFirstOrThrow({ where: { refereeId: referee.user.id } });
     expect(row.status).toBe('REWARDED');
@@ -113,9 +103,9 @@ d('referrals (E011)', () => {
     const acts = (await body(await app.request('/v1/activities?action=referral', { headers: referrer.auth }))).data;
     expect(acts.some((a: { action: string }) => a.action === 'referral.rewarded')).toBe(true);
 
-    // A second gift does not pay again.
-    await app.request('/v1/gifts', post({ wishlistItemId: item, method: 'WALLET' }, referee.auth));
-    expect(await getBalanceKobo(referrer.user.id)).toBe(50_000n);
+    // A second gift does not reward again.
+    await payForGift(app, referee.auth, { wishlistItemId: item });
+    expect(await prisma.discountCredit.count({ where: { userId: referrer.user.id } })).toBe(1);
 
     const summary = (await body(await app.request('/v1/referrals', { headers: referrer.auth }))).data;
     expect(summary.rewarded).toBe(1);
@@ -123,7 +113,7 @@ d('referrals (E011)', () => {
     expect(summary.pendingRewardKobo).toBe('0');
   });
 
-  it('pays a two-sided reward when configured', async () => {
+  it('gives both sides a discount when configured', async () => {
     await prisma.appSetting.update({
       where: { key: 'referral.reward' },
       data: { value: { enabled: true, referrerKobo: 50000, refereeKobo: 20000 } },
@@ -132,22 +122,23 @@ d('referrals (E011)', () => {
 
     const referrer = await makeCelebrant();
     const referee = await refer(referrer.user.id, referrer.user.referralCode);
-    await fund(referee.user.id, 30_000_00n);
     const item = await giftableItem(app);
-    await app.request('/v1/gifts', post({ wishlistItemId: item, method: 'WALLET' }, referee.auth));
+    await payForGift(app, referee.auth, { wishlistItemId: item });
 
-    expect(await getBalanceKobo(referrer.user.id)).toBe(50_000n);
-    // referee: 3,000,000 funded − 1,165,000 gift + 20,000 welcome bonus
-    expect(await getBalanceKobo(referee.user.id)).toBe(30_000_00n - 1_165_000n + 20_000n);
+    const referrerCredit = await prisma.discountCredit.findFirstOrThrow({ where: { userId: referrer.user.id } });
+    const refereeCredit = await prisma.discountCredit.findFirstOrThrow({ where: { userId: referee.user.id } });
+    expect(referrerCredit.amountKobo).toBe(50_000n);
+    expect(refereeCredit.amountKobo).toBe(20_000n);
   });
 
   it('does nothing for a gifter who was not referred', async () => {
     const gifter = await makeCelebrant();
-    await fund(gifter.user.id, 30_000_00n);
     const item = await giftableItem(app);
-    const res = await app.request('/v1/gifts', post({ wishlistItemId: item, method: 'WALLET' }, gifter.auth));
+    const { res } = await payForGift(app, gifter.auth, { wishlistItemId: item });
     expect(res.status).toBe(201);
-    // no referral rows, no crash
+    // no referral rows, no credits, no crash
     expect(await prisma.referral.count()).toBe(0);
+    expect(await prisma.discountCredit.count()).toBe(0);
   });
+
 });

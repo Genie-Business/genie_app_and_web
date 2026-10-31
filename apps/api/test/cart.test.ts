@@ -1,24 +1,16 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { __setPaymentProvider } from '../src/modules/payments/provider';
-import { ensureWallet } from '../src/modules/payments/wallet.service';
-import { getBalanceKobo, postEntry } from '../src/modules/payments/ledger.service';
 import { invalidateFeeCache } from '../src/modules/fees/fees.service';
 import { hasDb, prisma, resetDb } from './helpers/db';
 import { body, makeCelebrant, makeMerchant, makeProduct, post } from './helpers/factory';
+import { confirmPayment } from './helpers/pay';
 
 const dbUp = await hasDb();
 const d = dbUp ? describe : describe.skip;
 if (!dbUp) console.warn('⚠  cart.test.ts skipped — needs a disposable test DB.');
 
 const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
-let seq = 0;
-
-async function fund(userId: string, kobo: bigint) {
-  await ensureWallet(userId);
-  await postEntry({ userId, direction: 'CREDIT', amountKobo: kobo, reason: 'FUNDING', idempotencyKey: `cf:${userId}:${(seq += 1)}` });
-}
-
 /** Two wishlist items on one celebrant's list, returns their ids + product refs. */
 async function wishlistWithItems(app: ReturnType<typeof createApp>) {
   const merchant = await makeMerchant();
@@ -85,23 +77,27 @@ d('gift cart (E013)', () => {
     expect(cart.itemCount).toBe(1);
   });
 
-  it('checks out the whole cart from the wallet — one payment, many gifts', async () => {
+  it('checks out the whole cart: one payment, many gifts once it is confirmed', async () => {
     const { celebrant, item1, item2 } = await wishlistWithItems(app);
     const gifter = await makeCelebrant();
-    await fund(gifter.user.id, 50_000_00n);
 
     await app.request('/v1/cart/items', post({ wishlistItemId: item1, quantity: 1 }, gifter.auth));
     await app.request('/v1/cart/items', post({ wishlistItemId: item2, quantity: 2 }, gifter.auth));
 
-    const res = await app.request('/v1/cart/checkout', post({ method: 'WALLET' }, gifter.auth));
+    const res = await app.request('/v1/cart/checkout', post({}, gifter.auth));
     expect(res.status).toBe(201);
-    const out = (await body(res)).data;
-    expect(out.status).toBe('PAID');
-    expect(out.gifts).toHaveLength(2);
-    expect(out.gifts.every((g: { giftId: string }) => g.giftId)).toBe(true);
+    const pending = (await body(res)).data;
+    expect(pending.status).toBe('PENDING');
+    expect(pending.checkoutUrl).toBeTruthy();
+    expect(await prisma.gift.count()).toBe(0); // nothing is fulfilled until it is paid
 
-    // wallet debited the cart total
-    expect(await getBalanceKobo(gifter.user.id)).toBe(50_000_00n - BigInt(out.totalKobo));
+    // The buyer is charged the cart total, in one payment.
+    const intent = await prisma.paymentIntent.findUniqueOrThrow({ where: { reference: pending.reference } });
+    expect(intent.amountKobo.toString()).toBe(pending.totalKobo);
+
+    expect((await confirmPayment(app, pending.reference)).status).toBe(200);
+    expect(await prisma.gift.count()).toBe(2);
+    expect(await prisma.order.count()).toBe(2);
 
     // two gifts landed on the celebrant's events
     const received = (await body(await app.request('/v1/gifts/received', { headers: celebrant.auth }))).data;
@@ -113,23 +109,23 @@ d('gift cart (E013)', () => {
     expect(fresh.status).toBe('OPEN');
   });
 
-  it('rejects checkout when the wallet cannot cover the total', async () => {
-    const { item1 } = await wishlistWithItems(app);
+  it('fulfils a cart exactly once however many times the payment is confirmed', async () => {
+    const { item1, item2 } = await wishlistWithItems(app);
     const gifter = await makeCelebrant();
-    await fund(gifter.user.id, 5_000_00n);
     await app.request('/v1/cart/items', post({ wishlistItemId: item1, quantity: 1 }, gifter.auth));
+    await app.request('/v1/cart/items', post({ wishlistItemId: item2, quantity: 1 }, gifter.auth));
 
-    const res = await app.request('/v1/cart/checkout', post({ method: 'WALLET' }, gifter.auth));
-    expect(res.status).toBe(409);
-    expect((await body(res)).error.code).toBe('insufficient_funds');
-    // cart survives
-    expect((await body(await app.request('/v1/cart', { headers: gifter.auth }))).data.itemCount).toBe(1);
+    const pending = (await body(await app.request('/v1/cart/checkout', post({}, gifter.auth)))).data;
+    await Promise.all([confirmPayment(app, pending.reference), confirmPayment(app, pending.reference)]);
+    await confirmPayment(app, pending.reference);
+
+    expect(await prisma.gift.count()).toBe(2);
+    expect(await prisma.order.count()).toBe(2);
   });
 
   it('checks out the giftable lines and drops the ones that were claimed', async () => {
     const { p1, item1, item2 } = await wishlistWithItems(app);
     const gifter = await makeCelebrant();
-    await fund(gifter.user.id, 50_000_00n);
     await app.request('/v1/cart/items', post({ wishlistItemId: item1, quantity: 1 }, gifter.auth));
     await app.request('/v1/cart/items', post({ wishlistItemId: item2, quantity: 1 }, gifter.auth));
 
@@ -140,14 +136,18 @@ d('gift cart (E013)', () => {
     expect(cart.items.find((i: { wishlistItemId: string }) => i.wishlistItemId === item1).giftable).toBe(false);
     expect(cart.allGiftable).toBe(false);
 
-    const res = await app.request('/v1/cart/checkout', post({ method: 'WALLET' }, gifter.auth));
+    const res = await app.request('/v1/cart/checkout', post({}, gifter.auth));
     expect(res.status).toBe(201);
-    const paid = (await body(res)).data;
-    expect(paid.status).toBe('PAID');
-    expect(paid.gifts).toHaveLength(1);
-    expect(paid.gifts[0].wishlistItemId).toBe(item2);
-    expect(paid.skipped).toHaveLength(1);
-    expect(paid.skipped[0].wishlistItemId).toBe(item1);
+    const pending = (await body(res)).data;
+    expect(pending.status).toBe('PENDING');
+    expect(pending.skipped).toHaveLength(1);
+    expect(pending.skipped[0].wishlistItemId).toBe(item1);
+
+    // Only the giftable line is paid for and fulfilled.
+    await confirmPayment(app, pending.reference);
+    const gifts = await prisma.gift.findMany({});
+    expect(gifts).toHaveLength(1);
+    expect(gifts[0]?.wishlistItemId).toBe(item2);
 
     // The claimed line is gone; the cart is closed and a fresh one is empty.
     const fresh = (await body(await app.request('/v1/cart', { headers: gifter.auth }))).data;
@@ -157,12 +157,11 @@ d('gift cart (E013)', () => {
   it('rejects checkout when nothing in the cart can be gifted any more', async () => {
     const { p1, item1 } = await wishlistWithItems(app);
     const gifter = await makeCelebrant();
-    await fund(gifter.user.id, 50_000_00n);
     await app.request('/v1/cart/items', post({ wishlistItemId: item1, quantity: 1 }, gifter.auth));
 
     await prisma.inventory.update({ where: { productId: p1.id }, data: { availableStock: 0 } });
 
-    const res = await app.request('/v1/cart/checkout', post({ method: 'WALLET' }, gifter.auth));
+    const res = await app.request('/v1/cart/checkout', post({}, gifter.auth));
     expect(res.status).toBe(409);
     expect((await body(res)).error.code).toBe('nothing_giftable');
     // the dead item was cleared out
@@ -175,34 +174,4 @@ d('gift cart (E013)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('checks out by bank transfer — pending until the webhook settles', async () => {
-    const { celebrant, item1, item2 } = await wishlistWithItems(app);
-    const gifter = await makeCelebrant();
-    await app.request('/v1/cart/items', post({ wishlistItemId: item1, quantity: 1 }, gifter.auth));
-    await app.request('/v1/cart/items', post({ wishlistItemId: item2, quantity: 1 }, gifter.auth));
-
-    const res = await app.request('/v1/cart/checkout', post({ method: 'BANK_TRANSFER' }, gifter.auth));
-    expect(res.status).toBe(201);
-    const pending = (await body(res)).data;
-    expect(pending.status).toBe('PENDING');
-    expect(pending.virtualAccount.accountNumber).toBeTruthy();
-    expect(await prisma.gift.count()).toBe(0);
-
-    const settle = await app.request('/v1/payments/_mock/settle', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reference: pending.reference }),
-    });
-    expect(settle.status).toBe(200);
-    expect(await prisma.gift.count()).toBe(2);
-    expect((await body(await app.request('/v1/gifts/received', { headers: celebrant.auth }))).data).toHaveLength(2);
-
-    // idempotent
-    await app.request('/v1/payments/_mock/settle', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reference: pending.reference }),
-    });
-    expect(await prisma.gift.count()).toBe(2);
-  });
 });

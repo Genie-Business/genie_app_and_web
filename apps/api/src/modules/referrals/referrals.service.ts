@@ -1,12 +1,9 @@
-import { transactionReference } from '@genie/core';
 import { prisma } from '@genie/db';
 import { getEnv } from '../../env';
 import { logger } from '../../lib/logger';
 import { notFound } from '../../lib/errors';
 import { recordActivity } from '../activities/activities.service';
 import { notify } from '../notifications/notify.service';
-import { postEntry } from '../payments/ledger.service';
-import { ensureWallet } from '../payments/wallet.service';
 
 type ReferralConfig = { enabled: boolean; referrerKobo: bigint; refereeKobo: bigint };
 
@@ -90,60 +87,18 @@ export async function maybeRewardReferral(refereeUserId: string): Promise<void> 
   });
   if (!referral) return;
 
-  await ensureWallet(referral.referrerId);
-  if (config.refereeKobo > 0n) await ensureWallet(refereeUserId);
-
   try {
     await prisma.$transaction(
       async (tx) => {
+        // A reward is money off a later purchase, not cash: see DiscountCredit.
         if (config.referrerKobo > 0n) {
-          await postEntry(
-            {
-              userId: referral.referrerId,
-              direction: 'CREDIT',
-              amountKobo: config.referrerKobo,
-              reason: 'REFERRAL',
-              refType: 'Referral',
-              refId: referral.id,
-              narration: 'Referral reward',
-              idempotencyKey: `referral:${referral.id}:referrer`,
-            },
-            tx,
-          );
-          await tx.transaction.create({
-            data: {
-              reference: transactionReference(),
-              userId: referral.referrerId,
-              type: 'REFERRAL',
-              amountKobo: config.referrerKobo,
-              status: 'COMPLETED',
-              narration: `Referral reward for ${referral.id}`,
-            },
+          await tx.discountCredit.create({
+            data: { userId: referral.referrerId, amountKobo: config.referrerKobo, source: 'REFERRAL', referralId: referral.id },
           });
         }
         if (config.refereeKobo > 0n) {
-          await postEntry(
-            {
-              userId: refereeUserId,
-              direction: 'CREDIT',
-              amountKobo: config.refereeKobo,
-              reason: 'REFERRAL',
-              refType: 'Referral',
-              refId: referral.id,
-              narration: 'Welcome bonus (referred sign-up)',
-              idempotencyKey: `referral:${referral.id}:referee`,
-            },
-            tx,
-          );
-          await tx.transaction.create({
-            data: {
-              reference: transactionReference(),
-              userId: refereeUserId,
-              type: 'REFERRAL',
-              amountKobo: config.refereeKobo,
-              status: 'COMPLETED',
-              narration: `Referral welcome bonus for ${referral.id}`,
-            },
+          await tx.discountCredit.create({
+            data: { userId: refereeUserId, amountKobo: config.refereeKobo, source: 'REFERRAL', referralId: referral.id },
           });
         }
         await tx.referral.update({
@@ -170,7 +125,7 @@ export async function maybeRewardReferral(refereeUserId: string): Promise<void> 
       title: 'Referral reward',
       body: `${referee?.firstName ?? 'Someone you referred'} made their first gift. ₦${(
         Number(config.referrerKobo) / 100
-      ).toLocaleString()} is in your wallet.`,
+      ).toLocaleString()} off your next gift is ready to use.`,
       payload: { referralId: referral.id },
     });
     await recordActivity({
@@ -187,7 +142,7 @@ export async function maybeRewardReferral(refereeUserId: string): Promise<void> 
       userId: refereeUserId,
       type: 'referral.rewarded',
       title: 'Welcome bonus',
-      body: `₦${(Number(config.refereeKobo) / 100).toLocaleString()} welcome bonus is in your wallet.`,
+      body: `₦${(Number(config.refereeKobo) / 100).toLocaleString()} off your next gift is ready to use.`,
       payload: { referralId: referral.id },
     });
   }

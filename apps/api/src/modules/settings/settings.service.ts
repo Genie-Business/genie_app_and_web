@@ -5,7 +5,6 @@ import { logger } from '../../lib/logger';
 import { otpEmail, sendMail } from '../../lib/mailer';
 import { consumeOtp, issueOtp, otpEchoEnabled } from '../auth/auth.service';
 import { recordActivity } from '../activities/activities.service';
-import { getBalanceKobo } from '../payments/ledger.service';
 
 // ── Reference data ─────────────────────────────────────────────────────
 
@@ -80,17 +79,19 @@ export async function revokeOtherSessions(userId: string, keepDeviceId: string) 
 // ── Account deletion (E011 / US "Delete account") ─────────────────────
 
 async function assertDeletable(userId: string) {
-  const balance = await getBalanceKobo(userId);
-  if (balance > 0n) {
-    throw badRequest(
-      `Withdraw your ₦${(Number(balance) / 100).toLocaleString()} wallet balance before deleting your account.`,
-    );
+  // Money genie still owes a merchant (delivered orders not yet paid out) or is mid-way through sending.
+  const owed = await prisma.order.findFirst({
+    where: { merchantId: userId, payoutId: null, status: { in: ['PAID', 'FULFILLING', 'DELIVERED'] } },
+    select: { id: true },
+  });
+  if (owed) {
+    throw badRequest('You have orders that have not been paid out yet. Try again once your payout has been sent.');
   }
   const pendingPayout = await prisma.payout.findFirst({
     where: { merchantId: userId, status: { in: ['PENDING', 'PROCESSING'] } },
     select: { id: true },
   });
-  if (pendingPayout) throw badRequest('You have a settlement in progress. Try again once it completes.');
+  if (pendingPayout) throw badRequest('You have a payout in progress. Try again once it completes.');
 }
 
 export async function requestDeletion(userId: string) {

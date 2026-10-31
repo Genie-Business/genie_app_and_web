@@ -2138,7 +2138,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Code sent (or 400 if the wallet is not empty / a settlement is pending)",
+            "description": "Code sent (or 400 if a payout is still owed or in progress)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2493,188 +2493,13 @@
         }
       }
     },
-    "/v1/payments/wallet": {
-      "get": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Get the current wallet balance",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Wallet balance",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": {}
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation or business-rule failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/payments/add-funds": {
-      "post": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Create a wallet top-up intent (dynamic virtual account)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "amountKobo": {
-                    "type": "integer",
-                    "minimum": 10000,
-                    "maximum": 200000000
-                  },
-                  "method": {
-                    "type": "string",
-                    "enum": [
-                      "BANK_TRANSFER",
-                      "CARD",
-                      "WALLET"
-                    ],
-                    "default": "BANK_TRANSFER"
-                  }
-                },
-                "required": [
-                  "amountKobo"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Payment intent with a virtual account to pay into",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": {}
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation or business-rule failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/payments/intents/{reference}": {
       "get": {
         "tags": [
           "Payments"
         ],
-        "summary": "Poll a payment intent status",
+        "summary": "Check on a payment",
+        "description": "Asks the payment provider about the payment if it is still open, so the answer is current even if its webhook has not arrived yet.",
         "security": [
           {
             "bearerAuth": []
@@ -2692,7 +2517,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Payment intent",
+            "description": "Payment",
             "content": {
               "application/json": {
                 "schema": {
@@ -2753,13 +2578,13 @@
         }
       }
     },
-    "/v1/payments/_mock/settle": {
+    "/v1/payments/_mock/pay": {
       "post": {
         "tags": [
           "Payments"
         ],
-        "summary": "DEV ONLY: simulate an inbound bank transfer for a reference",
-        "description": "Only available when PAYMENTS_PROVIDER=mock. Drives the same code path as a real `payin.received` webhook so the add-funds flow can be tested end-to-end without Anchor.",
+        "summary": "DEV ONLY: pretend the buyer finished checkout for a payment",
+        "description": "Only available with PAYMENTS_PROVIDER=mock outside production. Drives the same path as a real `charge.success` webhook so gifting can be tested end to end without Paystack.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2783,7 +2608,7 @@
         },
         "responses": {
           "200": {
-            "description": "Settlement applied",
+            "description": "Payment applied",
             "content": {
               "application/json": {
                 "schema": {
@@ -3126,173 +2951,28 @@
         }
       }
     },
-    "/v1/payments/withdraw": {
+    "/v1/payments/webhooks/paystack": {
       "post": {
         "tags": [
           "Payments"
         ],
-        "summary": "Withdraw wallet balance to a bank account (NIP transfer)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Paystack webhook receiver (signature-verified)",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "amountKobo": {
-                    "type": "integer",
-                    "minimum": 10000,
-                    "maximum": 500000000
+                  "event": {
+                    "type": "string"
                   },
-                  "bankName": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  },
-                  "bankCode": {
-                    "type": "string",
-                    "maxLength": 20
-                  },
-                  "accountNumber": {
-                    "type": "string",
-                    "pattern": "^\\d{10}$"
-                  },
-                  "accountName": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  }
-                },
-                "required": [
-                  "amountKobo",
-                  "bankName",
-                  "accountNumber",
-                  "accountName"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Withdrawal initiated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": {}
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation or business-rule failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Insufficient funds",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "additionalProperties": {}
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ]
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/payments/webhooks/anchor": {
-      "post": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Anchor webhook receiver (signature-verified)",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
                   "data": {
                     "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "type": {
-                        "type": "string"
-                      },
-                      "attributes": {
-                        "type": "object",
-                        "additionalProperties": {}
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "type",
-                      "attributes"
-                    ]
+                    "additionalProperties": {}
                   }
                 },
                 "required": [
+                  "event",
                   "data"
                 ]
               }
@@ -5962,7 +5642,7 @@
         "tags": [
           "Gifts"
         ],
-        "summary": "Pay for a wishlist gift with the wallet or a bank transfer (US0016/US0019)",
+        "summary": "Start paying for a wishlist gift (US0016/US0019)",
         "security": [
           {
             "bearerAuth": []
@@ -5990,14 +5670,6 @@
                   "message": {
                     "type": "string",
                     "maxLength": 280
-                  },
-                  "method": {
-                    "type": "string",
-                    "enum": [
-                      "WALLET",
-                      "BANK_TRANSFER"
-                    ],
-                    "default": "WALLET"
                   }
                 },
                 "required": [
@@ -6009,7 +5681,7 @@
         },
         "responses": {
           "201": {
-            "description": "Gift paid (wallet) or a virtual account to pay into",
+            "description": "A checkout link to pay on; the gift is created once the payment is confirmed",
             "content": {
               "application/json": {
                 "schema": {
@@ -6048,7 +5720,7 @@
             }
           },
           "409": {
-            "description": "Insufficient funds / out of stock / over-fulfilled",
+            "description": "Out of stock / over-fulfilled",
             "content": {
               "application/json": {
                 "schema": {
@@ -10042,23 +9714,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "method": {
-                    "type": "string",
-                    "enum": [
-                      "WALLET",
-                      "BANK_TRANSFER"
-                    ],
-                    "default": "WALLET"
-                  }
-                }
+                "properties": {}
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Paid (wallet) or a virtual account to pay into",
+            "description": "A checkout link to pay on; the gifts are created once the payment is confirmed",
             "content": {
               "application/json": {
                 "schema": {
@@ -10097,7 +9760,7 @@
             }
           },
           "409": {
-            "description": "Insufficient funds / item not giftable",
+            "description": "Item not giftable",
             "content": {
               "application/json": {
                 "schema": {
@@ -10991,7 +10654,7 @@
         "tags": [
           "Public"
         ],
-        "summary": "Pay for wishlist items as a guest (bank transfer, no account)",
+        "summary": "Pay for wishlist items as a guest (no account)",
         "parameters": [
           {
             "schema": {
@@ -11052,7 +10715,7 @@
         },
         "responses": {
           "201": {
-            "description": "Transfer instructions",
+            "description": "A checkout link to pay on",
             "content": {
               "application/json": {
                 "schema": {
@@ -11101,31 +10764,8 @@
                             ]
                           }
                         },
-                        "virtualAccount": {
-                          "type": "object",
-                          "properties": {
-                            "accountNumber": {
-                              "type": "string"
-                            },
-                            "bankName": {
-                              "type": "string"
-                            },
-                            "accountName": {
-                              "type": "string"
-                            },
-                            "expiresAt": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "accountNumber",
-                            "bankName",
-                            "accountName",
-                            "expiresAt"
-                          ]
+                        "checkoutUrl": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -11133,7 +10773,7 @@
                         "status",
                         "totalKobo",
                         "breakdown",
-                        "virtualAccount"
+                        "checkoutUrl"
                       ]
                     }
                   },

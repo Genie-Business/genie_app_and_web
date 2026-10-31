@@ -8,7 +8,7 @@ import '../../../core/format.dart';
 import '../../../shared/widgets/async_view.dart';
 import '../../../theme/genie_theme.dart';
 import '../../auth/auth_controller.dart';
-import '../../wallet/wallet_repository.dart';
+import '../../payments/payment_status_screen.dart';
 import '../gift_models.dart';
 import '../gifts_repository.dart';
 
@@ -189,7 +189,7 @@ class _WishlistView extends ConsumerWidget {
   }
 
   Future<void> _gift(BuildContext context, WidgetRef ref, PublicWishlistItem item) async {
-    // Gifting needs a genie account (wallet or bank transfer + a receipt).
+    // Gifting needs a genie account (a receipt, and a place to track the gift).
     if (ref.read(authControllerProvider).status != AuthStatus.authenticated) {
       final go = await showDialog<bool>(
         context: context,
@@ -206,14 +206,15 @@ class _WishlistView extends ConsumerWidget {
       if (go == true && context.mounted) context.go('/auth/role');
       return;
     }
-    final result = await showModalBottomSheet<bool>(
+    // The sheet opens the payment page and hands back the payment's reference.
+    final reference = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _GiftSheet(item: item),
     );
-    if (result == true) {
+    if (reference != null && context.mounted) {
       ref.invalidate(publicWishlistProvider(idOrUrl));
-      ref.invalidate(walletBalanceProvider);
+      context.push('/pay/status?reference=${Uri.encodeQueryComponent(reference)}');
     }
   }
 }
@@ -333,17 +334,21 @@ class _GiftSheetState extends ConsumerState<_GiftSheet> {
       _error = null;
     });
     try {
-      final res = await ref.read(giftsRepositoryProvider).pay(
+      final started = await ref.read(giftsRepositoryProvider).startPayment(
             wishlistItemId: widget.item.id,
             isAnonymous: _anon,
             message: _message.text,
           );
-      final status = (res['status'] ?? res['gift']?['status'] ?? 'PAID').toString();
+      final opened = await openCheckoutPage(started.checkoutUrl);
       if (!mounted) return;
-      Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(status == 'PENDING' ? 'Gift created, awaiting payment' : 'Gift sent')),
-      );
+      if (!opened) {
+        setState(() {
+          _error = 'Could not open the payment page. Check your browser and try again.';
+          _loading = false;
+        });
+        return;
+      }
+      Navigator.of(context).pop(started.reference);
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
@@ -401,7 +406,7 @@ class _GiftSheetState extends ConsumerState<_GiftSheet> {
             child: _loading
                 ? const SizedBox(
                     height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(q == null ? 'Gift' : 'Pay ${formatKobo(q.gifterPaysKobo)} from wallet'),
+                : Text(q == null ? 'Gift' : 'Pay ${formatKobo(q.gifterPaysKobo)}'),
           ),
         ],
       ),

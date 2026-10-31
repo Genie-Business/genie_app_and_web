@@ -10,7 +10,7 @@ const _icons = {
   'GIFT': Icons.card_giftcard,
   'EVENT': Icons.event,
   'FRIEND': Icons.people_alt_outlined,
-  'PAYMENT': Icons.account_balance_wallet_outlined,
+  'PAYMENT': Icons.payments_outlined,
   'MESSAGE': Icons.chat_bubble_outline,
   'SYSTEM': Icons.notifications_none,
 };

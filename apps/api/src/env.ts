@@ -47,10 +47,13 @@ const schema = z.object({
   KYC_BASE_URL: z.string().url().default('https://api.dojah.io'),
   KYC_API_KEY: z.string().optional().default(''),
 
-  PAYMENTS_PROVIDER: z.enum(['mock', 'anchor']).default('mock'),
-  ANCHOR_BASE_URL: z.string().url().default('https://api.sandbox.getanchor.co/api/v1'),
-  ANCHOR_KEY: z.string().optional().default(''),
-  ANCHOR_WEBHOOK_SECRET: z.string().optional().default(''),
+  /** `mock` simulates payments in memory; `paystack` takes real ones (needs PAYSTACK_SECRET_KEY). */
+  PAYMENTS_PROVIDER: z.enum(['mock', 'paystack']).default('mock'),
+  PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
+  /** sk_test_... while testing, sk_live_... in production. Also signs Paystack's webhooks. */
+  PAYSTACK_SECRET_KEY: z.string().optional().default(''),
+  /** Shared secret for the scheduled payout run (Vercel Cron sends it as a bearer token). */
+  CRON_SECRET: z.string().optional().default(''),
 
   /**
    * Consumer web app base — used to build wishlist share links and referral

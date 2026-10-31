@@ -2,7 +2,7 @@
 
 Mobile-first social gifting & wishlist product. Celebrants create events with
 wishlists of merchant products; friends buy gifts (including anonymous ones);
-merchants list, fulfil and get settled. Payments run through **Anchor**.
+merchants list, fulfil and get settled. Payments run through **Paystack**.
 
 > This repo is the genie **product**. The GenieApps corporate marketing site is a
 > separate project.
@@ -30,11 +30,11 @@ and `packageManager` field.)
 system end-to-end — celebrant + merchant registration, email OTP verification,
 login (password + biometric-gated refresh), token rotation, password reset and
 change. Plus the landing page, the admin login + dashboard shell, the Flutter
-auth flow, and the Anchor payment layer as a provider interface with a working
+auth flow, and the Paystack payment layer as a provider interface with a working
 in-memory mock (wallet ledger, add-funds intent, webhook receiver).
 
 **Stubbed (schema + `501` route + OpenAPI entry):** events, wishlists, carts,
-catalog, merchant tools, gifting, orders, real Anchor calls, KYC checks, fees
+catalog, merchant tools, gifting, orders, real Paystack calls, KYC checks, fees
 engine, payouts, referrals, friends, notifications delivery, activities, support,
 admin CRUD. See `GET /v1/openapi.json` (`x-genie-status: planned`).
 
@@ -103,5 +103,5 @@ API integration suites auto-skip when `DATABASE_URL` is unset/unreachable.
 One Vercel project (`apps/landing`) serves the site, the API (`/v1/*`) and the admin portal (its own hostname) — see `DEPLOY.md`.
 Env vars are listed in `.env.example`; set the same set (minus dev defaults) in
 each project. Provision **Neon** Postgres and **Vercel Blob**. Point the mobile
-app's `API_BASE_URL` at the deployed API. Enable Anchor by setting
-`PAYMENTS_PROVIDER=anchor` + `ANCHOR_KEY` + `ANCHOR_WEBHOOK_SECRET`.
+app's `API_BASE_URL` at the deployed API. Enable Paystack by setting
+`PAYMENTS_PROVIDER=paystack` + `PAYSTACK_SECRET_KEY` (see DEPLOY.md for the dashboard setup).
