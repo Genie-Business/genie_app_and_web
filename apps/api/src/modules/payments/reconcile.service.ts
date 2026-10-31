@@ -1,6 +1,7 @@
 import { prisma } from '@genie/db';
 import { logger } from '../../lib/logger';
 import { settleGiftPayment } from '../gifts/gifts.service';
+import { releaseCredits } from './credits.service';
 import { getPaymentProvider } from './provider';
 
 /** Statuses an intent can still move out of. COMPLETED and FAILED are final. */
@@ -38,8 +39,11 @@ export async function reconcileIntent(reference: string) {
       await settlePaidIntent(reference, charge.amountKobo);
     } else if (charge.status === 'FAILED') {
       await prisma.paymentIntent.updateMany({ where: { id: intent.id, status: { in: [...OPEN] } }, data: { status: 'FAILED' } });
+      await releaseCredits(prisma, intent.id);
     } else if (intent.status === 'PENDING' && intent.expiresAt && intent.expiresAt.getTime() < Date.now()) {
       await prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
+      // Expired, but the buyer could still pay the link: the credit stays reserved to this payment
+      // until it is abandoned for good (see credits.service), so a late payment still gets its discount.
     }
   } catch (err) {
     // The provider being unreachable must not turn a status check into an error.

@@ -26,7 +26,7 @@ router.openapi(
   }),
   async (c) => {
     const b = c.req.valid('json');
-    return c.json(serializeBigInts({ data: await service.quote(b.wishlistItemId, b.quantity) }), 200);
+    return c.json(serializeBigInts({ data: await service.quote(b.wishlistItemId, b.quantity, c.get('user')!.id) }), 200);
   },
 );
 

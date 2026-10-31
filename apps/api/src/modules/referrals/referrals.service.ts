@@ -4,6 +4,7 @@ import { logger } from '../../lib/logger';
 import { notFound } from '../../lib/errors';
 import { recordActivity } from '../activities/activities.service';
 import { notify } from '../notifications/notify.service';
+import { creditBalance } from '../payments/credits.service';
 
 type ReferralConfig = { enabled: boolean; referrerKobo: bigint; refereeKobo: bigint };
 
@@ -36,7 +37,7 @@ export function invalidateReferralCache() {
 // ── Read ───────────────────────────────────────────────────────────────
 
 export async function getMyReferrals(userId: string) {
-  const [me, referrals, config] = await Promise.all([
+  const [me, referrals, config, creditAvailableKobo] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { referralCode: true } }),
     prisma.referral.findMany({
       where: { referrerId: userId },
@@ -44,6 +45,7 @@ export async function getMyReferrals(userId: string) {
       include: { referee: { select: { firstName: true, username: true } } },
     }),
     getReferralConfig(),
+    creditBalance(userId),
   ]);
   if (!me) throw notFound('User not found.');
 
@@ -58,6 +60,8 @@ export async function getMyReferrals(userId: string) {
     signedUp: signedUp.length,
     rewarded: rewarded.length,
     totalEarnedKobo,
+    /** Order discount the user has available to spend at checkout. */
+    creditAvailableKobo,
     pendingRewardKobo: config.referrerKobo * BigInt(signedUp.length),
     rewardPerReferralKobo: config.referrerKobo,
     referees: referrals.map((r) => ({

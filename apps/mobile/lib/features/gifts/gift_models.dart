@@ -5,7 +5,9 @@ class GiftQuote {
     required this.transactionFeeKobo,
     required this.logisticsFeeKobo,
     required this.gifterPaysKobo,
-  });
+    this.discountKobo = '0',
+    String? payKobo,
+  }) : payKobo = payKobo ?? gifterPaysKobo;
 
   final int quantity;
   final String subtotalKobo;
@@ -13,12 +15,22 @@ class GiftQuote {
   final String logisticsFeeKobo;
   final String gifterPaysKobo;
 
+  /// Referral credit applied to this purchase.
+  final String discountKobo;
+
+  /// What the buyer is actually charged: [gifterPaysKobo] less [discountKobo].
+  final String payKobo;
+
+  bool get hasDiscount => (BigInt.tryParse(discountKobo) ?? BigInt.zero) > BigInt.zero;
+
   factory GiftQuote.fromJson(Map<String, dynamic> j) => GiftQuote(
         quantity: (j['quantity'] as num?)?.toInt() ?? 1,
         subtotalKobo: j['subtotalKobo'].toString(),
         transactionFeeKobo: (j['transactionFeeKobo'] ?? '0').toString(),
         logisticsFeeKobo: (j['logisticsFeeKobo'] ?? '0').toString(),
         gifterPaysKobo: j['gifterPaysKobo'].toString(),
+        discountKobo: (j['discountKobo'] ?? '0').toString(),
+        payKobo: j['payKobo']?.toString(),
       );
 }
 

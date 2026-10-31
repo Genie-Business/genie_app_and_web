@@ -9,6 +9,7 @@ import '../../auth/auth_controller.dart';
 import '../../events/events_repository.dart';
 import '../../gifts/gift_models.dart';
 import '../../gifts/gifts_repository.dart';
+import '../../referrals/referral_repository.dart';
 
 /// The celebrant home — invites to gift, upcoming event, recent gifts and
 /// activity, all in one place.
@@ -17,6 +18,7 @@ class HomeDashboardScreen extends ConsumerWidget {
 
   Future<void> _refresh(WidgetRef ref) async {
     ref
+      ..invalidate(referralCreditProvider)
       ..invalidate(giftInvitationsProvider)
       ..invalidate(eventsListProvider)
       ..invalidate(receivedGiftsProvider)
@@ -84,11 +86,14 @@ class _Muted extends StatelessWidget {
 }
 
 // ── Gift a friend ─────────────────────────────────────────────────────
-class _GiftCard extends StatelessWidget {
+class _GiftCard extends ConsumerWidget {
   const _GiftCard();
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final credit = ref.watch(referralCreditProvider).valueOrNull ?? '0';
+    final hasCredit = (BigInt.tryParse(credit) ?? BigInt.zero) > BigInt.zero;
+    return Card(
         color: GenieColors.primary,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -107,6 +112,20 @@ class _GiftCard extends StatelessWidget {
                         'Pick something from a friend’s wishlist and pay with your card, bank transfer or USSD.',
                         style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
                       ),
+                      if (hasCredit) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '${formatKobo(credit)} referral credit ready to use',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -117,6 +136,7 @@ class _GiftCard extends StatelessWidget {
           ),
         ),
       );
+  }
 }
 
 // ── Invitations to gift ───────────────────────────────────────────────

@@ -384,8 +384,9 @@ class _GiftSheetState extends ConsumerState<_GiftSheet> {
             _row('Item', formatKobo(q.subtotalKobo)),
             if (q.transactionFeeKobo != '0') _row('Transaction fee', formatKobo(q.transactionFeeKobo)),
             if (q.logisticsFeeKobo != '0') _row('Delivery', formatKobo(q.logisticsFeeKobo)),
+            if (q.hasDiscount) _row('Referral credit', '-${formatKobo(q.discountKobo)}'),
             const Divider(),
-            _row('You pay', formatKobo(q.gifterPaysKobo), bold: true),
+            _row('You pay', formatKobo(q.payKobo), bold: true),
           ],
           const SizedBox(height: 8),
           SwitchListTile(
@@ -406,7 +407,7 @@ class _GiftSheetState extends ConsumerState<_GiftSheet> {
             child: _loading
                 ? const SizedBox(
                     height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(q == null ? 'Gift' : 'Pay ${formatKobo(q.gifterPaysKobo)}'),
+                : Text(q == null ? 'Gift' : 'Pay ${formatKobo(q.payKobo)}'),
           ),
         ],
       ),

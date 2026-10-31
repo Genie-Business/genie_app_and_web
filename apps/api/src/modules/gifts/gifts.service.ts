@@ -7,6 +7,7 @@ import { computeGiftCharge, type GiftCharge } from '../fees/fees.service';
 import { notify } from '../notifications/notify.service';
 import { maybeRewardReferral } from '../referrals/referrals.service';
 import { openCheckout } from '../payments/checkout.service';
+import { creditBalance, planDiscount, releaseCredits } from '../payments/credits.service';
 import { nextOccurrence } from '../events/recurrence';
 
 /** A wishlist needs this many items before it can be shared / gifted from. */
@@ -78,18 +79,23 @@ function assertGiftable(item: ItemFull, gifterUserId: string, quantity: number) 
   throw badRequest(blocked.message);
 }
 
-export async function quote(wishlistItemId: string, quantity: number) {
+export async function quote(wishlistItemId: string, quantity: number, userId?: string) {
   const item = await loadItem(wishlistItemId);
   const charge = await computeGiftCharge({
     unitPriceKobo: item.product.priceKobo,
     quantity,
     deliveryOption: item.product.deliveryOption,
   });
+  // Referral credit the buyer would use: all they have, up to what genie keeps on this purchase.
+  const discountKobo = userId ? await planDiscount(userId, charge.genieRetainsKobo) : 0n;
   return {
     wishlistItemId,
     productName: item.product.name,
     unitPriceKobo: item.product.priceKobo,
     ...charge,
+    availableCreditKobo: userId ? await creditBalance(userId) : 0n,
+    discountKobo,
+    payKobo: charge.gifterPaysKobo - discountKobo,
   };
 }
 
@@ -281,10 +287,11 @@ export async function payForGift(gifterUserId: string, input: PayInput) {
   });
 
   const gifter = await prisma.user.findUniqueOrThrow({ where: { id: gifterUserId } });
-  const { reference, checkoutUrl } = await openCheckout({
+  const { reference, checkoutUrl, discountKobo, payKobo } = await openCheckout({
     purpose: 'GIFT',
     email: gifter.email,
     amountKobo: charge.gifterPaysKobo,
+    maxDiscountKobo: charge.genieRetainsKobo,
     userId: gifterUserId,
     metadata: {
       wishlistItemId: input.wishlistItemId,
@@ -294,7 +301,7 @@ export async function payForGift(gifterUserId: string, input: PayInput) {
     },
   });
 
-  return { status: 'PENDING' as const, reference, checkoutUrl, charge };
+  return { status: 'PENDING' as const, reference, checkoutUrl, charge, discountKobo, payKobo };
 }
 
 // ── Cart checkout (E013) — pay for several wishlist gifts at once ─────────
@@ -312,6 +319,7 @@ async function priceCart(gifterUserId: string, lines: CartLine[]) {
   const priced = [];
   const skipped: SkippedLine[] = [];
   let totalKobo = 0n;
+  let genieKeepsKobo = 0n;
   for (const line of lines) {
     const item = await loadItem(line.wishlistItemId);
     const blocked = giftBlockReason(item, gifterUserId, line.quantity);
@@ -326,22 +334,24 @@ async function priceCart(gifterUserId: string, lines: CartLine[]) {
     });
     priced.push({ item, line, charge });
     totalKobo += charge.gifterPaysKobo;
+    genieKeepsKobo += charge.genieRetainsKobo;
   }
-  return { priced, skipped, totalKobo };
+  return { priced, skipped, totalKobo, genieKeepsKobo };
 }
 
 export async function payForCart(gifterUserId: string, input: { lines: CartLine[] }) {
-  const { priced, skipped, totalKobo } = await priceCart(gifterUserId, input.lines);
+  const { priced, skipped, totalKobo, genieKeepsKobo } = await priceCart(gifterUserId, input.lines);
 
   if (priced.length === 0) {
     return { status: 'NOTHING_GIFTABLE' as const, skipped, totalKobo: 0n };
   }
 
   const gifter = await prisma.user.findUniqueOrThrow({ where: { id: gifterUserId } });
-  const { reference, checkoutUrl } = await openCheckout({
+  const { reference, checkoutUrl, discountKobo, payKobo } = await openCheckout({
     purpose: 'GIFT',
     email: gifter.email,
     amountKobo: totalKobo,
+    maxDiscountKobo: genieKeepsKobo,
     userId: gifterUserId,
     metadata: {
       kind: 'cart',
@@ -353,7 +363,7 @@ export async function payForCart(gifterUserId: string, input: { lines: CartLine[
       })),
     },
   });
-  return { status: 'PENDING' as const, reference, checkoutUrl, totalKobo, skipped };
+  return { status: 'PENDING' as const, reference, checkoutUrl, totalKobo, discountKobo, payKobo, skipped };
 }
 
 /** An intent that was claimed for settling but never finished (the process died) can be retaken after this. */
@@ -382,6 +392,7 @@ export async function settleGiftPayment(reference: string, paidAmountKobo: bigin
         metadata: { ...(intent.metadata as object), failure: 'amount_mismatch', paidAmountKobo: paidAmountKobo.toString() },
       },
     });
+    await releaseCredits(prisma, intent.id);
     return { handled: true as const, duplicate: false, mismatch: true };
   }
 
@@ -440,10 +451,11 @@ export async function settleGiftPayment(reference: string, paidAmountKobo: bigin
       });
     }
 
-    await prisma.paymentIntent.update({
-      where: { id: intent.id },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    });
+    // Done: the payment is complete and any referral credit it used is spent, together.
+    await prisma.$transaction([
+      prisma.paymentIntent.update({ where: { id: intent.id }, data: { status: 'COMPLETED', completedAt: new Date() } }),
+      prisma.discountCredit.updateMany({ where: { reservedIntentId: intent.id, usedAt: null }, data: { usedAt: new Date() } }),
+    ]);
     return { handled: true as const, duplicate: false };
   } catch (err) {
     // Put it back so the next confirmation (or status check) retries; finalised lines are skipped.
