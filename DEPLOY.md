@@ -36,7 +36,7 @@ How the three surfaces share one app (`apps/landing/src/middleware.ts`):
 | `ADMIN_SESSION_SECRET` | 32+ random chars | the admin portal refuses to run in production without it |
 | `ADMIN_HOSTS` | `admin.getgenie.gift` | comma-separated hostnames that serve the admin instead of the public site |
 | `APP_ENV` | `production` | hardened: no `/console`, no OTP echo |
-| `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet (`anchor` + `ANCHOR_KEY` + `ANCHOR_WEBHOOK_SECRET` to enable) |
+| `PAYMENTS_PROVIDER` | `mock` | no Anchor account yet (`anchor` + `ANCHOR_KEY` + `ANCHOR_WEBHOOK_SECRET` to enable). While `mock`, merchants pick their bank from the bundled list but the bank can't confirm the account name, so they type it and it is saved unverified. With `anchor`, `/v1/banks` serves Anchor's list and `/v1/banks/resolve` returns the real name (confirm those two Anchor endpoints against the sandbox first, see `provider/anchor.ts`) |
 | `KYC_PROVIDER` | `mock` | |
 | `PUSH_PROVIDER` | `log` | no FCM yet |
 | `RESEND_API_KEY` | your Resend key | **required** in production — otherwise nobody can verify their email |
