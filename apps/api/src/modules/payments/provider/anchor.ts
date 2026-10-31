@@ -1,22 +1,41 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type {
+  Bank,
   BookTransferInput,
   DynamicVirtualAccount,
   NipTransferInput,
   PaymentProvider,
   ProviderCustomer,
   ProviderDepositAccount,
+  ResolvedAccount,
   TransferResult,
   WebhookVerification,
 } from './types';
-import { ProviderNotConfiguredError } from './types';
+import {
+  AccountNotFoundError,
+  AccountResolutionUnavailableError,
+  ProviderNotConfiguredError,
+} from './types';
+
+/** A non-2xx answer from Anchor, with the status kept so callers can tell "no such account" from "down". */
+class AnchorHttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'AnchorHttpError';
+  }
+}
 
 /**
  * Real Anchor (https://getanchor.co) client — JSON:API over HTTPS, auth via the
  * `x-anchor-key` header. Every method is wired but guarded: until ANCHOR_KEY is
  * present it throws ProviderNotConfiguredError so a misconfigured deploy fails
  * loudly instead of silently. Endpoint paths follow docs.getanchor.co; confirm
- * request/response bodies against the live sandbox when the account exists.
+ * request/response bodies against the live sandbox when the account exists
+ * (listBanks / resolveAccount in particular: GET /banks and
+ * GET /payments/verify-account/{bankCode}/{accountNumber}).
  */
 export class AnchorPaymentProvider implements PaymentProvider {
   readonly name = 'anchor';
@@ -45,7 +64,7 @@ export class AnchorPaymentProvider implements PaymentProvider {
     if (!res.ok) {
       const detail =
         (json as { errors?: Array<{ detail?: string }> })?.errors?.[0]?.detail ?? res.statusText;
-      throw new Error(`Anchor ${method} ${path} failed (${res.status}): ${detail}`);
+      throw new AnchorHttpError(res.status, `Anchor ${method} ${path} failed (${res.status}): ${detail}`);
     }
     return json as T;
   }
@@ -187,6 +206,39 @@ export class AnchorPaymentProvider implements PaymentProvider {
       `/accounts/balance/${providerAccountId}`,
     );
     return BigInt(Math.round(res.data.attributes.availableBalance));
+  }
+
+  async listBanks(): Promise<Bank[]> {
+    const res = await this.request<{
+      data: Array<{ id?: string; attributes?: { name?: string; nipCode?: string; cbnCode?: string } }>;
+    }>('GET', '/banks');
+    return (res.data ?? []).flatMap((b) => {
+      const code = b.attributes?.nipCode ?? b.attributes?.cbnCode;
+      const name = b.attributes?.name;
+      return code && name ? [{ code, name }] : [];
+    });
+  }
+
+  async resolveAccount(input: { bankCode: string; accountNumber: string }): Promise<ResolvedAccount> {
+    try {
+      const res = await this.request<{
+        data: { attributes?: { accountName?: string; accountNumber?: string; bank?: { name?: string } } };
+      }>('GET', `/payments/verify-account/${encodeURIComponent(input.bankCode)}/${encodeURIComponent(input.accountNumber)}`);
+      const a = res.data?.attributes;
+      if (!a?.accountName) throw new AccountNotFoundError();
+      return {
+        accountName: a.accountName,
+        accountNumber: a.accountNumber ?? input.accountNumber,
+        bankCode: input.bankCode,
+        bankName: a.bank?.name,
+      };
+    } catch (err) {
+      if (err instanceof AccountNotFoundError || err instanceof AccountResolutionUnavailableError) throw err;
+      if (err instanceof ProviderNotConfiguredError) throw new AccountResolutionUnavailableError();
+      // 400/404/422 = the bank doesn't know the account; anything else (5xx, rate limit, network) = unavailable.
+      if (err instanceof AnchorHttpError && [400, 404, 422].includes(err.status)) throw new AccountNotFoundError();
+      throw new AccountResolutionUnavailableError();
+    }
   }
 
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookVerification {

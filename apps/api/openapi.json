@@ -370,13 +370,18 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "bankCode": {
+                    "type": "string",
+                    "pattern": "^\\d{2,8}$"
+                  },
                   "bankAccountNumber": {
                     "type": "string",
                     "pattern": "^\\d{10}$"
                   },
                   "bankAccountName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 120
                   }
                 },
                 "required": [
@@ -6468,7 +6473,8 @@
                     "minLength": 1
                   },
                   "bankCode": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^\\d{2,8}$"
                   },
                   "accountNumber": {
                     "type": "string",
@@ -6476,13 +6482,13 @@
                   },
                   "accountName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 120
                   }
                 },
                 "required": [
                   "bankName",
-                  "accountNumber",
-                  "accountName"
+                  "accountNumber"
                 ]
               }
             }
@@ -6499,6 +6505,206 @@
                     "data": {
                       "type": "object",
                       "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/banks": {
+      "get": {
+        "tags": [
+          "Banks"
+        ],
+        "summary": "Banks a merchant can settle to",
+        "responses": {
+          "200": {
+            "description": "Banks, A to Z",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "name"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/banks/resolve": {
+      "post": {
+        "tags": [
+          "Banks"
+        ],
+        "summary": "Look up the account name for a bank and account number",
+        "description": "Signed-in merchants send their bearer token. During merchant sign-up (no account yet) send the `confirmationCode` instead; it must be valid and unused.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bankCode": {
+                    "type": "string",
+                    "pattern": "^\\d{2,8}$"
+                  },
+                  "accountNumber": {
+                    "type": "string",
+                    "pattern": "^\\d{10}$"
+                  },
+                  "confirmationCode": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 40
+                  }
+                },
+                "required": [
+                  "bankCode",
+                  "accountNumber"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The name on the account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accountName": {
+                          "type": "string"
+                        },
+                        "accountNumber": {
+                          "type": "string"
+                        },
+                        "bankCode": {
+                          "type": "string"
+                        },
+                        "bankName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "accountName",
+                        "accountNumber",
+                        "bankCode",
+                        "bankName"
+                      ]
                     }
                   },
                   "required": [

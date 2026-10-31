@@ -16,6 +16,7 @@ import { hashRefreshToken, signAccessToken } from '../../lib/jwt';
 import { otpEmail, sendMail } from '../../lib/mailer';
 import { logger } from '../../lib/logger';
 import { recordActivity } from '../activities/activities.service';
+import { settleBankDetails } from '../banks/banks.service';
 
 type RegisterCelebrant = authContracts.RegisterCelebrantBody;
 type RegisterMerchant = authContracts.RegisterMerchantBody;
@@ -217,17 +218,30 @@ export async function registerCelebrant(input: RegisterCelebrant) {
   return { userId: user.id, email, verificationCode: otpEchoEnabled(email) ? code : undefined };
 }
 
+/** The merchant invite code `code`, if it exists, is unused and hasn't expired. */
+export async function findUsableInviteCode(code: string | undefined) {
+  const trimmed = code?.trim();
+  if (!trimmed) return null;
+  const invite = await prisma.merchantInviteCode.findUnique({ where: { code: trimmed } });
+  if (!invite || invite.usedByUserId || (invite.expiresAt && invite.expiresAt.getTime() < Date.now())) return null;
+  return invite;
+}
+
 export async function registerMerchant(input: RegisterMerchant) {
   const email = normalizeEmail(input.email);
   const username = input.username.trim();
   await assertEmailAndUsernameFree(email, username);
 
-  const invite = await prisma.merchantInviteCode.findUnique({
-    where: { code: input.confirmationCode.trim() },
+  const invite = await findUsableInviteCode(input.confirmationCode);
+  if (!invite) throw badRequest('That confirmation code is invalid or has already been used.');
+
+  // With a bank code the account name is looked up here, not taken from the app.
+  const bank = await settleBankDetails({
+    bankName: input.bankName,
+    bankCode: input.bankCode,
+    accountNumber: input.bankAccountNumber,
+    claimedName: input.bankAccountName,
   });
-  if (!invite || invite.usedByUserId || (invite.expiresAt && invite.expiresAt.getTime() < Date.now())) {
-    throw badRequest('That confirmation code is invalid or has already been used.');
-  }
 
   const passwordHash = await hashPassword(input.password);
   const referralCode = await uniqueReferralCode();
@@ -251,14 +265,27 @@ export async function registerMerchant(input: RegisterMerchant) {
             businessName: input.businessName.trim(),
             businessPhone: input.businessPhone,
             businessState: input.businessState,
-            bankName: input.bankName,
+            bankName: bank.bankName,
             bankAccountNumber: input.bankAccountNumber,
-            bankAccountName: input.bankAccountName,
+            bankAccountName: bank.accountName,
             inviteCodeId: invite.id,
           },
         },
       },
     });
+    // Seed the settlement account so the merchant doesn't have to enter it twice.
+    if (bank.accountName) {
+      await tx.payoutAccount.create({
+        data: {
+          merchantId: created.id,
+          bankName: bank.bankName,
+          bankCode: bank.bankCode,
+          accountNumber: input.bankAccountNumber,
+          accountName: bank.accountName,
+          isVerified: bank.verified,
+        },
+      });
+    }
     await tx.merchantInviteCode.update({
       where: { id: invite.id },
       data: { usedByUserId: created.id, usedAt: new Date() },

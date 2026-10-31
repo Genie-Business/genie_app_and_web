@@ -5,6 +5,7 @@ export * as user from './user';
 export * as catalog from './catalog';
 export * as events from './events';
 export * as payments from './payments';
+export * as banks from './banks';
 export * as gifts from './gifts';
 export * as orders from './orders';
 export * as friends from './friends';

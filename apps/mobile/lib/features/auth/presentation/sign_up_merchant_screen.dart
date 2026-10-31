@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
 import '../../../shared/widgets/genie_scaffold.dart';
+import '../../banking/bank_account_fields.dart';
+import '../../banking/bank_repository.dart';
 import '../auth_controller.dart';
 import '../nigeria_geo.dart';
 import '../validators.dart';
@@ -23,15 +25,27 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
   final _email = TextEditingController();
   final _username = TextEditingController();
   final _phone = TextEditingController();
-  final _bankName = TextEditingController();
-  final _bankAcct = TextEditingController();
   final _password = TextEditingController();
+  final _bankAccount = BankAccountController();
+
+  /// Ticks when the confirmation code looks complete. A failed account check is
+  /// retried then, rather than on every keystroke, so half-typed codes don't hit the server.
+  final _codeReady = ValueNotifier<int>(0);
+  static final _codeShape = RegExp(r'^GENIE-[A-Za-z0-9]{6}$');
 
   String? _state;
   String? _lga;
 
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _code.addListener(() {
+      if (_codeShape.hasMatch(_code.text.trim())) _codeReady.value++;
+    });
+  }
 
   @override
   void dispose() {
@@ -41,13 +55,28 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
       _email,
       _username,
       _phone,
-      _bankName,
-      _bankAcct,
       _password,
     ]) {
       c.dispose();
     }
+    _bankAccount.dispose();
+    _codeReady.dispose();
     super.dispose();
+  }
+
+  /// The name lookup needs the confirmation code: there is no session yet, so the
+  /// code is what tells the server this is a genuine merchant sign-up.
+  Future<ResolvedAccount> _lookupAccount({required String bankCode, required String accountNumber}) {
+    final code = _code.text.trim();
+    if (code.length < 4) {
+      throw ApiException('confirmation_code_required', 'Enter your confirmation code above to check your account.');
+    }
+    return ref.read(bankRepositoryProvider).resolve(
+          bankCode: bankCode,
+          accountNumber: accountNumber,
+          confirmationCode: code,
+          auth: false,
+        );
   }
 
   Future<void> _submit() async {
@@ -63,8 +92,10 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
         'businessPhone': _phone.text.trim(),
         'businessState': _state,
         'lga': _lga,
-        'bankName': _bankName.text.trim(),
-        'bankAccountNumber': _bankAcct.text.trim(),
+        'bankName': _bankAccount.bank?.name,
+        'bankCode': _bankAccount.bank?.code,
+        'bankAccountNumber': _bankAccount.accountNumber,
+        if (_bankAccount.accountName != null) 'bankAccountName': _bankAccount.accountName,
         'password': _password.text,
       });
       if (mounted) {
@@ -139,15 +170,11 @@ class _State extends ConsumerState<SignUpMerchantScreen> {
                 onChanged: (v) => setState(() => _lga = v),
                 validator: (v) => Validators.required(v, 'LGA'),
               ),
-              GField(
-                  label: 'Bank name',
-                  controller: _bankName,
-                  validator: (v) => Validators.required(v, 'Bank name')),
-              GField(
-                  label: 'Account number',
-                  controller: _bankAcct,
-                  keyboardType: TextInputType.number,
-                  validator: Validators.accountNumber),
+              BankAccountFields(
+                controller: _bankAccount,
+                lookup: _lookupAccount,
+                retryWhen: _codeReady,
+              ),
               GPasswordField(label: 'Password', controller: _password, validator: Validators.password),
             ],
           ),

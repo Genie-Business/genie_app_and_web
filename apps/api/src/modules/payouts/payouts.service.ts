@@ -4,6 +4,7 @@ import type { gifts as G } from '@genie/contracts';
 import { badRequest, conflict } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { recordActivity } from '../activities/activities.service';
+import { settleBankDetails } from '../banks/banks.service';
 import { notify } from '../notifications/notify.service';
 import { getBalanceKobo, postEntry } from '../payments/ledger.service';
 import { getPaymentProvider } from '../payments/provider';
@@ -12,47 +13,56 @@ import { ensureWallet } from '../payments/wallet.service';
 type Withdraw = G.WithdrawBody;
 type Account = G.PayoutAccountBody;
 
-/** Save / update a merchant's settlement bank account. */
+/**
+ * Save / update a merchant's settlement bank account. With a bank code the
+ * account name is looked up from the bank (the app's own name is ignored); a
+ * number the bank doesn't recognise is rejected.
+ */
 export async function setPayoutAccount(merchantId: string, input: Account) {
-  const provider = getPaymentProvider();
-  // A real provider verifies the account name here; the mock trusts the input.
+  const bank = await settleBankDetails({
+    bankName: input.bankName,
+    bankCode: input.bankCode,
+    accountNumber: input.accountNumber,
+    claimedName: input.accountName,
+  });
+  if (!bank.accountName) throw badRequest('Enter the name on the bank account.');
+
+  const data = {
+    bankName: bank.bankName,
+    bankCode: bank.bankCode,
+    accountNumber: input.accountNumber,
+    accountName: bank.accountName,
+    isVerified: bank.verified,
+  };
   const account = await prisma.payoutAccount.upsert({
     where: { merchantId },
-    create: {
-      merchantId,
-      bankName: input.bankName,
-      bankCode: input.bankCode,
-      accountNumber: input.accountNumber,
-      accountName: input.accountName,
-      isVerified: provider.name === 'mock',
-    },
-    update: {
-      bankName: input.bankName,
-      bankCode: input.bankCode,
-      accountNumber: input.accountNumber,
-      accountName: input.accountName,
-    },
+    create: { merchantId, ...data },
+    update: data,
   });
+  return presentAccount(account);
+}
+
+function presentAccount(a: {
+  bankName: string;
+  bankCode: string | null;
+  accountNumber: string;
+  accountName: string;
+  isVerified: boolean;
+}) {
   return {
-    bankName: account.bankName,
-    accountNumber: account.accountNumber,
-    accountName: account.accountName,
-    isVerified: account.isVerified,
+    bankName: a.bankName,
+    bankCode: a.bankCode,
+    accountNumber: a.accountNumber,
+    accountName: a.accountName,
+    isVerified: a.isVerified,
   };
 }
 
 export async function getPayoutAccount(merchantId: string) {
   const a = await prisma.payoutAccount.findUnique({ where: { merchantId } });
-  return a
-    ? { bankName: a.bankName, accountNumber: a.accountNumber, accountName: a.accountName, isVerified: a.isVerified }
-    : null;
+  return a ? presentAccount(a) : null;
 }
 
-/**
- * Move wallet balance out to a bank account via NIP. Used for merchant
- * settlement and for a user emptying their wallet (e.g. before account
- * deletion). The ledger is debited first; a provider failure reverses it.
- */
 export async function withdrawToBank(userId: string, input: Withdraw) {
   await ensureWallet(userId);
   const amount = BigInt(input.amountKobo);

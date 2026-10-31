@@ -73,8 +73,11 @@ export const registerMerchantBody = z.object({
   lga: z.string().trim().min(1).max(80).nullish(),
   country: z.string().trim().length(2).default('NG'),
   bankName: z.string().trim().min(1),
+  /** NIP code of the chosen bank. With it, the server looks up the account name itself. */
+  bankCode: z.string().trim().regex(/^\d{2,8}$/).optional(),
   bankAccountNumber: z.string().trim().regex(/^\d{10}$/, 'Enter a valid 10-digit account number.'),
-  bankAccountName: z.string().trim().min(1).optional(),
+  /** Only used when the name lookup is unavailable; a looked-up name always wins. */
+  bankAccountName: z.string().trim().min(1).max(120).optional(),
 });
 export type RegisterMerchantBody = z.infer<typeof registerMerchantBody>;
 

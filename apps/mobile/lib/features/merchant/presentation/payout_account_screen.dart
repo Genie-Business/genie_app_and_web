@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/format.dart';
 import '../../../shared/widgets/async_view.dart';
 import '../../../theme/genie_theme.dart';
+import '../../banking/bank_account_fields.dart';
+import '../../banking/bank_repository.dart';
 import '../payout_repository.dart';
 
 class PayoutAccountScreen extends ConsumerWidget {
@@ -53,36 +54,46 @@ class _AccountForm extends ConsumerStatefulWidget {
 }
 
 class _AccountFormState extends ConsumerState<_AccountForm> {
-  late final _bank = TextEditingController(text: widget.existing?.bankName ?? '');
-  late final _number = TextEditingController(text: widget.existing?.accountNumber ?? '');
-  late final _name = TextEditingController(text: widget.existing?.accountName ?? '');
+  final _form = GlobalKey<FormState>();
+  final _bankAccount = BankAccountController();
   bool _loading = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    final a = widget.existing;
+    if (a != null) {
+      // Accounts saved before banks had codes come back without one; the merchant re-picks the bank.
+      _bankAccount.seed(
+        bank: a.bankCode == null ? null : Bank(code: a.bankCode!, name: a.bankName),
+        number: a.accountNumber,
+        name: a.accountName,
+        verified: a.isVerified,
+      );
+    }
+  }
+
+  @override
   void dispose() {
-    _bank.dispose();
-    _number.dispose();
-    _name.dispose();
+    _bankAccount.dispose();
     super.dispose();
   }
 
+  Future<ResolvedAccount> _lookupAccount({required String bankCode, required String accountNumber}) =>
+      ref.read(bankRepositoryProvider).resolve(bankCode: bankCode, accountNumber: accountNumber);
+
   Future<void> _save() async {
     setState(() => _error = null);
-    if (_bank.text.trim().isEmpty || _name.text.trim().isEmpty) {
-      setState(() => _error = 'Fill in the bank and account name.');
-      return;
-    }
-    if (_number.text.trim().length != 10) {
-      setState(() => _error = 'A Nigerian account number is 10 digits.');
-      return;
-    }
+    if (!_form.currentState!.validate()) return;
+    final bank = _bankAccount.bank!;
     setState(() => _loading = true);
     try {
       await ref.read(payoutRepositoryProvider).save(
-            bankName: _bank.text,
-            accountNumber: _number.text,
-            accountName: _name.text,
+            bankName: bank.name,
+            bankCode: bank.code,
+            accountNumber: _bankAccount.accountNumber,
+            accountName: _bankAccount.accountName,
           );
       widget.onSaved();
       if (mounted) {
@@ -98,50 +109,36 @@ class _AccountFormState extends ConsumerState<_AccountForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.existing?.isVerified ?? false)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 12),
-            child: Row(children: [
-              Icon(Icons.verified, size: 16, color: GenieColors.success),
-              SizedBox(width: 6),
-              Text('Verified', style: TextStyle(color: GenieColors.success, fontSize: 13)),
-            ]),
+    return Form(
+      key: _form,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.existing?.isVerified ?? false)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Row(children: [
+                Icon(Icons.verified, size: 16, color: GenieColors.success),
+                SizedBox(width: 6),
+                Text('Verified', style: TextStyle(color: GenieColors.success, fontSize: 13)),
+              ]),
+            ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(_error!, style: const TextStyle(color: GenieColors.error, fontSize: 13)),
+            ),
+          BankAccountFields(controller: _bankAccount, lookup: _lookupAccount),
+          const SizedBox(height: 4),
+          FilledButton(
+            onPressed: _loading ? null : _save,
+            child: _loading
+                ? const SizedBox(
+                    height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(widget.existing == null ? 'Save account' : 'Update account'),
           ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(_error!, style: const TextStyle(color: GenieColors.error, fontSize: 13)),
-          ),
-        TextField(
-          controller: _bank,
-          decoration: const InputDecoration(labelText: 'Bank name'),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _number,
-          keyboardType: TextInputType.number,
-          maxLength: 10,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Account number', counterText: ''),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _name,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Account name'),
-        ),
-        const SizedBox(height: 18),
-        FilledButton(
-          onPressed: _loading ? null : _save,
-          child: _loading
-              ? const SizedBox(
-                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(widget.existing == null ? 'Save account' : 'Update account'),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

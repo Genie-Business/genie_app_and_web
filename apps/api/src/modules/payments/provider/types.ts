@@ -43,6 +43,17 @@ export type NipTransferInput = {
   reference: string;
 };
 
+/** A bank a NIP transfer can be sent to. `code` is the NIP / CBN institution code. */
+export type Bank = { code: string; name: string };
+
+export type ResolvedAccount = {
+  accountName: string;
+  accountNumber: string;
+  bankCode: string;
+  /** The provider's name for the bank, when it returns one. */
+  bankName?: string;
+};
+
 export type BookTransferInput = {
   fromProviderAccountId: string;
   toProviderAccountId: string;
@@ -82,6 +93,19 @@ export interface PaymentProvider {
 
   getBalance(providerAccountId: string): Promise<bigint>;
 
+  /**
+   * Banks that can receive transfers. Providers without a live list return an
+   * empty array and callers fall back to the bundled list (see banks.data.ts).
+   */
+  listBanks(): Promise<Bank[]>;
+
+  /**
+   * Name enquiry: who owns this account? Throws AccountNotFoundError when the
+   * bank says the account does not exist, AccountResolutionUnavailableError when
+   * the lookup can't be done right now (not configured, provider down, ...).
+   */
+  resolveAccount(input: { bankCode: string; accountNumber: string }): Promise<ResolvedAccount>;
+
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookVerification;
 }
 
@@ -89,5 +113,21 @@ export class ProviderNotConfiguredError extends Error {
   constructor(message = 'The Anchor payment provider is selected but ANCHOR_KEY is not set.') {
     super(message);
     this.name = 'ProviderNotConfiguredError';
+  }
+}
+
+/** The bank has no account with that number. */
+export class AccountNotFoundError extends Error {
+  constructor(message = 'No account found with that number at that bank.') {
+    super(message);
+    this.name = 'AccountNotFoundError';
+  }
+}
+
+/** Name enquiry isn't possible right now; callers degrade to manual entry. */
+export class AccountResolutionUnavailableError extends Error {
+  constructor(message = 'Account name lookup is not available.') {
+    super(message);
+    this.name = 'AccountResolutionUnavailableError';
   }
 }

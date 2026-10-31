@@ -73,9 +73,11 @@ export const withdrawBody = z.object({
 
 export const payoutAccountBody = z.object({
   bankName: z.string().trim().min(1),
-  bankCode: z.string().trim().optional(),
+  /** With a bank code the server looks up the account name itself. */
+  bankCode: z.string().trim().regex(/^\d{2,8}$/).optional(),
   accountNumber: z.string().regex(/^\d{10}$/),
-  accountName: z.string().trim().min(1),
+  /** Only used when the name lookup is unavailable; a looked-up name always wins. */
+  accountName: z.string().trim().min(1).max(120).optional(),
 });
 export type WithdrawBody = z.infer<typeof withdrawBody>;
 export type PayoutAccountBody = z.infer<typeof payoutAccountBody>;

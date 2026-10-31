@@ -1,15 +1,19 @@
 import { createHmac, randomInt } from 'node:crypto';
 import { makeReference } from '@genie/core';
+import { NG_BANKS, bundledBank } from '../../banks/banks.data';
 import type {
+  Bank,
   BookTransferInput,
   DynamicVirtualAccount,
   NipTransferInput,
   PaymentProvider,
   ProviderCustomer,
   ProviderDepositAccount,
+  ResolvedAccount,
   TransferResult,
   WebhookVerification,
 } from './types';
+import { AccountNotFoundError, AccountResolutionUnavailableError } from './types';
 
 /**
  * Deterministic in-memory provider for local dev, tests and preview deploys
@@ -25,6 +29,17 @@ export class MockPaymentProvider implements PaymentProvider {
   readonly pendingVirtualAccounts = new Map<string, DynamicVirtualAccount & { amountKobo: bigint }>();
 
   private readonly secret = process.env.ANCHOR_WEBHOOK_SECRET || 'mock-webhook-secret';
+
+  /**
+   * Whether name enquiry returns made-up names. On for dev and tests; off in
+   * production, where a mock-provider deploy has no real account to look up and
+   * must not show a merchant a name that isn't theirs.
+   */
+  private readonly simulateLookups: boolean;
+
+  constructor(opts: { simulateAccountLookups?: boolean } = {}) {
+    this.simulateLookups = opts.simulateAccountLookups ?? process.env.NODE_ENV !== 'production';
+  }
 
   async ensureCustomer(input: { userId: string }): Promise<ProviderCustomer> {
     const existing = this.customers.get(input.userId);
@@ -64,6 +79,29 @@ export class MockPaymentProvider implements PaymentProvider {
 
   async nipTransfer(_input: NipTransferInput): Promise<TransferResult> {
     return { providerRef: makeReference('MOCKNIP'), status: 'PAID' };
+  }
+
+  async listBanks(): Promise<Bank[]> {
+    return [...NG_BANKS];
+  }
+
+  /**
+   * Simulated name enquiry: any 10-digit number resolves to `TEST ACCOUNT <last 4>`,
+   * except numbers starting `0000`, which the "bank" doesn't recognise.
+   */
+  async resolveAccount(input: { bankCode: string; accountNumber: string }): Promise<ResolvedAccount> {
+    if (!this.simulateLookups) {
+      throw new AccountResolutionUnavailableError(
+        'Account name lookup needs a live payment provider (set PAYMENTS_PROVIDER=anchor and ANCHOR_KEY).',
+      );
+    }
+    if (input.accountNumber.startsWith('0000')) throw new AccountNotFoundError();
+    return {
+      accountName: `TEST ACCOUNT ${input.accountNumber.slice(-4)}`,
+      accountNumber: input.accountNumber,
+      bankCode: input.bankCode,
+      bankName: bundledBank(input.bankCode)?.name,
+    };
   }
 
   async getBalance(providerAccountId: string): Promise<bigint> {

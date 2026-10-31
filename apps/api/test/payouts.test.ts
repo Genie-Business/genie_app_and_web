@@ -73,7 +73,7 @@ d('cards, payouts & withdrawals (E012)', () => {
 
     const set = await app.request('/v1/payouts/account', { method: 'PUT', headers: merchant.auth, body: JSON.stringify(ACCOUNT) });
     expect(set.status).toBe(200);
-    expect((await body(set)).data.isVerified).toBe(true); // mock provider auto-verifies
+    expect((await body(set)).data.isVerified).toBe(true); // the mock provider simulates the name lookup
 
     const w = await app.request('/v1/payments/withdraw', post({ amountKobo: 300_000, ...ACCOUNT }, merchant.auth));
     expect(w.status).toBe(201);

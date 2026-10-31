@@ -5,11 +5,13 @@ import '../../core/api_client.dart';
 class PayoutAccount {
   const PayoutAccount({
     required this.bankName,
+    this.bankCode,
     required this.accountNumber,
     required this.accountName,
     required this.isVerified,
   });
   final String bankName;
+  final String? bankCode;
   final String accountNumber;
   final String accountName;
   final bool isVerified;
@@ -18,6 +20,7 @@ class PayoutAccount {
     if (j['accountNumber'] == null) return null;
     return PayoutAccount(
       bankName: (j['bankName'] as String?) ?? '',
+      bankCode: j['bankCode'] as String?,
       accountNumber: (j['accountNumber'] as String?) ?? '',
       accountName: (j['accountName'] as String?) ?? '',
       isVerified: j['isVerified'] as bool? ?? false,
@@ -55,15 +58,19 @@ class PayoutRepository {
   Future<PayoutAccount?> account() async =>
       PayoutAccount.fromJson(await _api.get<Map<String, dynamic>>('/v1/payouts/account'));
 
+  /// The server looks up the account name itself when [bankCode] is given;
+  /// [accountName] is only used when that lookup isn't available.
   Future<PayoutAccount?> save({
     required String bankName,
+    required String bankCode,
     required String accountNumber,
-    required String accountName,
+    String? accountName,
   }) async {
     final data = await _api.put<Map<String, dynamic>>('/v1/payouts/account', body: {
       'bankName': bankName.trim(),
+      'bankCode': bankCode,
       'accountNumber': accountNumber.trim(),
-      'accountName': accountName.trim(),
+      if (accountName != null && accountName.trim().isNotEmpty) 'accountName': accountName.trim(),
     });
     return PayoutAccount.fromJson(data);
   }
