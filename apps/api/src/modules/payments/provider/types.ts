@@ -95,6 +95,13 @@ export interface PaymentProvider {
   /** Pay a recipient out of genie's provider balance. */
   transfer(input: TransferInput): Promise<TransferResult>;
 
+  /**
+   * What became of a transfer, looked up by the reference it was sent with. Null when the
+   * provider has no record of it, i.e. it never left genie. Used to settle a payout whose
+   * outcome we never heard (a timeout, a webhook that didn't arrive).
+   */
+  verifyTransfer(reference: string): Promise<TransferResult | null>;
+
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookVerification;
 }
 

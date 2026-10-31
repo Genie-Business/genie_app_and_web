@@ -17,7 +17,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     include: {
       merchantProfile: true,
       kycVerifications: true,
-      wallet: { select: { balanceKobo: true, status: true } },
+      discountCredits: { where: { usedAt: null }, select: { amountKobo: true } },
       referredBy: { select: { id: true, firstName: true, lastName: true } },
       events: { orderBy: { eventDate: 'desc' }, take: 10, include: { _count: { select: { wishlists: true } } } },
       transactions: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -25,6 +25,18 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     },
   });
   if (!user) notFound();
+
+  // Merchants are owed money until it is paid out; everyone else may hold referral discounts.
+  const owed =
+    user.role === 'MERCHANT'
+      ? (
+          await prisma.order.aggregate({
+            where: { merchantId: id, payoutId: null, status: { in: ['PAID', 'FULFILLING', 'DELIVERED'] } },
+            _sum: { merchantNetKobo: true },
+          })
+        )._sum.merchantNetKobo ?? 0n
+      : null;
+  const creditKobo = user.discountCredits.reduce((sum, c) => sum + c.amountKobo, 0n);
 
   const rows: Array<[string, React.ReactNode]> = [
     ['Email', <>{user.email} {user.emailVerifiedAt ? <span className="text-xs text-emerald-700">verified</span> : <span className="text-xs text-amber-700">unverified</span>}</>],
@@ -58,7 +70,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         <Stat label="Gifts sent" value={user._count.giftsGiven} />
         <Stat label="Orders placed" value={user._count.ordersAsBuyer} />
         <Stat label="People referred" value={user._count.referrals} />
-        <Stat label="Wallet" value={user.wallet ? formatKobo(user.wallet.balanceKobo) : '—'} hint={user.wallet?.status} />
+        {owed !== null ? (
+          <Stat label="Owed, not yet paid out" value={formatKobo(owed)} hint="after commission" />
+        ) : (
+          <Stat label="Referral credit" value={formatKobo(creditKobo)} hint="unused order discounts" />
+        )}
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">

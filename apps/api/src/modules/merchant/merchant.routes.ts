@@ -6,6 +6,7 @@ import { serializeBigInts } from '../../lib/bigint';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { toProductDto } from '../catalog/catalog.mapper';
 import * as service from './merchant.service';
+import { getEarnings } from '../payouts/payouts.service';
 
 const router = createRouter();
 
@@ -131,6 +132,21 @@ router.openapi(
   }),
   async (c) =>
     c.json(serializeBigInts({ data: await service.listOrders(c.get('user')!.id) }), 200),
+);
+
+// ── GET /merchant/earnings ───────────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'get',
+    path: '/earnings',
+    tags: ['Merchant'],
+    summary: 'What genie owes me, and what I have been paid',
+    description:
+      'Computed from orders and payouts: awaiting delivery, delivered and ready for the next payout, on its way to the bank, and already paid out.',
+    security: [{ bearerAuth: [] }],
+    responses: { 200: jsonResponse('Earnings', z.object({ data: z.record(z.unknown()) })), ...commonErrorResponses },
+  }),
+  async (c) => c.json(serializeBigInts({ data: await getEarnings(c.get('user')!.id) }), 200),
 );
 
 // ── PATCH /merchant/orders/{id}/delivery ────────────────────────────────

@@ -194,7 +194,10 @@ export class PaystackPaymentProvider implements PaymentProvider {
         reason: input.reason,
       });
     } catch (err) {
-      if (err instanceof PaystackHttpError) throw new TransferError(err.message);
+      // A 4xx is Paystack refusing the transfer outright (not enough balance, bad recipient, ...).
+      // A 5xx or a dropped connection is ambiguous: it may or may not have gone through, so it is
+      // left as a plain error for the caller to settle later with verifyTransfer.
+      if (err instanceof PaystackHttpError && err.status < 500) throw new TransferError(err.message);
       throw err;
     }
     const providerRef = res.data.transfer_code ?? res.data.reference ?? input.reference;
@@ -212,6 +215,30 @@ export class PaystackPaymentProvider implements PaymentProvider {
         return { providerRef, status: 'FAILED' };
       default:
         return { providerRef, status: 'PROCESSING' };
+    }
+  }
+
+  async verifyTransfer(reference: string): Promise<TransferResult | null> {
+    try {
+      const res = await this.request<{ transfer_code?: string; status?: string }>(
+        'GET',
+        `/transfer/verify/${encodeURIComponent(paystackTransferReference(reference))}`,
+      );
+      const providerRef = res.data.transfer_code ?? reference;
+      switch ((res.data.status ?? '').toLowerCase()) {
+        case 'success':
+          return { providerRef, status: 'PAID' };
+        case 'failed':
+        case 'reversed':
+        case 'rejected':
+        case 'blocked':
+          return { providerRef, status: 'FAILED' };
+        default:
+          return { providerRef, status: 'PROCESSING' };
+      }
+    } catch (err) {
+      if (err instanceof PaystackHttpError && err.status === 404) return null;
+      throw err;
     }
   }
 

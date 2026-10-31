@@ -169,6 +169,32 @@ describe('PaystackPaymentProvider: paying merchants out', () => {
     expect(sent.reference).toBe('po-261031-abc123'); // lowercase, padded to Paystack's 16-character minimum
   });
 
+  it('treats a server error on a transfer as unknown (it may have gone through), not as a refusal', async () => {
+    stubFetch({ status: 502, json: { status: false, message: 'Bad gateway' } }, new Error('socket hang up'));
+    const p = paystack();
+    const input = { amountKobo: 950_000n, recipientCode: 'RCP_abc', reference: 'PO-261031-ABC123', reason: 'genie payout' };
+    const first = await p.transfer(input).catch((e: unknown) => e);
+    expect(first).toBeInstanceOf(Error);
+    expect(first).not.toBeInstanceOf(TransferError);
+    const second = await p.transfer(input).catch((e: unknown) => e);
+    expect(second).not.toBeInstanceOf(TransferError);
+  });
+
+  it('looks up what became of a transfer, and says so when Paystack has no record', async () => {
+    const calls = stubFetch(
+      { json: { status: true, data: { transfer_code: 'TRF_1', status: 'success' } } },
+      { json: { status: true, data: { transfer_code: 'TRF_2', status: 'reversed' } } },
+      { json: { status: true, data: { transfer_code: 'TRF_3', status: 'pending' } } },
+      { status: 404, json: { status: false, message: 'Transfer not found' } },
+    );
+    const p = paystack();
+    expect(await p.verifyTransfer('PO-261031-ABC123')).toEqual({ providerRef: 'TRF_1', status: 'PAID' });
+    expect(await p.verifyTransfer('PO-2')).toEqual({ providerRef: 'TRF_2', status: 'FAILED' });
+    expect(await p.verifyTransfer('PO-3')).toEqual({ providerRef: 'TRF_3', status: 'PROCESSING' });
+    expect(await p.verifyTransfer('PO-4')).toBeNull();
+    expect(calls[0]!.url).toBe('https://api.paystack.test/transfer/verify/po-261031-abc123');
+  });
+
   it('shapes transfer references the way Paystack requires', () => {
     expect(paystackTransferReference('PO-261031-ABC123')).toBe('po-261031-abc123');
     expect(paystackTransferReference('PO-1')).toHaveLength(16);
@@ -223,6 +249,15 @@ describe('POST /v1/payments/webhooks/paystack', () => {
     );
     expect(forged.status).toBe(202);
     expect((await body(forged)).accepted).toBe(false);
+  });
+});
+
+describe('the scheduled payout endpoint', () => {
+  const app = createApp();
+
+  it('stays shut when no CRON_SECRET is configured', async () => {
+    const res = await app.request('/v1/internal/payouts/run', { headers: { authorization: 'Bearer anything' } });
+    expect(res.status).toBe(503);
   });
 });
 

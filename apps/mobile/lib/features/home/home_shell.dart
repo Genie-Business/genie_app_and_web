@@ -139,7 +139,14 @@ class _AccountTab extends ConsumerWidget {
             onTap: () => context.push('/messages'),
           ),
         ],
-        if (user?.isMerchant ?? false)
+        if (user?.isMerchant ?? false) ...[
+          ListTile(
+            leading: const Icon(Icons.payments_outlined),
+            title: const Text('Earnings'),
+            subtitle: const Text('What you are owed and what has been paid'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/merchant/earnings'),
+          ),
           ListTile(
             leading: const Icon(Icons.account_balance_outlined),
             title: const Text('Settlement account'),
@@ -147,6 +154,7 @@ class _AccountTab extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/merchant/payout'),
           ),
+        ],
         ListTile(
           leading: const Icon(Icons.verified_user_outlined),
           title: const Text('Identity verification'),

@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "cd ../.. && npm run db:generate && npx turbo run build --filter=@genie/landing",
   "installCommand": "cd ../.. && npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [{ "path": "/v1/internal/payouts/run", "schedule": "0 7 * * *" }]
 }

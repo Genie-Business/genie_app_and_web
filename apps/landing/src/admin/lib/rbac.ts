@@ -61,6 +61,7 @@ export function can(role: string, section: Section): boolean {
 
 /** Roles that may change things in a section (everyone else gets a read-only view). */
 const WRITE: Partial<Record<Section, readonly AdminRoleName[]>> = {
+  transactions: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'],
   concierge: ['SUPER_ADMIN', 'ADMIN', 'CONCIERGE'],
   fees: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'],
   kyc: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'],

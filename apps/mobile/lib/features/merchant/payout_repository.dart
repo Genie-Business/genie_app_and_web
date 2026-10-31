@@ -28,6 +28,45 @@ class PayoutAccount {
   }
 }
 
+/// What genie owes the merchant at each stage of an order's journey.
+class Earnings {
+  const Earnings({
+    required this.awaitingDeliveryKobo,
+    required this.awaitingDeliveryOrders,
+    required this.readyForPayoutKobo,
+    required this.readyForPayoutOrders,
+    required this.payingOutKobo,
+    required this.paidOutKobo,
+    required this.hasSettlementAccount,
+    required this.settlementVerified,
+    required this.holdHours,
+    required this.minimumPayoutKobo,
+  });
+  final String awaitingDeliveryKobo;
+  final int awaitingDeliveryOrders;
+  final String readyForPayoutKobo;
+  final int readyForPayoutOrders;
+  final String payingOutKobo;
+  final String paidOutKobo;
+  final bool hasSettlementAccount;
+  final bool settlementVerified;
+  final int holdHours;
+  final String minimumPayoutKobo;
+
+  factory Earnings.fromJson(Map<String, dynamic> j) => Earnings(
+        awaitingDeliveryKobo: (j['awaitingDeliveryKobo'] ?? '0').toString(),
+        awaitingDeliveryOrders: (j['awaitingDeliveryOrders'] as num?)?.toInt() ?? 0,
+        readyForPayoutKobo: (j['readyForPayoutKobo'] ?? '0').toString(),
+        readyForPayoutOrders: (j['readyForPayoutOrders'] as num?)?.toInt() ?? 0,
+        payingOutKobo: (j['payingOutKobo'] ?? '0').toString(),
+        paidOutKobo: (j['paidOutKobo'] ?? '0').toString(),
+        hasSettlementAccount: j['hasSettlementAccount'] as bool? ?? false,
+        settlementVerified: j['settlementVerified'] as bool? ?? false,
+        holdHours: (j['holdHours'] as num?)?.toInt() ?? 0,
+        minimumPayoutKobo: (j['minimumPayoutKobo'] ?? '10000').toString(),
+      );
+}
+
 class Payout {
   const Payout({
     required this.reference,
@@ -75,6 +114,9 @@ class PayoutRepository {
     return PayoutAccount.fromJson(data);
   }
 
+  Future<Earnings> earnings() async =>
+      Earnings.fromJson(await _api.get<Map<String, dynamic>>('/v1/merchant/earnings'));
+
   Future<List<Payout>> history() async {
     final data = await _api.get<List<dynamic>>('/v1/payouts');
     return data.map((e) => Payout.fromJson(e as Map<String, dynamic>)).toList();
@@ -89,3 +131,5 @@ final payoutAccountProvider =
 
 final payoutHistoryProvider =
     FutureProvider<List<Payout>>((ref) => ref.watch(payoutRepositoryProvider).history());
+
+final earningsProvider = FutureProvider.autoDispose<Earnings>((ref) => ref.watch(payoutRepositoryProvider).earnings());

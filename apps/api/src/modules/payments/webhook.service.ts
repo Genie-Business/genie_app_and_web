@@ -1,6 +1,7 @@
 import { prisma } from '@genie/db';
 import { logger } from '../../lib/logger';
 import { getPaymentProvider } from './provider';
+import { applyTransferEvent } from '../payouts/payouts.service';
 import { settlePaidIntent } from './reconcile.service';
 
 /**
@@ -72,11 +73,11 @@ async function route(eventType: string, payload: unknown) {
       if (charge.status === 'SUCCESS') await settlePaidIntent(reference, charge.amountKobo);
       return;
     }
-    // Transfer outcomes are applied to payouts (see payouts.service).
+    // Transfer outcomes settle the merchant payout they belong to.
     case 'transfer.success':
     case 'transfer.failed':
     case 'transfer.reversed':
-      logger.info({ eventType }, 'webhook acknowledged (no handler yet)');
+      await applyTransferEvent(eventType, data);
       return;
     default:
       logger.info({ eventType }, 'unhandled webhook event type');

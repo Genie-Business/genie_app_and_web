@@ -33,6 +33,12 @@ export class MockPaymentProvider implements PaymentProvider {
 
   /** Test hook: make the next N transfers fail (e.g. "balance not enough"). */
   failNextTransfers = 0;
+  /** Test hook: make the next N transfers fail in the ambiguous way (a dropped connection). */
+  dropNextTransfers = 0;
+  /** Test hook: leave the next N transfers pending, as a slow bank would. */
+  holdNextTransfers = 0;
+  /** reference -> what the "provider" recorded for each transfer it accepted */
+  private readonly transfers = new Map<string, TransferResult>();
 
   private readonly secret = process.env.PAYSTACK_SECRET_KEY || 'mock-paystack-secret';
 
@@ -97,12 +103,31 @@ export class MockPaymentProvider implements PaymentProvider {
     return { recipientCode: `RCP_mock_${input.bankCode}_${input.accountNumber}` };
   }
 
-  async transfer(_input: TransferInput): Promise<TransferResult> {
+  async transfer(input: TransferInput): Promise<TransferResult> {
     if (this.failNextTransfers > 0) {
       this.failNextTransfers -= 1;
       throw new TransferError('Your balance is not enough to fulfil this request');
     }
-    return { providerRef: makeReference('MOCKTRF'), status: 'PAID' };
+    const status = this.holdNextTransfers > 0 ? 'PROCESSING' : 'PAID';
+    if (this.holdNextTransfers > 0) this.holdNextTransfers -= 1;
+    const result: TransferResult = { providerRef: makeReference('MOCKTRF'), status };
+    this.transfers.set(input.reference, result);
+    if (this.dropNextTransfers > 0) {
+      // The provider took the transfer, but the answer never made it back.
+      this.dropNextTransfers -= 1;
+      throw new Error('socket hang up');
+    }
+    return result;
+  }
+
+  async verifyTransfer(reference: string): Promise<TransferResult | null> {
+    return this.transfers.get(reference) ?? null;
+  }
+
+  /** Test hook: change what the "provider" says happened to a transfer. */
+  setTransferStatus(reference: string, status: TransferResult['status']) {
+    const existing = this.transfers.get(reference);
+    if (existing) this.transfers.set(reference, { ...existing, status });
   }
 
   /** Build the signed `charge.success` webhook body the real provider would send. */

@@ -23,6 +23,7 @@ import '../features/gifts/presentation/gifts_received_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/kyc/presentation/kyc_screen.dart';
 import '../features/merchant/presentation/edit_product_screen.dart';
+import '../features/merchant/presentation/earnings_screen.dart';
 import '../features/merchant/presentation/payout_account_screen.dart';
 import '../features/messages/presentation/chat_screen.dart';
 import '../features/messages/presentation/messages_screen.dart';
@@ -184,6 +185,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/support/:id',
         builder: (_, s) => SupportThreadScreen(threadId: s.pathParameters['id']!),
       ),
+      GoRoute(path: '/merchant/earnings', builder: (_, __) => const EarningsScreen()),
       GoRoute(path: '/merchant/payout', builder: (_, __) => const PayoutAccountScreen()),
     ],
   );
