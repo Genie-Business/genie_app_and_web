@@ -14,15 +14,20 @@ export type Mail = {
  * Delivery is best-effort: if RESEND_API_KEY is unset, or Resend rejects the
  * send (e.g. the free tier only delivers to the account owner until a domain is
  * verified), the mail — including any OTP — is logged instead and the call still
- * resolves. Callers must not depend on delivery: signup/reset codes are also
- * persisted and can be re-requested via `resend-otp`. Throwing here would 500 a
- * registration whose user row is already committed.
+ * resolves; it never throws, because throwing would 500 a registration whose user
+ * row is already committed. Instead it reports whether the mail went out, so a caller
+ * with nothing else to fall back on (a sign-up code, before any account exists) can
+ * tell the user rather than claim "we sent it". Most callers ignore the result:
+ * their codes are persisted and can be re-requested via `resend-otp`.
+ *
+ * Returns true when Resend accepted the mail, and also when there is no API key
+ * outside production (local development reads the logged mail).
  */
-export async function sendMail(mail: Mail): Promise<void> {
+export async function sendMail(mail: Mail): Promise<boolean> {
   const env = getEnv();
   if (!env.RESEND_API_KEY) {
     logger.info({ to: mail.to, subject: mail.subject, body: mail.text ?? mail.html }, '[dev mail]');
-    return;
+    return env.APP_ENV !== 'production';
   }
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -45,13 +50,15 @@ export async function sendMail(mail: Mail): Promise<void> {
         { status: res.status, detail, to: mail.to, subject: mail.subject, body: mail.text ?? mail.html },
         'Resend send failed, mail logged instead',
       );
-      return;
+      return false;
     }
+    return true;
   } catch (err) {
     logger.error(
       { err, to: mail.to, subject: mail.subject, body: mail.text ?? mail.html },
       'Resend request threw, mail logged instead',
     );
+    return false;
   }
 }
 

@@ -73,6 +73,16 @@ tester addresses in `OTP_ECHO_EMAILS`, so email verification and password reset 
    `EMAIL_FROM=genie <onboarding@resend.dev>`.
 3. To send to anyone: **Domains → Add** your domain, add the DNS records, then
    `EMAIL_FROM=genie <no-reply@yourdomain>`.
+   For `getgenie.gift` the DNS lives at **Namecheap** (Domain List → Manage → Advanced DNS), not Vercel. Resend shows
+   the exact records to add, normally: a `TXT` at `resend._domainkey` (DKIM), an `MX` at `send` and a `TXT` at `send`
+   (SPF), plus an optional `_dmarc` `TXT`. They sit on the `send` subdomain, so the existing email-forwarding SPF on the
+   bare domain is untouched. Press **Verify** in Resend once they are in; the domain must show **Verified** before
+   `EMAIL_FROM` can use it.
+
+**If a code never arrives:** Resend → **Logs** shows every attempt and why it was refused (usually "domain is not
+verified"). The merchant sign-up screen now says "We couldn't send the email just now" when Resend refuses the mail,
+rather than claiming it was sent. For a closed beta you can skip email entirely with `OTP_ECHO_EMAILS=a@x.com,b@y.com`:
+the app then fills the code in for those exact addresses.
 
 ## Verify a deploy
 

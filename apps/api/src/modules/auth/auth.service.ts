@@ -11,7 +11,7 @@ import {
 import { prisma, type OtpPurpose, type User } from '@genie/db';
 import type { auth as authContracts } from '@genie/contracts';
 import { getEnv, otpPepper } from '../../env';
-import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../../lib/errors';
+import { AppError, badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../../lib/errors';
 import {
   hashRefreshToken,
   signAccessToken,
@@ -233,9 +233,15 @@ export async function requestMerchantSignupCode(rawEmail: string) {
   if (taken) throw conflict('email_taken', 'An account with this email already exists.');
 
   const code = await issueOtp(email, 'MERCHANT_SIGNUP');
-  await sendMail({ ...merchantCodeEmail(code), to: email });
-  logger.info('merchant signup code sent');
-  return { email, verificationCode: otpEchoEnabled(email) ? code : undefined };
+  const sent = await sendMail({ ...merchantCodeEmail(code), to: email });
+  const echoed = otpEchoEnabled(email);
+  // No account exists yet and the code is only useful if it reaches them: say so, rather than
+  // claim "we sent it". (When the code is echoed back in the response there is nothing to lose.)
+  if (!sent && !echoed) {
+    throw new AppError(503, 'email_not_sent', "We couldn't send the email just now. Please try again in a minute.");
+  }
+  logger.info({ sent }, 'merchant signup code issued');
+  return { email, verificationCode: echoed ? code : undefined };
 }
 
 /** Step 2: the merchant enters the code; we hand back a short-lived proof of the email. */
