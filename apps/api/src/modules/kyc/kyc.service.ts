@@ -33,7 +33,7 @@ export async function getMyKyc(userId: string): Promise<K.KycStatusDto> {
 export function kycRequirements(): K.KycRequirementsDto {
   return {
     level: 'LEVEL_1',
-    unlocks: ['Higher wallet limits', 'Faster merchant settlement', 'Sending gifts above the starter cap'],
+    unlocks: ['Higher gifting limits', 'Faster merchant settlement', 'Sending gifts above the starter cap'],
     requires: [
       { field: 'selfie', label: 'A clear selfie', type: 'file' },
       { field: 'idDoc', label: 'Photo of a government ID', type: 'file' },

@@ -107,16 +107,6 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="msg" id="authMsg"></div>
   </section>
 
-  <!-- WALLET -->
-  <section class="card" id="walletCard">
-    <h2>Wallet</h2>
-    <div class="kv"><span>Balance</span><b id="w_bal">—</b></div>
-    <div class="kv"><span>Virtual account</span><span id="w_nuban" class="muted">—</span></div>
-    <label>Add funds (₦)</label>
-    <div class="row"><input id="w_amt" type="number" value="5000"/><button id="w_add" style="flex:0 0 auto">Add + settle</button></div>
-    <div class="msg" id="walletMsg"></div>
-  </section>
-
   <!-- EVENTS -->
   <section class="card" id="eventsCard">
     <h2>Events</h2>
@@ -150,7 +140,6 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <label>Wishlist item ID</label><input id="g_item" placeholder="clxxxx…"/>
     <div class="row">
       <div><label>Qty</label><input id="g_qty" type="number" value="1" min="1"/></div>
-      <div><label>Method</label><select id="g_method"><option value="WALLET">Wallet</option><option value="BANK_TRANSFER">Bank transfer</option></select></div>
       <div><label>Anonymous</label><select id="g_anon"><option value="no">No</option><option value="yes">Yes</option></select></div>
     </div>
     <label>Message (optional)</label><input id="g_msg" placeholder="Happy birthday!"/>
@@ -170,14 +159,14 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
   <!-- MERCHANT ORDERS & PAYOUT -->
   <section class="card hide" id="moCard">
     <h2>Orders &amp; settlement (merchant)</h2>
-    <div class="kv"><span>Wallet balance</span><b id="mo_bal">—</b></div>
+    <div class="kv"><span>Ready for the next payout</span><b id="mo_bal">—</b></div>
+    <div class="kv"><span>Paid out so far</span><b id="mo_paid">—</b></div>
     <div class="row">
       <div><label>Settlement bank</label><input id="po_bank" value="GTBank"/></div>
       <div><label>Account no.</label><input id="po_acct" value="0123456789"/></div>
     </div>
     <label>Account name</label><input id="po_name" value="Ada Cakes Ltd"/>
-    <div style="margin-top:8px"><button class="ghost sm" id="po_save">Save account</button>
-      <button class="sm" id="po_wd">Withdraw ₦<span id="po_wdamt">all</span></button></div>
+    <div style="margin-top:8px"><button class="ghost sm" id="po_save">Save account</button></div>
     <div class="msg" id="moMsg"></div>
     <div class="list" id="mo_list" style="margin-top:12px"></div>
   </section>
@@ -226,7 +215,7 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <div class="kv"><span>Referred / signed up / rewarded</span><b id="rf_counts">—</b></div>
     <div class="kv"><span>Earned</span><b id="rf_earned">—</b></div>
     <div class="list" id="rf_list"></div>
-    <p class="muted" style="font-size:12px;margin-top:8px">To test: copy your code, sign up a new celebrant with it in the "Referral code" field, then have that account fund a wallet and send a gift.</p>
+    <p class="muted" style="font-size:12px;margin-top:8px">To test: copy your code, sign up a new celebrant with it in the "Referral code" field, then have that account send a gift (its checkout is mock-paid here).</p>
   </section>
 
   <!-- ACTIVITY -->
@@ -273,7 +262,7 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
       <button class="ghost sm" id="st_revokeothers" style="margin-top:8px">sign out other devices</button>
     </div>
     <div data-spane="danger" class="hide">
-      <p class="muted" style="font-size:12px">Wallet must be empty. A 6-digit code is emailed (shown here in local mode).</p>
+      <p class="muted" style="font-size:12px">Merchants must be paid out first. A 6-digit code is emailed (shown here in local mode).</p>
       <button class="sm" id="st_delreq" style="background:var(--err)">Request deletion code</button>
       <div class="row" style="margin-top:8px"><input id="st_delcode" placeholder="6-digit code"/><button class="sm" style="flex:0 0 auto;background:var(--err)" id="st_delconfirm">Confirm delete</button></div>
     </div>
@@ -296,7 +285,6 @@ export const CONSOLE_HTML = /* html */ `<!doctype html>
     <p class="muted" style="font-size:12px;margin:0 0 6px">Use "Add to cart" in the Gifting card, then check out here — one payment, many gifts.</p>
     <div class="list" id="cart_items"></div>
     <div style="margin-top:10px">
-      <select id="cart_method" style="width:auto"><option value="WALLET">Wallet</option><option value="BANK_TRANSFER">Bank transfer</option></select>
       <button id="cart_checkout">Check out</button>
       <button class="ghost sm" id="cart_clear">clear</button>
     </div>
@@ -397,7 +385,6 @@ function renderSession(){
     $('#authCard').classList.add('hide');
     $('#merchCard').classList.toggle('hide', ME.role!=='MERCHANT');
     $('#moCard').classList.toggle('hide', ME.role!=='MERCHANT');
-    $('#walletCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#eventsCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#wlCard').classList.toggle('hide', ME.role==='MERCHANT');
     $('#giftCard').classList.remove('hide');
@@ -472,25 +459,6 @@ $('#s_go').onclick = async () => {
     }});
     setSession(res); msg('#authMsg','Welcome back, '+res.user.username, true);
   }catch(e){ msg('#authMsg', e.message, false); }
-};
-
-// ---- wallet ----
-async function loadWallet(){
-  if(!ME || ME.role==='MERCHANT') return;
-  try{
-    const w = await api('/v1/payments/wallet');
-    $('#w_bal').textContent = naira(w.balanceKobo);
-    $('#w_nuban').textContent = w.virtualNuban || '—';
-  }catch(e){}
-}
-$('#w_add').onclick = async () => {
-  try{
-    msg('#walletMsg','',true);
-    const amountKobo = Math.round(Number($('#w_amt').value) * 100);
-    const intent = await api('/v1/payments/add-funds', {method:'POST', body:{amountKobo}});
-    await api('/v1/payments/_mock/settle', {auth:false, method:'POST', body:{reference:intent.reference}});
-    await loadWallet(); msg('#walletMsg','Added '+naira(amountKobo)+' (mock settled).', true);
-  }catch(e){ msg('#walletMsg', e.message, false); }
 };
 
 // ---- events ----
@@ -643,7 +611,6 @@ function giftBody(){
     quantity: Number($('#g_qty').value)||1,
     isAnonymous: $('#g_anon').value==='yes',
     message: $('#g_msg').value || undefined,
-    method: $('#g_method').value,
   };
 }
 $('#g_quote').onclick = async () => {
@@ -661,12 +628,9 @@ $('#g_pay').onclick = async () => {
   try{
     msg('#giftMsg','',true);
     const res = await api('/v1/gifts', {method:'POST', body:giftBody()});
-    if(res.status==='PENDING'){
-      await api('/v1/payments/_mock/settle', {auth:false, method:'POST', body:{reference:res.reference}});
-      msg('#giftMsg','Bank transfer of '+naira(res.charge.gifterPaysKobo)+' mock-settled — gift is paid.', true);
-    } else {
-      msg('#giftMsg','Gift paid from wallet · order '+res.orderNumber, true);
-    }
+    // Checkout opens on the payment provider's page; with the mock provider, pretend the buyer paid.
+    await api('/v1/payments/_mock/pay', {auth:false, method:'POST', body:{reference:res.reference}});
+    msg('#giftMsg','Checkout for '+naira(res.payKobo)+(res.discountKobo!=='0'?' (after '+naira(res.discountKobo)+' referral credit)':'')+' mock-paid. The gift is created.', true);
     $('#g_item').value=''; $('#g_msg').value='';
     await refreshAll();
   }catch(e){ msg('#giftMsg', e.message, false); }
@@ -685,13 +649,9 @@ $('#cart_clear').onclick = async () => { try{ await api('/v1/cart', {method:'DEL
 $('#cart_checkout').onclick = async () => {
   try{
     msg('#cartMsg','',true);
-    const res = await api('/v1/cart/checkout', {method:'POST', body:{method:$('#cart_method').value}});
-    if(res.status==='PENDING'){
-      await api('/v1/payments/_mock/settle', {auth:false, method:'POST', body:{reference:res.reference}});
-      msg('#cartMsg','Bank transfer of '+naira(res.totalKobo)+' mock-settled — '+(res.gifts?res.gifts.length:'all')+' gifts paid.', true);
-    } else {
-      msg('#cartMsg','Checked out — '+res.gifts.length+' gifts, '+naira(res.totalKobo)+' from wallet.', true);
-    }
+    const res = await api('/v1/cart/checkout', {method:'POST', body:{}});
+    await api('/v1/payments/_mock/pay', {auth:false, method:'POST', body:{reference:res.reference}});
+    msg('#cartMsg','Checkout for '+naira(res.payKobo)+' mock-paid. The gifts are created.', true);
     await refreshAll();
   }catch(e){ msg('#cartMsg', e.message, false); }
 };
@@ -780,29 +740,17 @@ async function loadGifts(){
 $('#po_save').onclick = async () => {
   try{
     await api('/v1/payouts/account', {method:'PUT', body:{
-      bankName:$('#po_bank').value, accountNumber:$('#po_acct').value, accountName:$('#po_name').value,
+      bankName:$('#po_bank').value, bankCode:'058', accountNumber:$('#po_acct').value, accountName:$('#po_name').value,
     }});
     msg('#moMsg','Settlement account saved.', true);
-  }catch(e){ msg('#moMsg', e.message, false); }
-};
-$('#po_wd').onclick = async () => {
-  try{
-    const w = await api('/v1/payments/wallet');
-    const amountKobo = Number(w.balanceKobo);
-    if(amountKobo < 10000){ msg('#moMsg','Balance below the ₦100 minimum withdrawal.', false); return; }
-    const res = await api('/v1/payments/withdraw', {method:'POST', body:{
-      amountKobo, bankName:$('#po_bank').value, accountNumber:$('#po_acct').value, accountName:$('#po_name').value,
-    }});
-    msg('#moMsg','Withdrawal '+res.status+' · '+naira(res.netAmountKobo), true);
-    loadMerchantOrders();
   }catch(e){ msg('#moMsg', e.message, false); }
 };
 async function loadMerchantOrders(){
   if(!ME || ME.role!=='MERCHANT') return;
   try{
-    const w = await api('/v1/payments/wallet');
-    $('#mo_bal').textContent = naira(w.balanceKobo);
-    $('#po_wdamt').textContent = (Number(w.balanceKobo)/100).toLocaleString();
+    const e = await api('/v1/merchant/earnings');
+    $('#mo_bal').textContent = naira(e.readyForPayoutKobo);
+    $('#mo_paid').textContent = naira(e.paidOutKobo);
     const orders = await api('/v1/merchant/orders');
     $('#mo_list').innerHTML = orders.map(o => {
       const d = o.delivery ? o.delivery.status : 'PENDING';
@@ -1052,7 +1000,7 @@ async function refreshAll(){
   renderSession();
   if(!ME) return;
   loadSettingsProfile();
-  await Promise.all([loadWallet(), loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity(), loadKyc(), loadSessions(), loadSupport(), loadCart(), loadThreads()]);
+  await Promise.all([loadEvents(), loadCatalog(), loadMyProducts(), loadGifts(), loadMerchantOrders(), loadFriends(), loadNotifs(), loadReferrals(), loadActivity(), loadKyc(), loadSessions(), loadSupport(), loadCart(), loadThreads()]);
 }
 
 // boot

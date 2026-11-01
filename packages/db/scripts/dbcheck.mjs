@@ -37,7 +37,7 @@ async function deleteUsers(users) {
       where: { usedByUserId: u.id },
       data: { usedByUserId: null, usedAt: null },
     });
-    await prisma.user.delete({ where: { id: u.id } }); // cascades wallet/ledger/tokens/etc.
+    await prisma.user.delete({ where: { id: u.id } }); // cascades tokens, profiles, etc.
     console.log('deleted', u.email);
   }
 }
@@ -79,8 +79,6 @@ if (process.argv.includes('--set-admin-password')) {
 
 const c = await Promise.all([
   prisma.user.count(),
-  prisma.walletAccount.count(),
-  prisma.ledgerEntry.count(),
   prisma.paymentIntent.count(),
   prisma.transaction.count(),
   prisma.category.count(),
@@ -91,9 +89,9 @@ const c = await Promise.all([
 console.log(
   JSON.stringify(
     {
-      users: c[0], wallets: c[1], ledgerEntries: c[2], paymentIntents: c[3],
-      transactions: c[4], categories: c[5], feeConfigs: c[6],
-      unusedInviteCodes: c[7], admins: c[8],
+      users: c[0], paymentIntents: c[1],
+      transactions: c[2], categories: c[3], feeConfigs: c[4],
+      unusedInviteCodes: c[5], admins: c[6],
     },
     null,
     1,

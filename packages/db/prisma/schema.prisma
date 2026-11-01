@@ -116,30 +116,6 @@ enum DeliveryStatus {
   FAILED
 }
 
-enum WalletStatus {
-  ACTIVE
-  FROZEN
-  CLOSED
-}
-
-enum LedgerDirection {
-  CREDIT
-  DEBIT
-}
-
-enum LedgerReason {
-  FUNDING
-  GIFT_SENT
-  GIFT_RECEIVED
-  FEE
-  COMMISSION
-  PAYOUT
-  WITHDRAWAL
-  REVERSAL
-  ADJUSTMENT
-  REFERRAL
-}
-
 enum PaymentPurpose {
   ADD_FUNDS
   GIFT
@@ -302,7 +278,6 @@ model User {
   kycVerifications        KycVerification[]
   refreshTokens           RefreshToken[]
   deviceTokens            DeviceToken[]
-  wallet                  WalletAccount?
   events                  Event[]
   carts                   Cart[]
   giftsGiven              Gift[]                   @relation("GiftGifter")
@@ -725,43 +700,8 @@ model Delivery {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Payments & ledger
+// Payments
 // ──────────────────────────────────────────────────────────────
-
-model WalletAccount {
-  id                   String       @id @default(cuid())
-  userId               String       @unique
-  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider             String       @default("mock")
-  providerCustomerId   String?
-  providerAccountId    String?
-  providerVirtualNuban String?
-  currency             String       @default("NGN")
-  balanceKobo          BigInt       @default(0)
-  status               WalletStatus @default(ACTIVE)
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-
-  ledgerEntries LedgerEntry[]
-  transactions  Transaction[]
-}
-
-model LedgerEntry {
-  id               String          @id @default(cuid())
-  walletId         String
-  wallet           WalletAccount   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  direction        LedgerDirection
-  amountKobo       BigInt
-  balanceAfterKobo BigInt
-  reason           LedgerReason
-  refType          String?
-  refId            String?
-  idempotencyKey   String?         @unique
-  narration        String?
-  createdAt        DateTime        @default(now())
-
-  @@index([walletId, createdAt])
-}
 
 model PaymentIntent {
   id                  String         @id @default(cuid())
@@ -802,8 +742,6 @@ model Transaction {
   reference       String          @unique
   userId          String?
   user            User?           @relation(fields: [userId], references: [id])
-  walletId        String?
-  wallet          WalletAccount?  @relation(fields: [walletId], references: [id])
   type            TransactionType
   amountKobo      BigInt
   feeKobo         BigInt          @default(0)
@@ -821,7 +759,6 @@ model Transaction {
   createdAt       DateTime        @default(now())
 
   @@index([userId])
-  @@index([walletId])
   @@index([type])
 }
 

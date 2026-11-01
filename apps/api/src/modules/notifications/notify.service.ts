@@ -23,8 +23,6 @@ export function categoryForType(type: string): NotificationCategory {
       return 'MESSAGE';
     case 'payment':
     case 'payout':
-    case 'withdrawal':
-    case 'wallet':
     case 'referral':
       return 'PAYMENT';
     default:

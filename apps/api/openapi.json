@@ -3,7 +3,7 @@
   "info": {
     "title": "genie API",
     "version": "0.7.0",
-    "description": "API for the genie social-gifting platform. All 14 epics are implemented: auth & onboarding, KYC Level 1 (mock bureau), events, wishlists, gifting (wallet + bank transfer) with anonymous gifts, merchants & catalog, friends & contact matching, fees & commission, activity feed, notifications & push, settings (profile, sessions, account deletion) & support, payments (wallet, cards, payouts, withdrawals), the gift cart, order management & delivery, and 1:1 instant messaging between friends. Payments run through a mock provider until Anchor keys are set."
+    "description": "API for the genie social-gifting platform. All 14 epics are implemented: auth & onboarding, KYC Level 1 (mock bureau), events, wishlists, gifting (Paystack checkout) with anonymous gifts, merchants & catalog, friends & contact matching, fees & commission, activity feed, notifications & push, settings (profile, sessions, account deletion) & support, payments (hosted checkout, cards, merchant payouts after delivery, referral discounts), the gift cart, order management & delivery, and 1:1 instant messaging between friends. Payments run through a mock provider until a Paystack key is set."
   },
   "servers": [
     {

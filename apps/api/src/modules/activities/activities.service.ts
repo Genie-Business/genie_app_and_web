@@ -44,8 +44,6 @@ function titleFor(action: string, meta: Record<string, unknown> | null): string 
       return `You created an event${meta?.name ? `: ${meta.name}` : ''}`;
     case 'event.deleted':
       return 'You deleted an event';
-    case 'wallet.funded':
-      return `You added ${naira(meta?.amountKobo)} to your wallet`;
     case 'gift.paid':
       return `You sent a gift${meta?.amountKobo ? ` (${naira(meta.amountKobo)})` : ''}`;
     case 'gift.received':
