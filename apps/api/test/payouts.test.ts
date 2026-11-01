@@ -141,11 +141,17 @@ d('merchant orders & delivery (E014)', () => {
     });
     expect(patch.status).toBe(200);
 
-    const delivered = await app.request(`/v1/merchant/orders/${orderId}/delivery`, {
+    // A merchant cannot declare their own delivery done...
+    const refused = await app.request(`/v1/merchant/orders/${orderId}/delivery`, {
       method: 'PATCH',
       headers: merchant.auth,
       body: JSON.stringify({ status: 'DELIVERED' }),
     });
+    expect(refused.status).toBe(400);
+
+    // ...the person the gift is for confirms it reached them.
+    const gift = await prisma.gift.findFirstOrThrow({});
+    const delivered = await app.request(`/v1/gifts/${gift.id}/received`, { method: 'POST', headers: celebrant.auth });
     expect(delivered.status).toBe(200);
 
     const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { gift: true } });

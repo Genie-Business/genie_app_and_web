@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getEnv } from '../src/env';
-import { sendMail } from '../src/lib/mailer';
+import { notificationEmail, sendMail } from '../src/lib/mailer';
 
 const mail = { to: 'ada@example.com', subject: 'Hi', html: '<p>Hi</p>', text: 'Hi' };
 
@@ -54,5 +54,22 @@ describe('sendMail reports whether the mail went out', () => {
     restore();
 
     expect(fetchMock).not.toHaveBeenCalled(); // nothing is sent without a key
+  });
+});
+
+describe('notificationEmail', () => {
+  it('puts the title and text in genie\'s frame, with an optional button', () => {
+    const m = notificationEmail({ title: 'Payment received', body: 'We received your payment.', ctaLabel: 'Open genie', ctaUrl: 'https://www.getgenie.gift' });
+    expect(m.subject).toBe('Payment received');
+    expect(m.text).toContain('We received your payment.');
+    expect(m.text).toContain('https://www.getgenie.gift');
+    expect(m.html).toContain('Open genie');
+  });
+
+  it('escapes anything a person typed (names, messages) so it cannot inject markup', () => {
+    const m = notificationEmail({ title: 'Hi <b>x</b>', body: '<script>alert(1)</script> & more' });
+    expect(m.html).not.toContain('<script>');
+    expect(m.html).toContain('&lt;script&gt;');
+    expect(m.html).toContain('&amp; more');
   });
 });

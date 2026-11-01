@@ -4361,7 +4361,6 @@
                     "enum": [
                       "DISPATCHED",
                       "IN_TRANSIT",
-                      "DELIVERED",
                       "FAILED"
                     ]
                   },
@@ -6089,6 +6088,91 @@
         "responses": {
           "200": {
             "description": "Revealed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business-rule failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/gifts/{id}/received": {
+      "post": {
+        "tags": [
+          "Gifts"
+        ],
+        "summary": "Confirm a gift has reached me (releases the merchant's payment)",
+        "description": "Only the person the gift is for can confirm it, and only once the merchant has sent it (or straight away for a gift collected in person).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery confirmed",
             "content": {
               "application/json": {
                 "schema": {

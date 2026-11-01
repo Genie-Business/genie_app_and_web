@@ -68,6 +68,25 @@ class _GiftCard extends ConsumerWidget {
               const SizedBox(height: 8),
               Text('“${gift.message}”', style: const TextStyle(fontStyle: FontStyle.italic)),
             ],
+            const SizedBox(height: 8),
+            _DeliveryLine(status: gift.deliveryStatus),
+            if (gift.canConfirmReceived) ...[
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('I’ve received it'),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await ref.read(giftsRepositoryProvider).confirmReceived(gift.id);
+                    ref.invalidate(receivedGiftsProvider);
+                    messenger.showSnackBar(const SnackBar(content: Text('Thanks! Glad it arrived.')));
+                  } on ApiException catch (e) {
+                    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+                  }
+                },
+              ),
+            ],
             if (gift.isAnonymous && gift.canReveal && !gift.revealed) ...[
               const SizedBox(height: 10),
               OutlinedButton.icon(
@@ -87,6 +106,29 @@ class _GiftCard extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One line saying where the gift is, so the recipient knows when to confirm it.
+class _DeliveryLine extends StatelessWidget {
+  const _DeliveryLine({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, text, color) = switch (status) {
+      'DELIVERED' => (Icons.check_circle, 'Delivered', GenieColors.success),
+      'IN_TRANSIT' => (Icons.local_shipping_outlined, 'On its way', GenieColors.primary),
+      'DISPATCHED' => (Icons.local_shipping_outlined, 'Sent by the merchant', GenieColors.primary),
+      _ => (Icons.inventory_2_outlined, 'Being prepared', GenieColors.inkMuted),
+    };
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(text, key: const ValueKey('delivery-line'), style: TextStyle(color: color, fontSize: 12.5, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }

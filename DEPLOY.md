@@ -39,7 +39,8 @@ How the three surfaces share one app (`apps/landing/src/middleware.ts`):
 | `PAYMENTS_PROVIDER` | `mock` | `mock` simulates payments (no real money). Set `paystack` together with `PAYSTACK_SECRET_KEY` to take real ones. While `mock`, merchants pick their bank from the bundled list but nothing can confirm the account name, so they type it and it is saved unverified |
 | `PAYSTACK_SECRET_KEY` | `sk_test_…` first, `sk_live_…` later | also signs Paystack's webhooks, so keep it secret. Needs the Paystack dashboard set up as described below |
 | `CRON_SECRET` | 32+ random chars | protects the scheduled payout run; Vercel Cron sends it as a bearer token |
-| `PAYOUT_HOLD_HOURS` | `0` *(optional)* | hours to wait after delivery before a merchant is paid, as a window for problems to be reported. `0` pays at the next daily run |
+| `COURIER_API_KEY` | 32+ random chars *(optional)* | the secret the delivery company uses to report a delivery (below). Without it only the admin button and the recipient can confirm |
+| `PAYOUT_HOLD_HOURS` | `0` *(optional)* | hours to wait after delivery before a merchant is paid, as a window for problems to be reported. `0` pays the moment delivery is confirmed |
 | `KYC_PROVIDER` | `mock` | |
 | `PUSH_PROVIDER` | `log` | no FCM yet |
 | `RESEND_API_KEY` | your Resend key | **required** in production — otherwise nobody can verify their email |
@@ -139,3 +140,36 @@ genie takes every payment into its own Paystack balance and pays merchants out b
 3. **Transfers** (needed for merchant payouts): make sure Transfers is enabled on the account, fund the balance, and turn **off** "Confirm transfers before sending" under Settings > Preferences. With the confirmation on, every payout stops waiting for an OTP that nobody can enter.
 4. **Cron**: set `CRON_SECRET` and redeploy. A Vercel Cron job (see `apps/landing/vercel.json`) calls `/v1/internal/payouts/run` every morning at 07:00 UTC with it, and the admin's "Run payouts now" button uses the same endpoint. Until it is set the endpoint refuses to run.
 5. Flip `PAYMENTS_PROVIDER` to `paystack` and redeploy. Check `/v1/banks`: the list should now be Paystack's.
+
+
+## Delivery, payouts and notifications
+
+**Who says a gift was delivered.** Never the merchant, who can only mark an order *dispatched* or *in transit*. Delivery is
+confirmed by one of:
+
+1. **The person the gift is for**, with "I've received it" on the gift in the app (available once the merchant has sent it,
+   or straight away for a gift collected in person).
+2. **The delivery company**, through one call with `COURIER_API_KEY`:
+   ```bash
+   curl -X POST https://www.getgenie.gift/v1/internal/delivery/confirm      -H "Authorization: Bearer $COURIER_API_KEY" -H "content-type: application/json"      -d '{"orderNumber":"ORD-261101-ABC123"}'
+   ```
+3. **An admin**, with "Mark delivered" on the Orders page, to record what the courier reported by phone or email.
+
+**Confirming delivery pays the merchant straight away** (to the account they saved, once the bank has confirmed it) and tells
+the buyer, the recipient and the merchant. If the transfer can't go out (Transfers not enabled, balance too low), the order
+stays owed and the daily 07:00 UTC run retries it. A merchant is paid ₦100 or more at a time; smaller amounts wait for the
+next order.
+
+**Paying twice for one gift.** While someone is paying for a gift it is held for them for 20 minutes, so a second buyer is
+turned away; the same buyer starting again replaces their earlier attempt. If two payments for the same gift still arrive,
+only the first creates the gift and the other is refunded automatically through Paystack (and the buyer is told).
+
+**Notifications** go to the app and, by default, to email too (gifts, events, payments, account). People can switch email
+off per category in Settings. Guests, who have no account, get their receipt by email. *Alerts on the phone while the app is
+closed need push, which needs a Firebase project (see below); until then the app checks for new notifications every 30
+seconds while it is open.*
+
+### Push notifications (not set up yet)
+Needs a Firebase project: add the Android app `co.genieapps.genie`, download `google-services.json`, create a service-account
+key, and set `PUSH_PROVIDER=fcm` with `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` on the API. The app then needs the Firebase
+packages and that JSON file wired in.

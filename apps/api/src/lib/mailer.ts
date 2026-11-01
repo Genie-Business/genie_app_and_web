@@ -99,3 +99,26 @@ This code expires in 10 minutes. If you didn't ask for it, you can ignore this e
     </div>`,
   };
 }
+
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * The email that accompanies an in-app notification: the same title and text, in genie's frame,
+ * so every notification can also reach someone's inbox without each caller writing a template.
+ */
+export function notificationEmail(opts: { title: string; body: string; ctaLabel?: string; ctaUrl?: string }): Omit<Mail, 'to'> {
+  const cta =
+    opts.ctaLabel && opts.ctaUrl
+      ? `<p style="margin-top:20px"><a href="${escapeHtml(opts.ctaUrl)}" style="background:#6D28D9;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-weight:600">${escapeHtml(opts.ctaLabel)}</a></p>`
+      : '';
+  return {
+    subject: opts.title,
+    text: `${opts.body}${opts.ctaUrl ? `\n\n${opts.ctaUrl}` : ''}\n\n- genie`,
+    html: `<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:auto">
+      <h2 style="color:#6D28D9">genie</h2>
+      <h3 style="color:#2B1153;margin-bottom:6px">${escapeHtml(opts.title)}</h3>
+      <p style="color:#3F394E;line-height:1.5">${escapeHtml(opts.body)}</p>${cta}
+      <p style="color:#716A81;font-size:12px;margin-top:28px">You can choose which emails you get in the app under Settings > Notifications.</p>
+    </div>`,
+  };
+}

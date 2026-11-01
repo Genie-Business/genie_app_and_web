@@ -1,6 +1,6 @@
 import { prisma, type NotificationCategory, type Prisma } from '@genie/db';
 import type { notifications as N } from '@genie/contracts';
-import { sendMail, type Mail } from '../../lib/mailer';
+import { notificationEmail, sendMail, type Mail } from '../../lib/mailer';
 import { logger } from '../../lib/logger';
 import { getPushSender } from './push';
 
@@ -37,8 +37,10 @@ type NotifyInput = {
   body: string;
   payload?: Prisma.InputJsonValue;
   category?: NotificationCategory;
-  /** When the user has email delivery enabled for this category, send this. */
+  /** Overrides the default email (the title and body in genie's template). */
   email?: Omit<Mail, 'to'>;
+  /** A button on the email, e.g. "Open genie". */
+  cta?: { label: string; url: string };
 };
 
 /**
@@ -91,14 +93,18 @@ export async function notify(input: NotifyInput): Promise<void> {
       }
     }
 
-    if (pref.email && input.email) {
+    // Every notification can reach the inbox, not just the app: the person's preference decides.
+    if (pref.email) {
       const user = await prisma.user.findUnique({
         where: { id: input.userId },
         select: { email: true },
       });
       if (user?.email) {
-        await sendMail({ ...input.email, to: user.email }).then(
-          () => sideChannels.push('email'),
+        const mail = input.email ?? notificationEmail({ title: input.title, body: input.body, ctaLabel: input.cta?.label, ctaUrl: input.cta?.url });
+        await sendMail({ ...mail, to: user.email }).then(
+          (sent) => {
+            if (sent) sideChannels.push('email');
+          },
           (err) => logger.warn({ err: (err as Error).message }, 'notification email failed'),
         );
       }
@@ -121,10 +127,14 @@ export async function notifyMany(userIds: string[], input: Omit<NotifyInput, 'us
 
 type Pref = { category: NotificationCategory; push: boolean; email: boolean; inApp: true };
 
+// Email is on by default for what people act on (gifts, deliveries, money, security); chatty
+// categories stay in the app unless someone opts in. Saved preferences always win.
+const EMAIL_BY_DEFAULT: NotificationCategory[] = ['GIFT', 'EVENT', 'PAYMENT', 'SYSTEM'];
+
 const DEFAULT_PREF = (category: NotificationCategory): Pref => ({
   category,
   push: true,
-  email: false,
+  email: EMAIL_BY_DEFAULT.includes(category),
   inApp: true,
 });
 
@@ -158,7 +168,7 @@ export async function updatePreferences(
           userId,
           category: p.category,
           push: p.push ?? true,
-          email: p.email ?? false,
+          email: p.email ?? DEFAULT_PREF(p.category).email,
         },
         update: {
           ...(p.push == null ? {} : { push: p.push }),

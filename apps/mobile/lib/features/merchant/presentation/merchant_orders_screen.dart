@@ -8,15 +8,15 @@ import '../../../theme/genie_theme.dart';
 import '../merchant_models.dart';
 import '../merchant_repository.dart';
 
+// A merchant sends the parcel on its way. They cannot mark it delivered: that comes from the delivery
+// company or the person receiving the gift, and it is what releases their payment.
 const _nextStatus = {
   'PENDING': 'DISPATCHED',
   'DISPATCHED': 'IN_TRANSIT',
-  'IN_TRANSIT': 'DELIVERED',
 };
 const _statusLabel = {
   'PENDING': 'Mark dispatched',
   'DISPATCHED': 'Mark in transit',
-  'IN_TRANSIT': 'Mark delivered',
 };
 
 /// Merchant "Orders" tab — incoming gift orders.
@@ -81,6 +81,22 @@ class _OrderCard extends ConsumerWidget {
                 ],
               ],
             ),
+            if (next == null && order.deliveryStatus != 'DELIVERED') ...[
+              const SizedBox(height: 10),
+              const Text(
+                'On its way. Once the delivery company or the person it is for confirms it arrived, you are paid straight away.',
+                key: ValueKey('awaiting-confirmation'),
+                style: TextStyle(color: GenieColors.inkMuted, fontSize: 12, height: 1.4),
+              ),
+            ],
+            if (order.deliveryStatus == 'DELIVERED') ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Delivered. Your payment is on its way to your bank account.',
+                key: ValueKey('delivered-note'),
+                style: TextStyle(color: GenieColors.success, fontSize: 12, height: 1.4),
+              ),
+            ],
             if (next != null) ...[
               const SizedBox(height: 10),
               Align(

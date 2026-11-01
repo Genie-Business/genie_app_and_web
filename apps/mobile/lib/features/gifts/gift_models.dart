@@ -44,6 +44,8 @@ class ReceivedGift {
     required this.revealed,
     required this.canReveal,
     required this.status,
+    this.deliveryStatus = 'PENDING',
+    this.canConfirmReceived = false,
     this.from,
     this.message,
   });
@@ -56,6 +58,12 @@ class ReceivedGift {
   final bool revealed;
   final bool canReveal;
   final String status;
+
+  /// Where the parcel is: PENDING, DISPATCHED, IN_TRANSIT or DELIVERED.
+  final String deliveryStatus;
+
+  /// The merchant has sent it (or it is collected in person) and the recipient hasn't confirmed yet.
+  final bool canConfirmReceived;
   final String? from;
   final String? message;
 
@@ -68,6 +76,8 @@ class ReceivedGift {
         revealed: (j['revealed'] as bool?) ?? false,
         canReveal: (j['canReveal'] as bool?) ?? false,
         status: (j['status'] as String?) ?? '',
+        deliveryStatus: (j['deliveryStatus'] as String?) ?? 'PENDING',
+        canConfirmReceived: (j['canConfirmReceived'] as bool?) ?? false,
         from: j['from'] as String?,
         message: j['message'] as String?,
       );

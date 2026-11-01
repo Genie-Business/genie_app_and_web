@@ -3,8 +3,10 @@ import { koboString } from './common';
 
 // ── Order management (E014) ─────────────────────────────────────────────
 
+// A merchant reports a parcel going out or failing. "Delivered" is never theirs to say: it comes from the
+// delivery company or the person receiving the gift (see orders/delivery.service.ts).
 export const deliveryUpdateBody = z.object({
-  status: z.enum(['DISPATCHED', 'IN_TRANSIT', 'DELIVERED', 'FAILED']),
+  status: z.enum(['DISPATCHED', 'IN_TRANSIT', 'FAILED']),
   courierName: z.string().trim().max(120).optional(),
   courierRef: z.string().trim().max(120).optional(),
 });

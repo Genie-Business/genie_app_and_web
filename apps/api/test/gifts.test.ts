@@ -142,13 +142,15 @@ d('gifting (E005 / E012)', () => {
       (await app.request(`/v1/gifts/${giftId}/reveal`, { method: 'POST', headers: celebrant.auth })).status,
     ).toBe(400);
 
-    // Merchant delivers the order.
+    // The merchant sends it. They cannot call it delivered themselves; the person it is for does.
     const order = await prisma.order.findFirstOrThrow({ where: { merchantId: merchant.user.id } });
-    const deliver = await app.request(
+    const sendIt = await app.request(
       `/v1/merchant/orders/${order.id}/delivery`,
-      { method: 'PATCH', headers: merchant.auth, body: JSON.stringify({ status: 'DELIVERED' }) },
+      { method: 'PATCH', headers: merchant.auth, body: JSON.stringify({ status: 'DISPATCHED' }) },
     );
-    expect(deliver.status).toBe(200);
+    expect(sendIt.status).toBe(200);
+    const confirm = await app.request(`/v1/gifts/${giftId}/received`, { method: 'POST', headers: celebrant.auth });
+    expect(confirm.status).toBe(200);
 
     received = (await body(await app.request('/v1/gifts/received', { headers: celebrant.auth }))).data;
     expect(received[0].canReveal).toBe(true);

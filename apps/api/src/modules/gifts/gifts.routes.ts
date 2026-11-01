@@ -5,6 +5,7 @@ import { commonErrorResponses, jsonBody, jsonResponse, z } from '../../lib/opena
 import { serializeBigInts } from '../../lib/bigint';
 import { requireAuth, requireVerifiedEmail } from '../../middleware/auth';
 import * as service from './gifts.service';
+import { confirmReceived } from '../orders/delivery.service';
 
 const router = createRouter();
 
@@ -104,6 +105,22 @@ router.openapi(
   }),
   async (c) =>
     c.json({ data: await service.reveal(c.get('user')!.id, c.req.valid('param').id) }, 200),
+);
+
+// ── POST /gifts/{id}/received ──────────────────────────────────────────
+router.openapi(
+  createRoute({
+    method: 'post',
+    path: '/{id}/received',
+    tags: ['Gifts'],
+    summary: "Confirm a gift has reached me (releases the merchant's payment)",
+    description:
+      'Only the person the gift is for can confirm it, and only once the merchant has sent it (or straight away for a gift collected in person).',
+    security: [{ bearerAuth: [] }],
+    request: { params: z.object({ id: z.string() }) },
+    responses: { 200: jsonResponse('Delivery confirmed', dataObj), ...commonErrorResponses },
+  }),
+  async (c) => c.json({ data: await confirmReceived(c.get('user')!.id, c.req.valid('param').id) }, 200),
 );
 
 export default router;

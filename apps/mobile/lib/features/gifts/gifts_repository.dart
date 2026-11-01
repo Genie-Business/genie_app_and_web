@@ -48,6 +48,10 @@ class GiftsRepository {
 
   Future<void> reveal(String giftId) =>
       _api.post<Map<String, dynamic>>('/v1/gifts/$giftId/reveal');
+
+  /// The recipient says the gift reached them. This releases the merchant's payment.
+  Future<void> confirmReceived(String giftId) =>
+      _api.post<Map<String, dynamic>>('/v1/gifts/$giftId/received');
 }
 
 final giftsRepositoryProvider =

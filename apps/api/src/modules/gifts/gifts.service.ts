@@ -2,13 +2,24 @@ import { normalizeEmail, orderNumber } from '@genie/core';
 import { prisma, type Prisma } from '@genie/db';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { notificationEmail, sendMail } from '../../lib/mailer';
 import { recordActivity } from '../activities/activities.service';
 import { computeGiftCharge, type GiftCharge } from '../fees/fees.service';
 import { notify } from '../notifications/notify.service';
 import { maybeRewardReferral } from '../referrals/referrals.service';
 import { openCheckout } from '../payments/checkout.service';
 import { creditBalance, planDiscount, releaseCredits } from '../payments/credits.service';
+import { getPaymentProvider } from '../payments/provider';
+import { BEING_PAID_MESSAGE, heldByOthers, supersedeOwnCheckouts } from './holds';
 import { nextOccurrence } from '../events/recurrence';
+
+/** The gift was taken (or ran out) between the payment starting and arriving. The payment is refunded. */
+class ItemUnavailableError extends Error {
+  constructor(readonly reason: 'already_gifted' | 'out_of_stock') {
+    super(reason);
+    this.name = 'ItemUnavailableError';
+  }
+}
 
 /** A wishlist needs this many items before it can be shared / gifted from. */
 const MIN_SHAREABLE_ITEMS = 2;
@@ -133,6 +144,11 @@ async function finalizeGift(opts: {
   const merchantId = item.product.merchantId;
   const eventId = item.wishlist.event.id;
 
+  // Finished on an earlier attempt (a retry after a partial failure): nothing more to do.
+  if (await prisma.transaction.findUnique({ where: { reference: opts.idempotencyKey }, select: { id: true } })) {
+    return null;
+  }
+
   // The transaction covers only what must move atomically: the order + gift +
   // transaction records and the fulfilment / stock counters. Notifications and the
   // activity log are written after — a failure there must not roll back a paid gift.
@@ -140,6 +156,21 @@ async function finalizeGift(opts: {
   try {
     created = await prisma.$transaction(
     async (tx) => {
+      // Take the item and its stock first, atomically: if two payments for the same gift ever
+      // arrive, exactly one gets it and the other is refunded.
+      const taken = await tx.wishlistItem.updateMany({
+        where: { id: item.id, quantityFulfilled: { lte: item.quantityWanted - input.quantity } },
+        data: { quantityFulfilled: { increment: input.quantity } },
+      });
+      if (taken.count === 0) throw new ItemUnavailableError('already_gifted');
+      if (item.product.inventory) {
+        const stock = await tx.inventory.updateMany({
+          where: { productId: item.productId, availableStock: { gte: input.quantity } },
+          data: { availableStock: { decrement: input.quantity } },
+        });
+        if (stock.count === 0) throw new ItemUnavailableError('out_of_stock');
+      }
+
       const order = await tx.order.create({
         data: {
           orderNumber: orderNumber(),
@@ -193,15 +224,6 @@ async function finalizeGift(opts: {
           paymentIntentId: opts.paymentIntentId,
           narration: `Gift for ${item.wishlist.event.user.firstName}: ${item.product.name}`,
         },
-      });
-
-      await tx.wishlistItem.update({
-        where: { id: item.id },
-        data: { quantityFulfilled: { increment: input.quantity } },
-      });
-      await tx.inventory.updateMany({
-        where: { productId: item.productId },
-        data: { availableStock: { decrement: input.quantity } },
       });
 
       return { gift, order };
@@ -280,6 +302,13 @@ export async function payForGift(gifterUserId: string, input: PayInput) {
   const item = await loadItem(input.wishlistItemId);
   assertGiftable(item, gifterUserId, input.quantity);
 
+  // Someone else mid-payment for the last of this gift holds it for a few minutes.
+  const heldNow = (await heldByOthers([item.id], { userId: gifterUserId })).get(item.id) ?? 0;
+  if (item.quantityWanted - item.quantityFulfilled - heldNow < input.quantity) {
+    throw conflict('being_paid', BEING_PAID_MESSAGE);
+  }
+  await supersedeOwnCheckouts([item.id], { userId: gifterUserId });
+
   const charge = await computeGiftCharge({
     unitPriceKobo: item.product.priceKobo,
     quantity: input.quantity,
@@ -320,11 +349,16 @@ async function priceCart(gifterUserId: string, lines: CartLine[]) {
   const skipped: SkippedLine[] = [];
   let totalKobo = 0n;
   let genieKeepsKobo = 0n;
+  const held = await heldByOthers(lines.map((l) => l.wishlistItemId), { userId: gifterUserId });
   for (const line of lines) {
     const item = await loadItem(line.wishlistItemId);
     const blocked = giftBlockReason(item, gifterUserId, line.quantity);
     if (blocked) {
       skipped.push({ wishlistItemId: line.wishlistItemId, productName: item.product.name, reason: blocked.message });
+      continue;
+    }
+    if (item.quantityWanted - item.quantityFulfilled - (held.get(line.wishlistItemId) ?? 0) < line.quantity) {
+      skipped.push({ wishlistItemId: line.wishlistItemId, productName: item.product.name, reason: BEING_PAID_MESSAGE });
       continue;
     }
     const charge = await computeGiftCharge({
@@ -347,6 +381,7 @@ export async function payForCart(gifterUserId: string, input: { lines: CartLine[
   }
 
   const gifter = await prisma.user.findUniqueOrThrow({ where: { id: gifterUserId } });
+  await supersedeOwnCheckouts(priced.map((p) => p.line.wishlistItemId), { userId: gifterUserId });
   const { reference, checkoutUrl, discountKobo, payKobo } = await openCheckout({
     purpose: 'GIFT',
     email: gifter.email,
@@ -427,40 +462,131 @@ export async function settleGiftPayment(reference: string, paidAmountKobo: bigin
           ];
     const guest = kind === 'guest-cart';
 
+    // Lines refunded on an earlier attempt are not tried (or refunded) again.
+    const refundedBefore = ((rawMeta.refunds as Array<{ wishlistItemId: string }> | undefined) ?? []).map((r) => r.wishlistItemId);
+    const fulfilled: { productName: string }[] = [];
+    const refunds: Array<{ wishlistItemId: string; productName: string; amountKobo: string; reason: string; status: string }> = [];
+    const priceBeforeDiscount = intent.amountKobo + intent.discountKobo;
+
     for (const line of lines) {
+      if (refundedBefore.includes(line.wishlistItemId)) continue;
       const item = await loadItem(line.wishlistItemId);
       const charge = await computeGiftCharge({
         unitPriceKobo: item.product.priceKobo,
         quantity: line.quantity,
         deliveryOption: item.product.deliveryOption,
       });
-      await finalizeGift({
-        item,
-        gifterUserId: guest ? null : intent.userId,
-        giftedByName: guest ? intent.guestName : null,
-        input: {
+      try {
+        await finalizeGift({
+          item,
+          gifterUserId: guest ? null : intent.userId,
+          giftedByName: guest ? intent.guestName : null,
+          input: {
+            wishlistItemId: line.wishlistItemId,
+            quantity: line.quantity,
+            isAnonymous: line.isAnonymous,
+            message: line.message ?? undefined,
+          },
+          charge,
+          // The 1:1 Gift/Transaction link to the intent only makes sense for a single-item payment.
+          paymentIntentId: lines.length === 1 ? intent.id : undefined,
+          idempotencyKey: `GIFT:${intent.id}:${line.wishlistItemId}`,
+        });
+        // (finalizeGift returns nothing for a line a previous attempt already finished; it counts too.)
+        fulfilled.push({ productName: item.product.name });
+      } catch (err) {
+        if (!(err instanceof ItemUnavailableError)) throw err;
+        // Paid for something that is no longer there: give this line's money back.
+        const discountShare = priceBeforeDiscount > 0n ? (intent.discountKobo * charge.gifterPaysKobo) / priceBeforeDiscount : 0n;
+        const amountKobo = charge.gifterPaysKobo - discountShare;
+        let status = 'REFUNDING';
+        try {
+          const r = await getPaymentProvider().refundCharge({
+            reference: intent.reference,
+            amountKobo,
+            reason: `${item.product.name} was no longer available`,
+          });
+          status = r.status;
+        } catch (refundErr) {
+          status = 'FAILED';
+          logger.error({ err: refundErr, reference, wishlistItemId: line.wishlistItemId }, 'refund failed: needs manual attention');
+        }
+        refunds.push({
           wishlistItemId: line.wishlistItemId,
-          quantity: line.quantity,
-          isAnonymous: line.isAnonymous,
-          message: line.message ?? undefined,
-        },
-        charge,
-        // The 1:1 Gift/Transaction link to the intent only makes sense for a single-item payment.
-        paymentIntentId: lines.length === 1 ? intent.id : undefined,
-        idempotencyKey: `GIFT:${intent.id}:${line.wishlistItemId}`,
-      });
+          productName: item.product.name,
+          amountKobo: amountKobo.toString(),
+          reason: err.reason,
+          status,
+        });
+      }
     }
 
-    // Done: the payment is complete and any referral credit it used is spent, together.
+    const allRefunded = refunds.length > 0 && fulfilled.length === 0 && refundedBefore.length + refunds.length >= lines.length;
+    const refundNotes: Record<string, Prisma.InputJsonValue> = refunds.length
+      ? { refunds: [...((rawMeta.refunds as Prisma.InputJsonValue[] | undefined) ?? []), ...refunds] }
+      : {};
+
+    // Done: the payment is complete and any referral credit it used is spent, together. A payment
+    // whose every gift had to be refunded did not buy anything, so it ends as failed and its credit returns.
     await prisma.$transaction([
-      prisma.paymentIntent.update({ where: { id: intent.id }, data: { status: 'COMPLETED', completedAt: new Date() } }),
-      prisma.discountCredit.updateMany({ where: { reservedIntentId: intent.id, usedAt: null }, data: { usedAt: new Date() } }),
+      prisma.paymentIntent.update({
+        where: { id: intent.id },
+        data: allRefunded
+          ? { status: 'FAILED', metadata: { ...(rawMeta as Record<string, Prisma.InputJsonValue>), ...refundNotes, failure: 'refunded_unavailable' } }
+          : { status: 'COMPLETED', completedAt: new Date(), metadata: { ...(rawMeta as Record<string, Prisma.InputJsonValue>), ...refundNotes } },
+      }),
+      ...(allRefunded
+        ? [prisma.discountCredit.updateMany({ where: { reservedIntentId: intent.id, usedAt: null }, data: { reservedIntentId: null } })]
+        : [prisma.discountCredit.updateMany({ where: { reservedIntentId: intent.id, usedAt: null }, data: { usedAt: new Date() } })]),
     ]);
-    return { handled: true as const, duplicate: false };
+
+    await tellBuyer(intent, fulfilled, refunds);
+    return { handled: true as const, duplicate: false, refunded: refunds.length };
   } catch (err) {
     // Put it back so the next confirmation (or status check) retries; finalised lines are skipped.
     await prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'PROCESSING' }, data: { status: 'PENDING' } });
     throw err;
+  }
+}
+
+/**
+ * Confirm to the buyer, by email and in the app, that their payment was received, and say plainly
+ * if any of it is being refunded. A guest has no account, so this email is their only receipt.
+ */
+async function tellBuyer(
+  intent: { userId: string | null; guestEmail: string | null; guestName: string | null; amountKobo: bigint; reference: string },
+  fulfilled: { productName: string }[],
+  refunds: Array<{ productName: string; amountKobo: string }>,
+) {
+  const naira = (kobo: bigint) => `₦${(Number(kobo) / 100).toLocaleString()}`;
+  const names = fulfilled.map((f) => f.productName).join(', ');
+  const refundedKobo = refunds.reduce((sum, r) => sum + BigInt(r.amountKobo), 0n);
+  const receipt =
+    fulfilled.length > 0
+      ? `We received your payment of ${naira(intent.amountKobo)} for ${names}. Reference ${intent.reference}.`
+      : `We received your payment, but ${refunds.map((r) => r.productName).join(', ')} was no longer available.`;
+  const refundNote =
+    refunds.length > 0
+      ? ` We are refunding ${naira(refundedKobo)} for ${refunds.map((r) => r.productName).join(', ')}, which someone else gifted first. It can take a few days to reach your account.`
+      : '';
+
+  try {
+    if (intent.userId) {
+      await notify({
+        userId: intent.userId,
+        type: refunds.length > 0 && fulfilled.length === 0 ? 'payment.refunded' : 'payment.confirmed',
+        title: fulfilled.length > 0 ? 'Payment received' : 'Payment refunded',
+        body: receipt + refundNote,
+        payload: { reference: intent.reference },
+      });
+    } else if (intent.guestEmail) {
+      await sendMail({
+        ...notificationEmail({ title: fulfilled.length > 0 ? 'Your gift is confirmed' : 'Your payment is being refunded', body: receipt + refundNote }),
+        to: intent.guestEmail,
+      });
+    }
+  } catch (err) {
+    logger.error({ err, reference: intent.reference }, 'could not send the payment receipt');
   }
 }
 
@@ -552,6 +678,13 @@ export async function guestCheckout(wishlistId: string, input: GuestCheckoutInpu
   }));
 
   const email = normalizeEmail(input.gifterEmail);
+  const heldNow = await heldByOthers(lines.map((l) => l.wishlistItemId), { email });
+  for (const b of breakdown) {
+    if (heldNow.get(b.wishlistItemId)) {
+      throw conflict('being_paid', `"${b.productName}": ${BEING_PAID_MESSAGE}`);
+    }
+  }
+  await supersedeOwnCheckouts(lines.map((l) => l.wishlistItemId), { email });
   const { reference, checkoutUrl } = await openCheckout({
     purpose: 'GIFT',
     email,
@@ -707,6 +840,7 @@ export async function listReceived(userId: string) {
     orderBy: { createdAt: 'desc' },
     include: {
       gifter: { select: { firstName: true, lastName: true } },
+      order: { select: { delivery: { select: { status: true } } } },
       wishlistItem: {
         include: {
           product: { select: { name: true, deliveryOption: true } },
@@ -716,6 +850,11 @@ export async function listReceived(userId: string) {
     },
   });
   return gifts.map((g) => {
+    const deliveryStatus = g.order?.delivery?.status ?? 'PENDING';
+    // Once it has been sent (or for a gift collected in person) the recipient can say it arrived.
+    const canConfirmReceived =
+      g.status === 'PAID' &&
+      (deliveryStatus === 'DISPATCHED' || deliveryStatus === 'IN_TRANSIT' || g.wishlistItem.product.deliveryOption === 'PICKUP');
     const hidden = g.isAnonymous && g.revealedAt == null;
     const gifterName =
       `${g.gifter?.firstName ?? ''} ${g.gifter?.lastName ?? ''}`.trim() ||
@@ -732,6 +871,8 @@ export async function listReceived(userId: string) {
       revealed: g.revealedAt != null,
       canReveal: g.isAnonymous && g.revealedAt == null && giftHasArrived(g),
       status: g.status,
+      deliveryStatus,
+      canConfirmReceived,
       createdAt: g.createdAt.toISOString(),
     };
   });

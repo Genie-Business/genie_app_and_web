@@ -203,6 +203,28 @@ describe('PaystackPaymentProvider: paying merchants out', () => {
   });
 });
 
+describe('PaystackPaymentProvider: refunds', () => {
+  it('refunds part of a charge, in kobo, against its reference', async () => {
+    const calls = stubFetch(
+      { json: { status: true, data: { id: 3018, status: 'pending' } } },
+      { json: { status: true, data: { id: 3019, status: 'processed' } } },
+    );
+    const p = paystack();
+    expect(await p.refundCharge({ reference: 'PAY-261101-ABC123', amountKobo: 160_150n, reason: 'The gift was gifted first' })).toEqual({
+      providerRef: '3018',
+      status: 'PROCESSING',
+    });
+    expect((await p.refundCharge({ reference: 'PAY-2', amountKobo: 100n, reason: 'x' })).status).toBe('PROCESSED');
+    expect(calls[0]!.url).toBe('https://api.paystack.test/refund');
+    expect(JSON.parse(calls[0]!.init.body as string)).toMatchObject({ transaction: 'PAY-261101-ABC123', amount: 160_150 });
+  });
+
+  it('surfaces a refusal so the caller can flag it for manual attention', async () => {
+    stubFetch({ status: 400, json: { status: false, message: 'Transaction has been fully reversed' } });
+    await expect(paystack().refundCharge({ reference: 'PAY-1', amountKobo: 100n, reason: 'x' })).rejects.toThrow(/fully reversed/);
+  });
+});
+
 describe('Paystack webhook signatures', () => {
   const rawBody = '{"event":"charge.success","data":{"reference":"PAY-1"}}';
   // HMAC-SHA512 of rawBody keyed with KEY, computed independently of the code under test.

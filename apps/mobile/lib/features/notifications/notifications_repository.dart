@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
@@ -91,10 +93,20 @@ class NotificationsRepository {
 final notificationsRepositoryProvider = Provider<NotificationsRepository>(
     (ref) => NotificationsRepository(ref.watch(apiClientProvider)));
 
-final notificationsProvider = FutureProvider<List<AppNotification>>(
-    (ref) => ref.watch(notificationsRepositoryProvider).list());
+/// Checks for new notifications this often while the app is open, so a gift, an order or a payout shows
+/// up without anyone having to reopen the screen. (Alerts while the app is closed need push, which needs
+/// a Firebase project; see the deploy notes.)
+const notificationRefreshEvery = Duration(seconds: 30);
+
+final notificationsProvider = FutureProvider<List<AppNotification>>((ref) {
+  final timer = Timer(notificationRefreshEvery, ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
+  return ref.watch(notificationsRepositoryProvider).list();
+});
 
 final unreadCountProvider = FutureProvider<int>((ref) async {
+  final timer = Timer(notificationRefreshEvery, ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
   try {
     return await ref.watch(notificationsRepositoryProvider).unreadCount();
   } catch (_) {

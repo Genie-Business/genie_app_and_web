@@ -23,6 +23,7 @@ import feesRoutes from './modules/fees/fees.routes';
 import payoutsRoutes from './modules/payouts/payouts.routes';
 import banksRoutes from './modules/banks/banks.routes';
 import payoutsInternalRoutes from './modules/payouts/payouts.internal.routes';
+import deliveryInternalRoutes from './modules/orders/delivery.internal.routes';
 import ordersRoutes from './modules/orders/orders.routes';
 import friendsRoutes from './modules/friends/friends.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
@@ -143,6 +144,7 @@ export function createApp() {
   app.route('/v1/payouts', payoutsRoutes);
   app.route('/v1/banks', banksRoutes);
   app.route('/v1/internal/payouts', payoutsInternalRoutes);
+  app.route('/v1/internal/delivery', deliveryInternalRoutes);
   app.route('/v1/friends', friendsRoutes);
   app.route('/v1', notificationsRoutes); // /v1/notifications, /v1/devices
   app.route('/v1/referrals', referralsRoutes);

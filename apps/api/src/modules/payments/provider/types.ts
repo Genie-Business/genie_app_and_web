@@ -102,8 +102,27 @@ export interface PaymentProvider {
    */
   verifyTransfer(reference: string): Promise<TransferResult | null>;
 
+  /**
+   * Give money from a confirmed charge back to the buyer, in full or in part. Used when a payment
+   * arrives for something that can no longer be fulfilled (the gift was taken by someone else first).
+   */
+  refundCharge(input: RefundInput): Promise<RefundResult>;
+
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookVerification;
 }
+
+export type RefundInput = {
+  /** The reference of the charge being refunded. */
+  reference: string;
+  amountKobo: bigint;
+  reason: string;
+};
+
+export type RefundResult = {
+  providerRef: string;
+  /** PROCESSING: accepted, the bank is returning the money. */
+  status: 'PROCESSING' | 'PROCESSED' | 'FAILED';
+};
 
 export class ProviderNotConfiguredError extends Error {
   constructor(message = 'The Paystack payment provider is selected but PAYSTACK_SECRET_KEY is not set.') {

@@ -27,13 +27,13 @@ class EarningsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             if (!e.hasSettlementAccount) _SetupBanner(onTap: () => context.push('/merchant/payout')),
-            _Headline(label: 'Ready for your next payout', kobo: e.readyForPayoutKobo, orders: e.readyForPayoutOrders),
+            _Headline(label: 'Delivered, being paid out', kobo: e.readyForPayoutKobo, orders: e.readyForPayoutOrders),
             const SizedBox(height: 16),
             _Row(
               icon: Icons.local_shipping_outlined,
               label: 'Waiting for delivery',
               hint: e.awaitingDeliveryOrders == 0
-                  ? 'Paid for by the buyer, released once you deliver'
+                  ? 'Paid for by the buyer, released once delivery is confirmed'
                   : '${e.awaitingDeliveryOrders} order${e.awaitingDeliveryOrders == 1 ? '' : 's'} paid for, not delivered yet',
               kobo: e.awaitingDeliveryKobo,
             ),
@@ -52,7 +52,7 @@ class EarningsScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               [
-                'genie pays delivered orders into your settlement account every morning, minus our commission.',
+                'genie pays you into your settlement account as soon as delivery is confirmed, minus our commission.',
                 if (e.holdHours > 0) 'Payouts go out ${e.holdHours} hours after delivery.',
                 'Amounts under ${formatKobo(e.minimumPayoutKobo)} wait and go out with the next order.',
               ].join(' '),

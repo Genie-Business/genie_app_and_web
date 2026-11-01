@@ -5,6 +5,8 @@ import type {
   InitializedCharge,
   PaymentProvider,
   RecipientInput,
+  RefundInput,
+  RefundResult,
   ResolvedAccount,
   TransferInput,
   TransferResult,
@@ -216,6 +218,20 @@ export class PaystackPaymentProvider implements PaymentProvider {
       default:
         return { providerRef, status: 'PROCESSING' };
     }
+  }
+
+  async refundCharge(input: RefundInput): Promise<RefundResult> {
+    const res = await this.request<{ id?: number | string; status?: string }>('POST', '/refund', {
+      transaction: input.reference,
+      amount: Number(input.amountKobo),
+      customer_note: input.reason,
+      merchant_note: input.reason,
+    });
+    const status = (res.data.status ?? '').toLowerCase();
+    return {
+      providerRef: String(res.data.id ?? input.reference),
+      status: status === 'processed' ? 'PROCESSED' : status === 'failed' ? 'FAILED' : 'PROCESSING',
+    };
   }
 
   async verifyTransfer(reference: string): Promise<TransferResult | null> {

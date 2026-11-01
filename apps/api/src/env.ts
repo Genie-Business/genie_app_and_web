@@ -54,6 +54,8 @@ const schema = z.object({
   PAYSTACK_SECRET_KEY: z.string().optional().default(''),
   /** Shared secret for the scheduled payout run (Vercel Cron sends it as a bearer token). */
   CRON_SECRET: z.string().optional().default(''),
+  /** Secret the delivery company presents to confirm a delivery (POST /v1/internal/delivery/confirm). Unset = that route is off. */
+  COURIER_API_KEY: z.string().optional().default(''),
   /** Hours to wait after delivery before a merchant is paid, as a window for problems to be reported. 0 = no wait. */
   PAYOUT_HOLD_HOURS: z.coerce.number().int().min(0).max(720).default(0),
 

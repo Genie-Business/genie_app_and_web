@@ -7,6 +7,8 @@ import type {
   InitializedCharge,
   PaymentProvider,
   RecipientInput,
+  RefundInput,
+  RefundResult,
   ResolvedAccount,
   TransferInput,
   TransferResult,
@@ -37,6 +39,10 @@ export class MockPaymentProvider implements PaymentProvider {
   dropNextTransfers = 0;
   /** Test hook: leave the next N transfers pending, as a slow bank would. */
   holdNextTransfers = 0;
+  /** Test hook: make the next N refunds fail. */
+  failNextRefunds = 0;
+  /** Every refund the "provider" was asked for, so a test can see what was given back. */
+  readonly refunds: Array<RefundInput & { providerRef: string }> = [];
   /** reference -> what the "provider" recorded for each transfer it accepted */
   private readonly transfers = new Map<string, TransferResult>();
 
@@ -118,6 +124,16 @@ export class MockPaymentProvider implements PaymentProvider {
       throw new Error('socket hang up');
     }
     return result;
+  }
+
+  async refundCharge(input: RefundInput): Promise<RefundResult> {
+    if (this.failNextRefunds > 0) {
+      this.failNextRefunds -= 1;
+      throw new Error('refund refused');
+    }
+    const providerRef = makeReference('MOCKRF');
+    this.refunds.push({ ...input, providerRef });
+    return { providerRef, status: 'PROCESSED' };
   }
 
   async verifyTransfer(reference: string): Promise<TransferResult | null> {

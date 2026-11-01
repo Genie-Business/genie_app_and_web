@@ -38,7 +38,7 @@ void main() {
 
   testWidgets('shows what is owed at each stage', (tester) async {
     await _pump(tester, _earnings());
-    expect(find.text('Ready for your next payout'), findsOneWidget);
+    expect(find.text('Delivered, being paid out'), findsOneWidget);
     expect(find.text('₦9,500'), findsOneWidget); // delivered, going out next
     expect(find.text('₦5,000'), findsOneWidget); // waiting for delivery
     expect(find.text('₦12,000'), findsOneWidget); // already paid

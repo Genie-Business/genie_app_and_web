@@ -134,13 +134,18 @@ export async function listOrders(merchantId: string) {
 export async function updateDelivery(
   merchantId: string,
   orderId: string,
-  input: { status: 'DISPATCHED' | 'IN_TRANSIT' | 'DELIVERED' | 'FAILED'; courierName?: string; courierRef?: string },
+  input: { status: 'DISPATCHED' | 'IN_TRANSIT' | 'FAILED'; courierName?: string; courierRef?: string },
 ) {
+  // Also enforced here, not only by the contract, so no other caller can slip a merchant's "delivered" through.
+  if ((input.status as string) === 'DELIVERED') {
+    throw badRequest('Delivery is confirmed by the delivery company or by the person receiving the gift, not by the merchant.');
+  }
   const order = await prisma.order.findFirst({
     where: { id: orderId, merchantId },
-    include: { delivery: true, gift: true },
+    include: { delivery: true, gift: true, event: { select: { userId: true } } },
   });
   if (!order) throw notFound('Order not found.');
+  if (order.status === 'DELIVERED') throw badRequest('This order has already been delivered.');
 
   const now = new Date();
   await prisma.delivery.upsert({
@@ -151,43 +156,43 @@ export async function updateDelivery(
       courierName: input.courierName,
       courierRef: input.courierRef,
       dispatchedAt: input.status === 'DISPATCHED' ? now : undefined,
-      deliveredAt: input.status === 'DELIVERED' ? now : undefined,
     },
     update: {
       status: input.status,
       courierName: input.courierName,
       courierRef: input.courierRef,
       dispatchedAt: input.status === 'DISPATCHED' ? now : order.delivery?.dispatchedAt ?? undefined,
-      deliveredAt: input.status === 'DELIVERED' ? now : order.delivery?.deliveredAt ?? undefined,
     },
   });
 
-  if (input.status === 'DELIVERED') {
-    await prisma.order.update({ where: { id: orderId }, data: { status: 'DELIVERED' } });
-    if (order.gift) {
-      await prisma.gift.update({ where: { id: order.gift.id }, data: { status: 'DELIVERED' } });
-    }
-  } else if (order.status === 'PAID') {
+  if (order.status === 'PAID') {
     await prisma.order.update({ where: { id: orderId }, data: { status: 'FULFILLING' } });
   }
 
-  // Keep the buyer in the loop as the parcel moves.
-  if (order.buyerUserId && (input.status === 'DISPATCHED' || input.status === 'DELIVERED')) {
-    const item = await prisma.orderItem.findFirst({
-      where: { orderId },
-      select: { description: true },
-    });
+  // Keep the buyer and the person receiving the gift in the loop as the parcel moves.
+  if (input.status === 'DISPATCHED') {
+    const item = await prisma.orderItem.findFirst({ where: { orderId }, select: { description: true } });
     const label = item?.description ?? 'Your order';
-    await notify({
-      userId: order.buyerUserId,
-      type: 'order.delivery',
-      title: input.status === 'DELIVERED' ? 'Gift delivered' : 'Gift on its way',
-      body:
-        input.status === 'DELIVERED'
-          ? `${label} has been delivered.`
-          : `${label} has been dispatched${input.courierName ? ` with ${input.courierName}` : ''}.`,
-      payload: { orderId },
-    });
+    const via = input.courierName ? ` with ${input.courierName}` : '';
+    if (order.buyerUserId) {
+      await notify({
+        userId: order.buyerUserId,
+        type: 'order.delivery',
+        title: 'Gift on its way',
+        body: `${label} has been dispatched${via}.`,
+        payload: { orderId },
+      });
+    }
+    const celebrantId = order.event?.userId;
+    if (celebrantId && celebrantId !== order.buyerUserId) {
+      await notify({
+        userId: celebrantId,
+        type: 'order.delivery',
+        title: 'A gift is on its way to you',
+        body: `${label} has been dispatched${via}. When it reaches you, open the gift in genie and tap "I've received it".`,
+        payload: { orderId, giftId: order.gift?.id },
+      });
+    }
   }
   return { orderId, deliveryStatus: input.status };
 }
