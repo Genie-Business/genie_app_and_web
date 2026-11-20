@@ -1,5 +1,7 @@
 import { prisma } from '@genie/db';
+import { getEnv } from '../../env';
 import { logger } from '../../lib/logger';
+import { facilit8WebhookUrl, forwardToFacilit8, isFacilit8Event } from './facilit8-forward';
 import { getPaymentProvider } from './provider';
 import { applyTransferEvent } from '../payouts/payouts.service';
 import { settlePaidIntent } from './reconcile.service';
@@ -21,6 +23,15 @@ export async function handleProviderWebhook(
     // the reject path free of a DB dependency.
     logger.warn({ reason: verification.reason, provider: provider.name }, 'rejected webhook');
     return { accepted: false as const, reason: verification.reason };
+  }
+
+  // Facilit8 shares this Paystack account (and so this one webhook URL). Its events are handed on
+  // before anything here records or acts on them, so they can't be mistaken for genie payments.
+  const facilit8Url = facilit8WebhookUrl(getEnv().FACILIT8_WEBHOOK_URL);
+  if (facilit8Url && isFacilit8Event(verification.eventType, verification.payload)) {
+    await forwardToFacilit8(facilit8Url, rawBody, headers['x-paystack-signature'] ?? '');
+    logger.info({ eventType: verification.eventType }, 'forwarded webhook to Facilit8');
+    return { accepted: true as const, duplicate: false, forwarded: true as const };
   }
 
   // Idempotency: skip if we've already recorded this external event id.
