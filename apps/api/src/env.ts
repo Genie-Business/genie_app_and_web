@@ -52,6 +52,12 @@ const schema = z.object({
   PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
   /** sk_test_... while testing, sk_live_... in production. Also signs Paystack's webhooks. */
   PAYSTACK_SECRET_KEY: z.string().optional().default(''),
+  /**
+   * Facilit8 uses this same Paystack account, whose one live webhook URL is genie's. Set this to
+   * Facilit8's webhook (https://usefacilit8.training/api/webhooks/paystack) and the events that belong
+   * to it are forwarded there untouched. Unset = every event is handled by genie, as before.
+   */
+  FACILIT8_WEBHOOK_URL: z.string().optional(),
   /** Shared secret for the scheduled payout run (Vercel Cron sends it as a bearer token). */
   CRON_SECRET: z.string().optional().default(''),
   /** Secret the delivery company presents to confirm a delivery (POST /v1/internal/delivery/confirm). Unset = that route is off. */
